@@ -11,6 +11,11 @@ M = {
 	cmd_hooks = {}, -- user defined command functions
 }
 
+-- nicer error messages
+M.error = function(msg)
+	error(string.format("\n\n%s error:\n%s\n", M._Name, msg))
+end
+
 -- default config also serving as documentation example
 M.config = {
 	-- default prefix for all commands
@@ -28,14 +33,7 @@ M.setup = function(opts)
 	-- make sure opts is a table
 	opts = opts or {}
 	if type(opts) ~= "table" then
-		error(
-			string.format(
-				"\n\n%s error:\nrequire('gp').setup() expects table, but got %s:\n%s\n",
-				M._Name,
-				type(opts),
-				vim.inspect(opts)
-			)
-		)
+		M.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
 		opts = {}
 	end
 
@@ -78,10 +76,13 @@ M.call_hook = function(name)
 	if M.cmd_hooks[name] ~= nil then
 		return M.cmd_hooks[name](M)
 	end
-	error("No hook named " .. name)
+	M.error("The hook '" .. name .. "' does not exist.")
 end
 
+--[[ M.setup() ]]
 --[[ M.setup("") ]]
+--[[ M.call_hook("InsectPlugin") ]]
 --[[ M.call_hook("InspectPlugin") ]]
+
 
 return M
