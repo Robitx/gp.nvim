@@ -1,6 +1,21 @@
 -- Gp (GPT prompt) lua plugin for Neovim
 -- https://github.com/Robitx/gp.nvim/
 
+-- default config also serving as documentation example
+local config = {
+	-- required openai api key
+	openai_api_key = os.getenv("OPENAI_API_KEY"),
+	-- default prefix for all commands
+	cmd_prefix = "G",
+	-- example hook functions
+	hooks = {
+		InspectPlugin = function(plugin)
+			print(string.format("%s plugin structure:\n%s", M._Name, vim.inspect(plugin)))
+		end,
+	},
+	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
+}
+
 -- Define module structure
 local _H = {}
 M = {
@@ -17,21 +32,6 @@ M = {
 M.error = function(msg)
 	error(string.format("\n\n%s error:\n%s\n", M._Name, msg))
 end
-
--- default config also serving as documentation example
-local config = {
-	-- required openai api key
-	openai_api_key = os.getenv("OPENAI_API_KEY"),
-	-- default prefix for all commands
-	cmd_prefix = "G",
-	-- example hook functions
-	hooks = {
-		InspectPlugin = function(plugin)
-			print(string.format("%s plugin structure:\n%s", M._Name, vim.inspect(plugin)))
-		end,
-	},
-	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
-}
 
 -- setup function
 M.setup = function(opts)
