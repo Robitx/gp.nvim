@@ -297,10 +297,10 @@ M.open_chat = function(file_name)
 end
 
 M.cmd.ChatNew = function()
-	-- get timestamp in with milliseconds
-	local timestamp = os.date("%Y-%m-%d_%H-%M-%S")
-	timestamp = timestamp .. "." .. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
-	local filename = M.config.chat_dir .. "/" .. timestamp .. ".md"
+	-- prepare filename
+	local time = os.date("%Y-%m-%d_%H-%M-%S")
+	time = time .. "." .. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
 	-- create chat file
 	os.execute("touch " .. filename)
@@ -318,7 +318,7 @@ M.cmd.ChatNew = function()
 			string.format(
 				M.chat_template,
 				M.config.chat_model,
-				filename,
+				string.match(filename, "([^/]+)$"),
 				M.config.chat_sysem_prompt,
 				M.config.chat_user_prefix,
 				M.config.cmd_prefix,
@@ -473,6 +473,21 @@ M.cmd.ChatRespond = function()
 
 	--[[ print("headers:\n" .. vim.inspect(headers)) ]]
 	--[[ print("messages:\n" .. vim.inspect(messages)) ]]
+end
+
+M.cmd.ChatPicker = function()
+	local telescope = require("telescope.builtin")
+
+	telescope.grep_string({
+		prompt_title = "Chat Picker",
+		default_text = "^# 'topic: ",
+		shorten_path = true,
+		search_dirs = { M.config.chat_dir },
+		path_display = { "tail" },
+		only_sort_text = true,
+		word_match = "-w",
+		search = "",
+	})
 end
 
 --[[ M.setup() ]]
