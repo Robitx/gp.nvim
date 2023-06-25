@@ -5,7 +5,7 @@
 local config = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
-	-- default prefix for all commands
+	-- prefix for all commands
 	cmd_prefix = "G",
 	-- example hook functions
 	hooks = {
@@ -13,7 +13,24 @@ local config = {
 			print(string.format("%s plugin structure:\n%s", M._Name, vim.inspect(plugin)))
 		end,
 	},
+
+	-- directory for storing chat files
 	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
+	-- chat model
+	chat_model = "gpt-3.5-turbo-16k",
+	-- chat temperature
+	chat_temperature = 0.7,
+	-- chat model system prompt
+	chat_sysem_prompt = "You are a general AI assistant.",
+	-- chat user prompt prefix
+	chat_user_prefix = "🗨:",
+	-- chat assistant prompt prefix
+	chat_assistant_prefix = "🤖:",
+	-- chat topic generation prompt
+	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
+		.. " in two or three words. Respond only with those words.",
+	-- chat topic model
+	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 }
 
 -- Define module structure
@@ -27,6 +44,20 @@ M = {
 	cmd = {}, -- default command functions
 	cmd_hooks = {}, -- user defined command functions
 }
+
+_H.last_content_line = function(buf)
+	buf = buf or vim.api.nvim_get_current_buf()
+	-- go from end and return number of last nonwhitespace line
+	local line = vim.api.nvim_buf_line_count(buf)
+	while line > 0 do
+		local content = vim.api.nvim_buf_get_lines(buf, line - 1, line, false)[1]
+		if content:match("%S") then
+			return line
+		end
+		line = line - 1
+	end
+	return 0
+end
 
 -- nicer error messages
 M.error = function(msg)
@@ -118,6 +149,9 @@ M.query = function(payload, handler, on_exit)
 	-- store payload for debugging
 	M._payload = payload
 
+	-- clear response
+	M._response = ""
+
 	-- prepare pipes
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
@@ -146,20 +180,13 @@ M.query = function(payload, handler, on_exit)
 		vim.loop.read_stop(stderr)
 		vim.loop.close(stdout)
 		vim.loop.close(stderr)
-
-		-- optional on_exit handler
-		if type(on_exit) == "function" then
-			on_exit()
-		end
 	end)
 
 	-- read stdout
 	vim.loop.read_start(stdout, function(err, chunk)
 		if err then
 			M.error("OpenAI query stdout error: " .. vim.inspect(err))
-		end
-
-		if chunk then
+		elseif chunk then
 			-- iterate over lines
 			local lines = vim.split(chunk, "\n")
 			for _, line in ipairs(lines) do
@@ -175,6 +202,12 @@ M.query = function(payload, handler, on_exit)
 						handler(content)
 					end
 				end
+			end
+		-- chunk is nil when EOF is reached
+		else
+			-- optional on_exit handler
+			if type(on_exit) == "function" then
+				on_exit()
 			end
 		end
 	end)
@@ -223,6 +256,223 @@ M.cmd.Run = function()
 		stream = true,
 		messages = { { role = "user", content = "Hi. Please tell me few short jokes." } },
 	}, handler)
+end
+
+--------------------
+-- Chat logic
+--------------------
+
+M.chat_template = [[
+# topic: ?
+
+- model: %s
+- file: %s
+- role: %s
+
+Write your queries after %s. Run :%sChatRespond to generate response.
+
+---
+
+%s]]
+
+M.open_chat = function(file_name)
+	-- is it already open in a buffer?
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_get_name(buf) == file_name then
+			for _, win in ipairs(vim.api.nvim_list_wins()) do
+				if vim.api.nvim_win_get_buf(win) == buf then
+					vim.api.nvim_set_current_win(win)
+					return
+				end
+			end
+		end
+	end
+
+	-- open in new buffer
+	vim.api.nvim_command("edit " .. file_name)
+	-- disable swapping for this buffer and set filetype to markdown
+	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
+	-- auto save on TextChanged, TextChangedI
+	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
+end
+
+M.cmd.ChatNew = function()
+	-- get timestamp in with milliseconds
+	local timestamp = os.date("%Y-%m-%d_%H-%M-%S")
+	timestamp = timestamp .. "." .. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local filename = M.config.chat_dir .. "/" .. timestamp .. ".md"
+
+	-- create chat file
+	os.execute("touch " .. filename)
+
+	-- open and configure chat file
+	M.open_chat(filename)
+
+	-- write chat template
+	vim.api.nvim_buf_set_lines(
+		0,
+		0,
+		-1,
+		false,
+		vim.split(
+			string.format(
+				M.chat_template,
+				M.config.chat_model,
+				filename,
+				M.config.chat_sysem_prompt,
+				M.config.chat_user_prefix,
+				M.config.cmd_prefix,
+				M.config.chat_user_prefix
+			),
+			"\n"
+		)
+	)
+
+	-- move cursor to a new line at the end of the file
+	vim.cmd("normal Go")
+end
+
+M.cmd.ChatRespond = function()
+	local buf = vim.api.nvim_get_current_buf()
+	-- get all lines
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+	-- headers are fields before first ---
+	local headers = {}
+	local headers_done = false
+	-- message needs role and content
+	local messages = {}
+	local role = ""
+	local content = ""
+
+	for _, line in ipairs(lines) do
+		if headers_done then
+			if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
+				table.insert(messages, { role = role, content = content })
+				role = "user"
+				content = line:sub(#M.config.chat_user_prefix + 1)
+			elseif line:sub(1, #M.config.chat_assistant_prefix) == M.config.chat_assistant_prefix then
+				table.insert(messages, { role = role, content = content })
+				role = "assistant"
+				content = line:sub(#M.config.chat_assistant_prefix + 1)
+			elseif role ~= "" then
+				content = content .. "\n" .. line
+			end
+		else
+			-- first line starts with ---
+			if line:sub(1, 3) == "---" then
+				headers_done = true
+			else
+				-- parse header fields
+				local key, value = line:match("^[-#] (%w+): (.*)")
+				if key ~= nil then
+					headers[key] = value
+				end
+			end
+		end
+	end
+	-- insert last message not handled in loop
+	table.insert(messages, { role = role, content = content })
+
+	-- replace first empty message with system prompt
+	content = ""
+	if headers.role and headers.role:match("%S") then
+		content = headers.role
+	else
+		content = M.config.chat_sysem_prompt
+	end
+	if content:match("%S") then
+		messages[1] = { role = "system", content = content }
+	end
+
+	-- strip whitespace from ends of content
+	for _, message in ipairs(messages) do
+		message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+	end
+
+	-- write assistant prompt
+	local last_content_line = M._H.last_content_line(buf)
+	vim.api.nvim_buf_set_lines(
+		buf,
+		last_content_line,
+		last_content_line,
+		false,
+		{ "", M.config.chat_assistant_prefix, "" }
+	)
+
+	-- call the model and write response
+	M.query(
+		{
+			model = headers.model or M.config.chat_model,
+			stream = true,
+			messages = messages,
+		},
+		M.create_handler(buf, M._H.last_content_line(buf), true),
+		vim.schedule_wrap(function()
+			-- write user prompt
+			last_content_line = M._H.last_content_line(buf)
+			vim.cmd("undojoin")
+			vim.api.nvim_buf_set_lines(
+				buf,
+				last_content_line,
+				last_content_line,
+				false,
+				{ "", "", M.config.chat_user_prefix, "" }
+			)
+
+			-- delete whitespace lines at the end of the file
+			last_content_line = M._H.last_content_line(buf)
+			vim.cmd("undojoin")
+			vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
+
+			-- move cursor to a new line at the end of the file
+			vim.cmd("normal Go")
+
+			-- if topic is ?, then generate it
+			if headers.topic == "?" then
+				-- insert last model response
+				table.insert(messages, { role = "assistant", content = M._response })
+
+				-- ask model to generate topic/title for the chat
+				table.insert(messages, { role = "user", content = M.config.chat_topic_gen_prompt })
+
+				-- prepare invisible buffer for the model to write to
+				local topic_buf = vim.api.nvim_create_buf(false, true)
+				local topic_handler = M.create_handler(topic_buf, 0, false)
+
+				-- call the model
+				M.query(
+					{
+						model = M.config.chat_topic_gen_model,
+						stream = true,
+						messages = messages,
+					},
+					topic_handler,
+					vim.schedule_wrap(function()
+						-- get topic from invisible buffer
+						local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
+						-- close invisible buffer
+						vim.api.nvim_buf_delete(topic_buf, { force = true })
+						-- strip whitespace from ends of topic
+						topic = topic:gsub("^%s*(.-)%s*$", "%1")
+						-- strip dot from end of topic
+						topic = topic:gsub("%.$", "")
+
+						-- if topic is empty do not replace it
+						if topic == "" then
+							return
+						end
+
+						-- replace topic in current buffer
+						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
+					end)
+				)
+			end
+		end)
+	)
+
+	--[[ print("headers:\n" .. vim.inspect(headers)) ]]
+	--[[ print("messages:\n" .. vim.inspect(messages)) ]]
 end
 
 --[[ M.setup() ]]
