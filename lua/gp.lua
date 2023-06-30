@@ -31,6 +31,11 @@ local config = {
 		.. " in two or three words. Respond only with those words.",
 	-- chat topic model
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
+
+	-- prompt for rewrite command
+	rewrite_prompt = "🤖 ~ ",
+	-- rewrite model
+	rewrite_model = "gpt-3.5-turbo-16k",
 }
 
 -- Define module structure
@@ -57,6 +62,22 @@ _H.last_content_line = function(buf)
 		line = line - 1
 	end
 	return 0
+end
+
+_H.get_selection = function(buf)
+	local start_line = vim.api.nvim_buf_get_mark(buf, "<")[1]
+	local end_line = vim.api.nvim_buf_get_mark(buf, ">")[1]
+
+	local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
+	local selection = table.concat(lines, "\n")
+
+	return selection, start_line, end_line
+end
+
+_H.feedkeys = function(keys, mode)
+	mode = mode or "n"
+	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
+	vim.api.nvim_feedkeys(keys, mode, true)
 end
 
 -- nicer error messages
@@ -247,15 +268,6 @@ M.create_handler = function(buf, line, first_undojoin)
 		vim.cmd("undojoin")
 		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, vim.split(response, "\n"))
 	end)
-end
-
-M.cmd.Run = function()
-	local handler = M.create_handler()
-	M.query({
-		model = "gpt-3.5-turbo",
-		stream = true,
-		messages = { { role = "user", content = "Hi. Please tell me few short jokes." } },
-	}, handler)
 end
 
 --------------------
@@ -504,6 +516,68 @@ M.cmd.ChatPicker = function()
 			return true
 		end,
 	})
+end
+
+--------------------
+-- Rewrite logic
+--------------------
+
+M.rewrite = function(prompt, model, template, system_template)
+	-- make sure the user has selected some text
+	local buf = vim.api.nvim_get_current_buf()
+	local selection, line_start, line_end = M._H.get_selection(buf)
+
+	if selection == "" then
+		print("Please select some text to rewrite")
+		return
+	end
+
+	-- user should see the selection before writing the command
+	local mode = vim.api.nvim_get_mode().mode
+	if mode ~= "v" and mode ~= "V" then
+		M._H.feedkeys("gv", "x")
+	end
+
+	local callback = function(command)
+		-- delete selection
+		vim.api.nvim_buf_set_lines(buf, line_start - 1, line_end - 1, false, {})
+		M._H.feedkeys("<esc>", "x")
+
+		-- call the model and write response
+		local messages = {}
+		table.insert(messages, { role = "user", content = command })
+		M.query(
+			{
+				model = model or M.config.rewrite_model,
+				stream = true,
+				messages = messages,
+			},
+			M.create_handler(buf, line_start - 1, true),
+			vim.schedule_wrap(function()
+				-- on exit
+			end)
+		)
+	end
+
+	vim.schedule(function()
+		-- if prompt is not provided, run the command directly
+		if not prompt or prompt == "" then
+			callback(nil)
+			return
+		end
+
+		-- if prompt is provided, ask the user to enter the command
+		vim.ui.input({ prompt = prompt }, function(input)
+			if not input or input == "" then
+				return
+			end
+			callback(input)
+		end)
+	end)
+end
+
+M.cmd.VisualRewrite = function()
+	M.rewrite(M.config.rewrite_prompt, nil, nil, nil)
 end
 
 --[[ M.setup() ]]
