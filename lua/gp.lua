@@ -292,6 +292,8 @@ M.open_chat = function(file_name)
 	vim.api.nvim_command("edit " .. file_name)
 	-- disable swapping for this buffer and set filetype to markdown
 	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
+	-- better text wrapping
+	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
 	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
 end
@@ -477,16 +479,30 @@ end
 
 M.cmd.ChatPicker = function()
 	local telescope = require("telescope.builtin")
+	local actions = require("telescope.actions")
+	local action_state = require("telescope.actions.state")
 
 	telescope.grep_string({
 		prompt_title = "Chat Picker",
 		default_text = "^# 'topic: ",
 		shorten_path = true,
 		search_dirs = { M.config.chat_dir },
-		path_display = { "tail" },
+		path_display = { "hidden" },
 		only_sort_text = true,
 		word_match = "-w",
 		search = "",
+		-- custom open function
+		attach_mappings = function(prompt_bufnr, _)
+			actions.select_default:replace(function()
+				local selection = action_state.get_selected_entry()
+				actions.close(prompt_bufnr)
+				M.open_chat(selection.filename)
+
+				-- move cursor to a new line at the end of the file
+				vim.cmd("normal Go")
+			end)
+			return true
+		end,
 	})
 end
 
