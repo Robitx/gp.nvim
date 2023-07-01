@@ -21,7 +21,7 @@ local config = {
 	-- chat temperature
 	chat_temperature = 0.7,
 	-- chat model system prompt
-	chat_sysem_prompt = "You are a general AI assistant.",
+	chat_system_prompt = "You are a general AI assistant.",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
 	-- chat assistant prompt prefix
@@ -380,7 +380,7 @@ M.cmd.ChatNew = function()
 				M.chat_template,
 				M.config.chat_model,
 				string.match(filename, "([^/]+)$"),
-				M.config.chat_sysem_prompt,
+				M.config.chat_system_prompt,
 				M.config.chat_user_prefix,
 				M.config.cmd_prefix,
 				M.config.chat_user_prefix
@@ -440,7 +440,7 @@ M.cmd.ChatRespond = function()
 	if headers.role and headers.role:match("%S") then
 		content = headers.role
 	else
-		content = M.config.chat_sysem_prompt
+		content = M.config.chat_system_prompt
 	end
 	if content:match("%S") then
 		messages[1] = { role = "system", content = content }
