@@ -36,6 +36,9 @@ local config = {
 	rewrite_prompt = "🤖 ~ ",
 	-- rewrite model
 	rewrite_model = "gpt-3.5-turbo-16k",
+	rewrite_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
+	rewrite_system_template = "You are a general AI assistant.",
 }
 
 -- Define module structure
@@ -49,6 +52,12 @@ M = {
 	cmd = {}, -- default command functions
 	cmd_hooks = {}, -- user defined command functions
 }
+
+_H.feedkeys = function(keys, mode)
+	mode = mode or "n"
+	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
+	vim.api.nvim_feedkeys(keys, mode, true)
+end
 
 _H.last_content_line = function(buf)
 	buf = buf or vim.api.nvim_get_current_buf()
@@ -74,10 +83,48 @@ _H.get_selection = function(buf)
 	return selection, start_line, end_line
 end
 
-_H.feedkeys = function(keys, mode)
-	mode = mode or "n"
-	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
-	vim.api.nvim_feedkeys(keys, mode, true)
+_H.get_filetype = function(buf)
+	return vim.api.nvim_buf_get_option(buf, "filetype")
+end
+
+_H.template_replace = function(template, key, value)
+	if template == nil then
+		return nil
+	end
+
+	if value == nil then
+		return template:gsub(key, "")
+	end
+
+	if type(value) == "table" then
+		value = table.concat(value, "\n")
+	end
+
+	value = value:gsub("%%", "%%%%")
+	template = template:gsub(key, value)
+	template = template:gsub("%%%%", "%%")
+	return template
+end
+
+_H.template_render = function(template, key_value_pairs)
+	if template == nil then
+		return nil
+	end
+
+	for key, value in pairs(key_value_pairs) do
+		template = _H.template_replace(template, key, value)
+	end
+
+	return template
+end
+
+M.template_render = function(template, command, selection, filetype)
+	local key_value_pairs = {
+		["{{command}}"] = command,
+		["{{selection}}"] = selection,
+		["{{filetype}}"] = filetype,
+	}
+	return _H.template_render(template, key_value_pairs)
 end
 
 -- nicer error messages
@@ -543,9 +590,15 @@ M.rewrite = function(prompt, model, template, system_template)
 		vim.api.nvim_buf_set_lines(buf, line_start - 1, line_end - 1, false, {})
 		M._H.feedkeys("<esc>", "x")
 
-		-- call the model and write response
+		-- prepare messages
 		local messages = {}
-		table.insert(messages, { role = "user", content = command })
+		local filetype = M._H.get_filetype(buf)
+		local sys_prompt = M.template_render(system_template, command, selection, filetype)
+		table.insert(messages, { role = "system", content = sys_prompt })
+		local user_prompt = M.template_render(template, command, selection, filetype)
+		table.insert(messages, { role = "user", content = user_prompt })
+
+        -- call the model and write the response
 		M.query(
 			{
 				model = model or M.config.rewrite_model,
@@ -577,7 +630,12 @@ M.rewrite = function(prompt, model, template, system_template)
 end
 
 M.cmd.VisualRewrite = function()
-	M.rewrite(M.config.rewrite_prompt, nil, nil, nil)
+	M.rewrite(
+		M.config.rewrite_prompt,
+		M.config.rewrite_model,
+		M.config.rewrite_template,
+		M.config.rewrite_system_template
+	)
 end
 
 --[[ M.setup() ]]
