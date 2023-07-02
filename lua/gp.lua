@@ -6,7 +6,7 @@ local config = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
 	-- prefix for all commands
-	cmd_prefix = "G",
+	cmd_prefix = "Gp",
 	-- example hook functions
 	hooks = {
 		InspectPlugin = function(plugin)
@@ -32,13 +32,15 @@ local config = {
 	-- chat topic model
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 
-	-- prompt for rewrite command
-	rewrite_prompt = "🤖 ~ ",
-	-- rewrite model
-	rewrite_model = "gpt-3.5-turbo-16k",
-	rewrite_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+	-- prompt prefix for asking user for input
+	prompt_prefix = "🤖 ~ ",
+	-- prompt model
+	prompt_model = "gpt-3.5-turbo-16k",
+	prompt_system_template = "You are a general AI assistant.",
+	prompt_selection_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+	prompt_rewrite_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
-	rewrite_system_template = "You are a general AI assistant.",
+	prompt_command_template = "{{command}}",
 }
 
 -- Define module structure
@@ -52,6 +54,39 @@ M = {
 	cmd = {}, -- default command functions
 	cmd_hooks = {}, -- user defined command functions
 }
+
+_H.create_popup = function()
+	-- create scratch buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+
+	-- get editor dimensions
+	local editor_width = vim.api.nvim_get_option("columns")
+	local editor_height = vim.api.nvim_get_option("lines")
+
+	-- setting to the middle of the editor
+	local options = {
+		relative = "editor",
+		-- half of the editor width
+		width = math.floor(editor_width / 2),
+		-- half of the editor height
+		height = math.floor(editor_height / 2),
+		-- center of the editor
+		row = math.floor(editor_height / 4),
+		-- center of the editor
+		col = math.floor(editor_width / 4),
+		style = "minimal",
+		border = "solid",
+		title = M._Name .. " popup",
+		title_pos = "center",
+	}
+
+	-- make it close on escape
+	vim.api.nvim_buf_set_keymap(buf, "n", "<esc>", ":q<cr>", { noremap = true, silent = true })
+
+	-- open the window and return the buffer
+	vim.api.nvim_open_win(buf, true, options)
+	return buf
+end
 
 _H.feedkeys = function(keys, mode)
 	mode = mode or "n"
@@ -566,29 +601,54 @@ M.cmd.ChatPicker = function()
 end
 
 --------------------
--- Rewrite logic
+-- Prompt logic
 --------------------
 
-M.rewrite = function(prompt, model, template, system_template)
-	-- make sure the user has selected some text
+M.prompt_target = {
+	replace = 0, -- for replacing the selection or the current line
+	append = 1, -- for appending after the selection or the current line
+	prepend = 2, -- for prepending before the selection or the current line
+	enew = 3, -- for writing into the new buffer
+	popup = 4, -- for writing into the popup window
+}
+
+M.prompt_mode = {
+	normal = 0, -- based just on the command
+	visual = 1, -- uses the current or the last visual selection
+}
+
+M.prompt = function(mode, target, prompt, model, template, system_template)
+	mode = mode or M.prompt_mode.normal
+	target = target or M.prompt_target.enew
+	model = model or M.config.prompt_model
+
+	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
-	local selection, line_start, line_end = M._H.get_selection(buf)
 
-	if selection == "" then
-		print("Please select some text to rewrite")
-		return
-	end
+	-- defaults to normal mode
+	local selection = nil
+	local start_line = vim.api.nvim_win_get_cursor(0)[1]
+	local end_line = start_line
 
-	-- user should see the selection before writing the command
-	local mode = vim.api.nvim_get_mode().mode
-	if mode ~= "v" and mode ~= "V" then
-		M._H.feedkeys("gv", "x")
+	if mode == M.prompt_mode.visual then
+		-- make sure the user has selected some text
+		selection, start_line, end_line = M._H.get_selection(buf)
+
+		if selection == "" then
+			print("Please select some text to rewrite")
+			return
+		end
+
+		-- user should see the selection before writing the command
+		if string.lower(vim.api.nvim_get_mode().mode) ~= "v" then
+			M._H.feedkeys("gv", "x")
+		end
 	end
 
 	local callback = function(command)
-		-- delete selection
-		vim.api.nvim_buf_set_lines(buf, line_start - 1, line_end - 1, false, {})
-		M._H.feedkeys("<esc>", "x")
+		-- dummy handler and on_exit
+		local handler = function() end
+		local on_exit = function() end
 
 		-- prepare messages
 		local messages = {}
@@ -598,16 +658,61 @@ M.rewrite = function(prompt, model, template, system_template)
 		local user_prompt = M.template_render(template, command, selection, filetype)
 		table.insert(messages, { role = "user", content = user_prompt })
 
-        -- call the model and write the response
+		-- cancel possible visual mode before calling the model
+		M._H.feedkeys("<esc>", "x")
+
+		-- mode specific logic
+		if target == M.prompt_target.replace then
+			-- delete selection
+			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+			-- prepare handler
+			handler = M.create_handler(buf, start_line - 1, true)
+		elseif target == M.prompt_target.append then
+			-- move cursor to the end of the selection
+			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
+			-- put newline after selection
+			vim.api.nvim_put({ "", "" }, "l", true, true)
+			-- prepare handler
+			handler = M.create_handler(buf, end_line + 1, true)
+		elseif target == M.prompt_target.prepend then
+			-- move cursor to the start of the selection
+			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+			-- put newline before selection
+			vim.api.nvim_put({ "", "" }, "l", false, true)
+			-- prepare handler
+			handler = M.create_handler(buf, start_line - 1, true)
+		elseif target == M.prompt_target.enew then
+			-- create a new buffer
+			buf = vim.api.nvim_create_buf(true, true)
+			-- set the created buffer as the current buffer
+			vim.api.nvim_set_current_buf(buf)
+			-- set the filetype
+			vim.api.nvim_buf_set_option(buf, "filetype", filetype)
+			-- prepare handler
+			handler = M.create_handler(buf, 0, false)
+		elseif target == M.prompt_target.popup then
+			-- create a new buffer
+			buf = M._H.create_popup()
+			-- set the created buffer as the current buffer
+			vim.api.nvim_set_current_buf(buf)
+			-- set the filetype to markdown
+			vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+			-- better text wrapping
+			vim.api.nvim_command("setlocal wrap linebreak")
+			-- prepare handler
+			handler = M.create_handler(buf, 0, false)
+		end
+
+		-- call the model and write the response
 		M.query(
 			{
-				model = model or M.config.rewrite_model,
+				model = model,
 				stream = true,
 				messages = messages,
 			},
-			M.create_handler(buf, line_start - 1, true),
+			handler,
 			vim.schedule_wrap(function()
-				-- on exit
+				on_exit()
 			end)
 		)
 	end
@@ -630,11 +735,112 @@ M.rewrite = function(prompt, model, template, system_template)
 end
 
 M.cmd.VisualRewrite = function()
-	M.rewrite(
-		M.config.rewrite_prompt,
-		M.config.rewrite_model,
-		M.config.rewrite_template,
-		M.config.rewrite_system_template
+	M.prompt(
+		M.prompt_mode.visual,
+		M.prompt_target.replace,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_rewrite_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.VisualAppend = function()
+	M.prompt(
+		M.prompt_mode.visual,
+		M.prompt_target.append,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_selection_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.VisualPrepend = function()
+	M.prompt(
+		M.prompt_mode.visual,
+		M.prompt_target.prepend,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_selection_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.VisualEnew = function()
+	M.prompt(
+		M.prompt_mode.visual,
+		M.prompt_target.enew,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_selection_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.VisualPopup = function()
+	M.prompt(
+		M.prompt_mode.visual,
+		M.prompt_target.popup,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_selection_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.Inline = function()
+	M.prompt(
+		M.prompt_mode.normal,
+		M.prompt_target.replace,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_command_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.Append = function()
+	M.prompt(
+		M.prompt_mode.normal,
+		M.prompt_target.append,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_command_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.Prepend = function()
+	M.prompt(
+		M.prompt_mode.normal,
+		M.prompt_target.prepend,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_command_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.Enew = function()
+	M.prompt(
+		M.prompt_mode.normal,
+		M.prompt_target.enew,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_command_template,
+		M.config.prompt_system_template
+	)
+end
+
+M.cmd.Popup = function()
+	M.prompt(
+		M.prompt_mode.normal,
+		M.prompt_target.popup,
+		M.config.prompt_prefix,
+		M.config.prompt_model,
+		M.config.prompt_command_template,
+		M.config.prompt_system_template
 	)
 end
 
