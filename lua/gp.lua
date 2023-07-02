@@ -590,11 +590,17 @@ M.cmd.ChatRespond = function()
 end
 
 M.cmd.ChatPicker = function()
-	local telescope = require("telescope.builtin")
+	local status_ok, _ = pcall(require, "telescope")
+	if not status_ok then
+		M.error("telescope.nvim is not installed")
+		return
+	end
+
+	local builtin = require("telescope.builtin")
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
 
-	telescope.grep_string({
+	builtin.grep_string({
 		prompt_title = "Chat Picker",
 		default_text = "^# 'topic: ",
 		shorten_path = true,
