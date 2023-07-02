@@ -2,9 +2,6 @@
 
 ## Install
 
-Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
-and use it in the config (either directly or setup env variable `OPENAI_API_KEY`).
-
 Install the plugin with your preferred package manager:
 
 ```lua
@@ -18,7 +15,7 @@ Install the plugin with your preferred package manager:
     },
 	config = function()
 		require("gp").setup(conf)
-        -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
+        	-- shortcuts might be setup here (see Usage > Shortcuts in Readme)
 	end,
 }
 ```
@@ -39,12 +36,56 @@ use({
 })
 ```
 
+### OpenAI API key
+Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
+and use it in the config (either directly or setup env `OPENAI_API_KEY`).
+
+Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
+
 ### Dependencies
 The core functionality only needs `curl` installed to make calls to OpenAI API.
 
 The `:GpChatFinder` (for searching through old chat sessions) requires Telescope, 
-which for the best experience needs setup on its own (see [fzf-setup](https://github.com/nvim-telescope/telescope-fzf-native.nvim#telescope-setup-and-configuration))
+which needs setup on its own for the best experience. See [fzf-setup](https://github.com/nvim-telescope/telescope-fzf-native.nvim#telescope-setup-and-configuration) 
+or canibalize my own config:
+``` lua
+-- example telescope setup
+local status_ok, telescope = pcall(require, "telescope")
+if not status_ok then
+	return
+end
 
+local actions = require("telescope.actions")
+
+telescope.setup({
+	defaults = {
+
+		prompt_prefix = " ",
+		selection_caret = " ",
+		path_display = { "smart" },
+		file_ignore_patterns = { ".git/", "node_modules" },
+		extensions = {
+			fzf = {
+				fuzzy = true, -- false will only do exact matching
+				override_generic_sorter = true, -- override the generic sorter
+				override_file_sorter = true, -- override the file sorter
+				case_mode = "smart_case", -- or "ignore_case" or "respect_case"
+				-- the default case_mode is "smart_case"
+			},
+		},
+		mappings = {
+			i = {
+				["<Down>"] = actions.cycle_history_next,
+				["<Up>"] = actions.cycle_history_prev,
+				["<C-j>"] = actions.move_selection_next,
+				["<C-k>"] = actions.move_selection_previous,
+			},
+		},
+	},
+})
+
+telescope.load_extension("fzf")
+```
 
 ### Configuration
 
@@ -98,6 +139,8 @@ local config = {
 
 -- call setup on your config
 require("gp").setup(config)
+
+-- shortcuts might be setup here (see Usage > Shortcuts in Readme)
 ```
 
 ### Extend functionality
@@ -148,10 +191,10 @@ The raw plugin text editing method `prompt`  has six aprameters:
 ### Commands
 - Have ChatGPT experience directly in neovim:
 	- `:GpChatNew` - open fresh chat
-    - `:VisualChatNew` - open fresh chat using current or last selection
+  	- `:GpVisualChatNew` - open fresh chat using current or last selection
 	- `:GpChatFinder` - open telescope to search through chats
 	- `:GpChatRespond` - request new gpt response for the current chat
-    - `:ChatDelete` - delete the current chat
+  	- `:GpChatDelete` - delete the current chat
 - Ask GPT and get response to the specified output:
 	- `:GpInline` - answers into the current line (gets replaced)
 	- `:GpAppend` - answers after the current line
@@ -169,12 +212,12 @@ The raw plugin text editing method `prompt`  has six aprameters:
 
 ### Shortcuts
 
-There are no default shortcuts to mess with your own config.
+There are no default shortcuts to mess with your own config. Bellow are examples for you to adjust or just use directly.
 
 #### Native
 
-You can use the good old `vim.keymap.set` and paste the following after `require("gp").setup(conf)` call.  
-(Or anywhere you keep shortcuts if you want them at one place).
+You can use the good old `vim.keymap.set` and paste the following after `require("gp").setup(conf)` call 
+(or anywhere you keep shortcuts if you want them at one place).
 ``` lua
 local function keymapOptions(desc)
     return {
@@ -240,8 +283,8 @@ require("which-key").register({
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
-		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 		d = { "<cmd>GpChatDelete<cr>", "Chat Delete" },
+		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 
 		i = { "<cmd>GpInline<cr>", "Inline" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
@@ -265,8 +308,8 @@ require("which-key").register({
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
-		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 		d = { "<cmd>GpChatDelete<cr>", "Chat Delete" },
+		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 
 		i = { "<cmd>GpInline<cr>", "Inline" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
@@ -289,13 +332,14 @@ require("which-key").register({
 ## Attribution/Alternatives
 There is already a bunch of similar plugins which served as sources of inspiration
 - [thmsmlr/gpt.nvim](https://github.com/thmsmlr/gpt.nvim)
-    - nicely implemented streaming response from OpenAI API
-    - later added chat sessions
-    - a lots of things are hard coded
-    - undo isn't handled properly
-    - originally considered forking it, but there is no licence so far
+    - \+ nicely implemented streaming response from OpenAI API
+    - \+ later added chat sessions
+    - \- a lots of things are hard coded
+    - \- undo isn't handled properly
+    - \- originally considered forking it, but it has no licence so far
 - [dpayne/CodeGPT.nvim](https://github.com/dpayne/CodeGPT.nvim) 
-    - templating mechanism to combine user input selection and so on for gpt query
-    - doesn't use streaming (one has to wait for the whole answer to show up)
+    - \+ templating mechanism to combine user input selection and so on for gpt query
+    - \- doesn't use streaming (one has to wait for the whole answer to show up)
 - [jackMort/ChatGPT.nvim](https://github.com/jackMort/ChatGPT.nvim)
-    - seems most popular but is overcomplicated for my taste
+    - most popular at the moment but overcomplicated for my taste  
+      (its like a GUI over the vim itself and I'd like to stay inside vim 🙂)
