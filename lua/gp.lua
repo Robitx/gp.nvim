@@ -66,7 +66,7 @@ M = {
 -- Generic helper functions
 --------------------------------------------------------------------------------
 
-_H.create_popup = function()
+_H.create_popup = function(title)
 	-- create scratch buffer
 	local buf = vim.api.nvim_create_buf(false, true)
 
@@ -87,7 +87,7 @@ _H.create_popup = function()
 		col = math.floor(editor_width / 4),
 		style = "minimal",
 		border = "solid",
-		title = M._Name .. " popup",
+		title = title,
 		title_pos = "center",
 	}
 
@@ -710,7 +710,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 			handler = M.create_handler(buf, 0, false)
 		elseif target == M.prompt_target.popup then
 			-- create a new buffer
-			buf = M._H.create_popup()
+			buf = M._H.create_popup(M._Name .. " popup (close with <esc>)")
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
