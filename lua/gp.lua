@@ -1,7 +1,10 @@
 -- Gp (GPT prompt) lua plugin for Neovim
 -- https://github.com/Robitx/gp.nvim/
 
--- default config also serving as documentation example
+--------------------------------------------------------------------------------
+-- Default config
+--------------------------------------------------------------------------------
+
 local config = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
@@ -36,6 +39,7 @@ local config = {
 	prompt_prefix = "🤖 ~ ",
 	-- prompt model
 	prompt_model = "gpt-3.5-turbo-16k",
+	-- prompt templates
 	prompt_system_template = "You are a general AI assistant.",
 	prompt_selection_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	prompt_rewrite_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
@@ -43,7 +47,10 @@ local config = {
 	prompt_command_template = "{{command}}",
 }
 
--- Define module structure
+--------------------------------------------------------------------------------
+-- Module structure
+--------------------------------------------------------------------------------
+
 local _H = {}
 M = {
 	_Name = "Gp (GPT prompt)", -- plugin name
@@ -54,6 +61,10 @@ M = {
 	cmd = {}, -- default command functions
 	cmd_hooks = {}, -- user defined command functions
 }
+
+--------------------------------------------------------------------------------
+-- Generic helper functions
+--------------------------------------------------------------------------------
 
 _H.create_popup = function()
 	-- create scratch buffer
@@ -162,6 +173,10 @@ M.template_render = function(template, command, selection, filetype)
 	return _H.template_render(template, key_value_pairs)
 end
 
+--------------------------------------------------------------------------------
+-- Module helper functions
+--------------------------------------------------------------------------------
+
 -- nicer error messages
 M.error = function(msg)
 	error(string.format("\n\n%s error:\n%s\n", M._Name, msg))
@@ -235,6 +250,7 @@ M.setup = function(opts)
 	end
 end
 
+-- hook caller
 M.call_hook = function(name)
 	if M.cmd_hooks[name] ~= nil then
 		return M.cmd_hooks[name](M)
@@ -242,6 +258,7 @@ M.call_hook = function(name)
 	M.error("The hook '" .. name .. "' does not exist.")
 end
 
+-- gpt query
 M.query = function(payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
@@ -327,6 +344,7 @@ M.query = function(payload, handler, on_exit)
 	end)
 end
 
+-- response handler
 M.create_handler = function(buf, line, first_undojoin)
 	buf = buf or vim.api.nvim_get_current_buf()
 	local first_line = line or vim.api.nvim_win_get_cursor(0)[1] - 1
@@ -846,10 +864,5 @@ end
 
 --[[ M.setup() ]]
 --[[ print("gp.lua loaded\n\n") ]]
-
---[[ M.setup({chat_dir = "/tmp/gp/chats"}) ]]
---[[ M.setup("") ]]
---[[ M.call_hook("InsectPlugin") ]]
---[[ M.call_hook("InspectPlugin") ]]
 
 return M
