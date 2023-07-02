@@ -13,7 +13,7 @@ local config = {
 	-- example hook functions
 	hooks = {
 		InspectPlugin = function(plugin)
-			print(string.format("%s plugin structure:\n%s", M._Name, vim.inspect(plugin)))
+			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
 		end,
 	},
 
@@ -39,12 +39,13 @@ local config = {
 	prompt_prefix = "🤖 ~ ",
 	-- prompt model
 	prompt_model = "gpt-3.5-turbo-16k",
-	-- prompt templates
-	prompt_system_template = "You are a general AI assistant.",
-	prompt_selection_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	prompt_rewrite_template = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+
+	-- templates
+	template_system = "You are a general AI assistant.",
+	template_selection = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+	template_rewrite = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
-	prompt_command_template = "{{command}}",
+	template_command = "{{command}}",
 }
 
 --------------------------------------------------------------------------------
@@ -174,8 +175,21 @@ M.template_render = function(template, command, selection, filetype)
 end
 
 --------------------------------------------------------------------------------
--- Module helper functions
+-- Module helper functions and variables
 --------------------------------------------------------------------------------
+
+M.target = {
+	replace = 0, -- for replacing the selection or the current line
+	append = 1, -- for appending after the selection or the current line
+	prepend = 2, -- for prepending before the selection or the current line
+	enew = 3, -- for writing into the new buffer
+	popup = 4, -- for writing into the popup window
+}
+
+M.mode = {
+	normal = 0, -- based just on the command
+	visual = 1, -- uses the current or the last visual selection
+}
 
 -- nicer error messages
 M.error = function(msg)
@@ -410,11 +424,40 @@ M.open_chat = function(file_name)
 	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
 end
 
-M.cmd.ChatNew = function()
+M.new_chat = function(mode)
 	-- prepare filename
 	local time = os.date("%Y-%m-%d_%H-%M-%S")
 	time = time .. "." .. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
+
+	local template = string.format(
+		M.chat_template,
+		M.config.chat_model,
+		string.match(filename, "([^/]+)$"),
+		M.config.chat_system_prompt,
+		M.config.chat_user_prefix,
+		M.config.cmd_prefix,
+		M.config.chat_user_prefix
+	)
+
+	if mode == M.mode.visual then
+		-- get current buffer
+		local buf = vim.api.nvim_get_current_buf()
+
+		-- make sure the user has selected some text
+		local selection, _, _ = M._H.get_selection(buf)
+
+		if selection ~= "" then
+			local filetype = M._H.get_filetype(buf)
+			local rendered = M.template_render(M.config.template_selection, "", selection, filetype)
+			if rendered ~= "" then
+				-- strip leading and trailing newlines
+				rendered = rendered:gsub("^%s*(.-)%s*$", "%1")
+				-- add rendered selection template to chat
+				template = template .. "\n" .. rendered .. "\n"
+			end
+		end
+	end
 
 	-- create chat file
 	os.execute("touch " .. filename)
@@ -423,27 +466,36 @@ M.cmd.ChatNew = function()
 	M.open_chat(filename)
 
 	-- write chat template
-	vim.api.nvim_buf_set_lines(
-		0,
-		0,
-		-1,
-		false,
-		vim.split(
-			string.format(
-				M.chat_template,
-				M.config.chat_model,
-				string.match(filename, "([^/]+)$"),
-				M.config.chat_system_prompt,
-				M.config.chat_user_prefix,
-				M.config.cmd_prefix,
-				M.config.chat_user_prefix
-			),
-			"\n"
-		)
-	)
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(template, "\n"))
 
 	-- move cursor to a new line at the end of the file
-	vim.cmd("normal Go")
+	M._H.feedkeys("G", "x")
+end
+
+M.cmd.ChatNew = function()
+	M.new_chat(M.mode.normal)
+end
+
+M.cmd.VisualChatNew = function()
+	M.new_chat(M.mode.visual)
+end
+
+M.cmd.ChatDelete = function()
+	-- get buffer and file
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+
+	-- check if file is in the chat dir
+	if not string.match(file_name, M.config.chat_dir) then
+		print("File " .. file_name .. " is not in chat dir, not deleting")
+		return
+	end
+
+	-- delete buffer and file
+	vim.api.nvim_buf_delete(buf, { force = true })
+	os.remove(file_name)
+
+	print("Deleted " .. file_name)
 end
 
 M.cmd.ChatRespond = function()
@@ -538,9 +590,12 @@ M.cmd.ChatRespond = function()
 			last_content_line = M._H.last_content_line(buf)
 			vim.cmd("undojoin")
 			vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
+			-- insert a new line at the end of the file
+			vim.cmd("undojoin")
+			vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
 			-- move cursor to a new line at the end of the file
-			vim.cmd("normal Go")
+			M._H.feedkeys("G", "x")
 
 			-- if topic is ?, then generate it
 			if headers.topic == "?" then
@@ -617,7 +672,7 @@ M.cmd.ChatPicker = function()
 				M.open_chat(selection.filename)
 
 				-- move cursor to a new line at the end of the file
-				vim.cmd("normal Go")
+				M._H.feedkeys("G", "x")
 			end)
 			return true
 		end,
@@ -628,22 +683,9 @@ end
 -- Prompt logic
 --------------------
 
-M.prompt_target = {
-	replace = 0, -- for replacing the selection or the current line
-	append = 1, -- for appending after the selection or the current line
-	prepend = 2, -- for prepending before the selection or the current line
-	enew = 3, -- for writing into the new buffer
-	popup = 4, -- for writing into the popup window
-}
-
-M.prompt_mode = {
-	normal = 0, -- based just on the command
-	visual = 1, -- uses the current or the last visual selection
-}
-
 M.prompt = function(mode, target, prompt, model, template, system_template)
-	mode = mode or M.prompt_mode.normal
-	target = target or M.prompt_target.enew
+	mode = mode or M.mode.normal
+	target = target or M.target.enew
 	model = model or M.config.prompt_model
 
 	-- get current buffer
@@ -654,7 +696,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 	local start_line = vim.api.nvim_win_get_cursor(0)[1]
 	local end_line = start_line
 
-	if mode == M.prompt_mode.visual then
+	if mode == M.mode.visual then
 		-- make sure the user has selected some text
 		selection, start_line, end_line = M._H.get_selection(buf)
 
@@ -686,26 +728,26 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 		M._H.feedkeys("<esc>", "x")
 
 		-- mode specific logic
-		if target == M.prompt_target.replace then
+		if target == M.target.replace then
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
 			handler = M.create_handler(buf, start_line - 1, true)
-		elseif target == M.prompt_target.append then
+		elseif target == M.target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "", "" }, "l", true, true)
 			-- prepare handler
 			handler = M.create_handler(buf, end_line + 1, true)
-		elseif target == M.prompt_target.prepend then
+		elseif target == M.target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "", "" }, "l", false, true)
 			-- prepare handler
 			handler = M.create_handler(buf, start_line - 1, true)
-		elseif target == M.prompt_target.enew then
+		elseif target == M.target.enew then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, true)
 			-- set the created buffer as the current buffer
@@ -714,7 +756,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 			vim.api.nvim_buf_set_option(buf, "filetype", filetype)
 			-- prepare handler
 			handler = M.create_handler(buf, 0, false)
-		elseif target == M.prompt_target.popup then
+		elseif target == M.target.popup then
 			-- create a new buffer
 			buf = M._H.create_popup(M._Name .. " popup (close with <esc>)")
 			-- set the created buffer as the current buffer
@@ -760,111 +802,111 @@ end
 
 M.cmd.VisualRewrite = function()
 	M.prompt(
-		M.prompt_mode.visual,
-		M.prompt_target.replace,
+		M.mode.visual,
+		M.target.replace,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_rewrite_template,
-		M.config.prompt_system_template
+		M.config.template_rewrite,
+		M.config.template_system
 	)
 end
 
 M.cmd.VisualAppend = function()
 	M.prompt(
-		M.prompt_mode.visual,
-		M.prompt_target.append,
+		M.mode.visual,
+		M.target.append,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_selection_template,
-		M.config.prompt_system_template
+		M.config.template_selection,
+		M.config.template_system
 	)
 end
 
 M.cmd.VisualPrepend = function()
 	M.prompt(
-		M.prompt_mode.visual,
-		M.prompt_target.prepend,
+		M.mode.visual,
+		M.target.prepend,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_selection_template,
-		M.config.prompt_system_template
+		M.config.template_selection,
+		M.config.template_system
 	)
 end
 
 M.cmd.VisualEnew = function()
 	M.prompt(
-		M.prompt_mode.visual,
-		M.prompt_target.enew,
+		M.mode.visual,
+		M.target.enew,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_selection_template,
-		M.config.prompt_system_template
+		M.config.template_selection,
+		M.config.template_system
 	)
 end
 
 M.cmd.VisualPopup = function()
 	M.prompt(
-		M.prompt_mode.visual,
-		M.prompt_target.popup,
+		M.mode.visual,
+		M.target.popup,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_selection_template,
-		M.config.prompt_system_template
+		M.config.template_selection,
+		M.config.template_system
 	)
 end
 
 M.cmd.Inline = function()
 	M.prompt(
-		M.prompt_mode.normal,
-		M.prompt_target.replace,
+		M.mode.normal,
+		M.target.replace,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_command_template,
-		M.config.prompt_system_template
+		M.config.template_command,
+		M.config.template_system
 	)
 end
 
 M.cmd.Append = function()
 	M.prompt(
-		M.prompt_mode.normal,
-		M.prompt_target.append,
+		M.mode.normal,
+		M.target.append,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_command_template,
-		M.config.prompt_system_template
+		M.config.template_command,
+		M.config.template_system
 	)
 end
 
 M.cmd.Prepend = function()
 	M.prompt(
-		M.prompt_mode.normal,
-		M.prompt_target.prepend,
+		M.mode.normal,
+		M.target.prepend,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_command_template,
-		M.config.prompt_system_template
+		M.config.template_command,
+		M.config.template_system
 	)
 end
 
 M.cmd.Enew = function()
 	M.prompt(
-		M.prompt_mode.normal,
-		M.prompt_target.enew,
+		M.mode.normal,
+		M.target.enew,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_command_template,
-		M.config.prompt_system_template
+		M.config.template_command,
+		M.config.template_system
 	)
 end
 
 M.cmd.Popup = function()
 	M.prompt(
-		M.prompt_mode.normal,
-		M.prompt_target.popup,
+		M.mode.normal,
+		M.target.popup,
 		M.config.prompt_prefix,
 		M.config.prompt_model,
-		M.config.prompt_command_template,
-		M.config.prompt_system_template
+		M.config.template_command,
+		M.config.template_system
 	)
 end
 
