@@ -381,6 +381,10 @@ M.create_handler = function(buf, line, first_undojoin)
 		response = response .. chunk
 		vim.cmd("undojoin")
 		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, vim.split(response, "\n"))
+
+		-- move cursor to end of response
+		local end_line = first_line + #vim.split(response, "\n")
+		vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 	end)
 end
 
@@ -487,19 +491,34 @@ M.cmd.ChatDelete = function()
 
 	-- check if file is in the chat dir
 	if not string.match(file_name, M.config.chat_dir) then
-		print("File " .. file_name .. " is not in chat dir, not deleting")
+		print("File " .. file_name .. " is not in chat dir")
 		return
 	end
 
-	-- delete buffer and file
-	vim.api.nvim_buf_delete(buf, { force = true })
-	os.remove(file_name)
+	-- ask for confirmation
+	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
+		if input and input:lower() == "y" then
+			-- delete buffer and file
+			vim.api.nvim_buf_delete(buf, { force = true })
+			os.remove(file_name)
 
-	print("Deleted " .. file_name)
+			print("Deleted " .. file_name)
+		else
+			print("Not deleting " .. file_name)
+		end
+	end)
 end
 
 M.cmd.ChatRespond = function()
 	local buf = vim.api.nvim_get_current_buf()
+
+	-- check if file is in the chat dir
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	if not string.match(file_name, M.config.chat_dir) then
+		print("File " .. file_name .. " is not in chat dir")
+		return
+	end
+
 	-- get all lines
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 
@@ -644,7 +663,7 @@ M.cmd.ChatRespond = function()
 	--[[ print("messages:\n" .. vim.inspect(messages)) ]]
 end
 
-M.cmd.ChatPicker = function()
+M.cmd.ChatFinder = function()
 	local status_ok, _ = pcall(require, "telescope")
 	if not status_ok then
 		M.error("telescope.nvim is not installed")
@@ -656,7 +675,7 @@ M.cmd.ChatPicker = function()
 	local action_state = require("telescope.actions.state")
 
 	builtin.grep_string({
-		prompt_title = "Chat Picker",
+		prompt_title = M._Name .. " Chat Finder",
 		default_text = "^# 'topic: ",
 		shorten_path = true,
 		search_dirs = { M.config.chat_dir },
