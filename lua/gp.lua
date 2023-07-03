@@ -121,12 +121,18 @@ _H.last_content_line = function(buf)
 end
 
 _H.get_selection = function(buf)
+	-- call esc to get to normal mode, so < and > marks are set properly
+	M._H.feedkeys("<esc>", "x")
 	local start_line = vim.api.nvim_buf_get_mark(buf, "<")[1]
 	local end_line = vim.api.nvim_buf_get_mark(buf, ">")[1]
 
 	local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
 	local selection = table.concat(lines, "\n")
 
+	-- user should see the selection
+	if string.lower(vim.api.nvim_get_mode().mode) ~= "v" then
+		M._H.feedkeys("gv", "x")
+	end
 	return selection, start_line, end_line
 end
 
@@ -501,10 +507,6 @@ M.cmd.ChatDelete = function()
 			-- delete buffer and file
 			vim.api.nvim_buf_delete(buf, { force = true })
 			os.remove(file_name)
-
-			print("Deleted " .. file_name)
-		else
-			print("Not deleting " .. file_name)
 		end
 	end)
 end
@@ -722,11 +724,6 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 		if selection == "" then
 			print("Please select some text to rewrite")
 			return
-		end
-
-		-- user should see the selection before writing the command
-		if string.lower(vim.api.nvim_get_mode().mode) ~= "v" then
-			M._H.feedkeys("gv", "x")
 		end
 	end
 
