@@ -1,5 +1,14 @@
 # Gp (GPT prompt) plugin for Neovim
 
+Gp.nvim provides you ChatGPT like sessions and instructable text/code operations in your favorite editor.
+
+<p align="left">
+<img src="https://github.com/Robitx/gp.nvim/assets/8431097/cb288094-2308-42d6-9060-4eb21b3ba74c" width="49%">
+<img src="https://github.com/Robitx/gp.nvim/assets/8431097/c538f0a2-4667-444e-8671-13f8ea261be1" width="49%">
+</p>
+
+### [Here is the full 5 minute example of using the plugin](https://youtu.be/UBc5dL1qBrc)
+
 ## Install
 
 Install the plugin with your preferred package manager:
