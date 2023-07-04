@@ -87,7 +87,7 @@ _H.create_popup = function(title)
 		-- center of the editor
 		col = math.floor(editor_width / 4),
 		style = "minimal",
-		border = "solid",
+		border = "single",
 		title = title,
 		title_pos = "center",
 	}
