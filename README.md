@@ -128,7 +128,7 @@ local config = {
 	prompt_model = "gpt-3.5-turbo-16k",
 
 	-- templates
-	template_system = "You are a general AI assistant.",
+	template_system = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
 	template_selection = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
