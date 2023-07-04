@@ -122,15 +122,16 @@ local config = {
 	-- chat topic model
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 
-	-- prompt prefix for asking user for input
-	prompt_prefix = "🤖 ~ ",
-	-- prompt model
-	prompt_model = "gpt-3.5-turbo-16k",
+	-- command prompt prefix for asking user for input
+	command_prompt_prefix = "🤖 ~ ",
+	-- command model
+	command_model = "gpt-3.5-turbo-16k",
+	-- command system prompt
+	command_system_prompt = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
 
 	-- templates
-	template_system = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
-	template_selection = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+	template_selection = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
 }

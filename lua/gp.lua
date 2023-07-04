@@ -35,13 +35,14 @@ local config = {
 	-- chat topic model
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 
-	-- prompt prefix for asking user for input
-	prompt_prefix = "🤖 ~ ",
-	-- prompt model
-	prompt_model = "gpt-3.5-turbo-16k",
+	-- command prompt prefix for asking user for input
+	command_prompt_prefix = "🤖 ~ ",
+	-- command model
+	command_model = "gpt-3.5-turbo-16k",
+	-- command system prompt
+	command_system_prompt = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
 
 	-- templates
-	template_system = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
 	template_selection = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
@@ -712,7 +713,7 @@ end
 M.prompt = function(mode, target, prompt, model, template, system_template)
 	mode = mode or M.mode.normal
 	target = target or M.target.enew
-	model = model or M.config.prompt_model
+	model = model or M.config.command_model
 
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
@@ -826,10 +827,10 @@ M.cmd.VisualRewrite = function()
 	M.prompt(
 		M.mode.visual,
 		M.target.replace,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_rewrite,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -837,10 +838,10 @@ M.cmd.VisualAppend = function()
 	M.prompt(
 		M.mode.visual,
 		M.target.append,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_selection,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -848,10 +849,10 @@ M.cmd.VisualPrepend = function()
 	M.prompt(
 		M.mode.visual,
 		M.target.prepend,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_selection,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -859,10 +860,10 @@ M.cmd.VisualEnew = function()
 	M.prompt(
 		M.mode.visual,
 		M.target.enew,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_selection,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -870,10 +871,10 @@ M.cmd.VisualPopup = function()
 	M.prompt(
 		M.mode.visual,
 		M.target.popup,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_selection,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -881,10 +882,10 @@ M.cmd.Inline = function()
 	M.prompt(
 		M.mode.normal,
 		M.target.replace,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_command,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -892,10 +893,10 @@ M.cmd.Append = function()
 	M.prompt(
 		M.mode.normal,
 		M.target.append,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_command,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -903,10 +904,10 @@ M.cmd.Prepend = function()
 	M.prompt(
 		M.mode.normal,
 		M.target.prepend,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_command,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -914,10 +915,10 @@ M.cmd.Enew = function()
 	M.prompt(
 		M.mode.normal,
 		M.target.enew,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_command,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
@@ -925,10 +926,10 @@ M.cmd.Popup = function()
 	M.prompt(
 		M.mode.normal,
 		M.target.popup,
-		M.config.prompt_prefix,
-		M.config.prompt_model,
+		M.config.command_prompt_prefix,
+		M.config.command_model,
 		M.config.template_command,
-		M.config.template_system
+		M.config.command_system_prompt
 	)
 end
 
