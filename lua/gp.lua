@@ -460,7 +460,8 @@ M.new_chat = function(mode)
 
 		if selection ~= "" then
 			local filetype = M._H.get_filetype(buf)
-			local rendered = M.template_render(M.config.template_selection, "", selection, filetype, filename)
+			local fname = vim.api.nvim_buf_get_name(buf)
+			local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
 			template = template .. "\n" .. rendered
 		end
 	end
