@@ -42,8 +42,8 @@ local config = {
 
 	-- templates
 	template_system = "You are a general AI assistant.",
-	template_selection = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following code:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+	template_selection = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
 }
@@ -171,11 +171,12 @@ _H.template_render = function(template, key_value_pairs)
 	return template
 end
 
-M.template_render = function(template, command, selection, filetype)
+M.template_render = function(template, command, selection, filetype, filename)
 	local key_value_pairs = {
 		["{{command}}"] = command,
 		["{{selection}}"] = selection,
 		["{{filetype}}"] = filetype,
+		["{{filename}}"] = filename,
 	}
 	return _H.template_render(template, key_value_pairs)
 end
@@ -459,7 +460,8 @@ M.new_chat = function(mode)
 
 		if selection ~= "" then
 			local filetype = M._H.get_filetype(buf)
-			local rendered = M.template_render(M.config.template_selection, "", selection, filetype)
+			local filename = vim.api.nvim_buf_get_name(buf)
+			local rendered = M.template_render(M.config.template_selection, "", selection, filetype, filename)
 			if rendered ~= "" then
 				-- strip leading and trailing newlines
 				rendered = rendered:gsub("^%s*(.-)%s*$", "%1")
@@ -735,9 +737,10 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 		-- prepare messages
 		local messages = {}
 		local filetype = M._H.get_filetype(buf)
-		local sys_prompt = M.template_render(system_template, command, selection, filetype)
+		local filename = vim.api.nvim_buf_get_name(buf)
+		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
 		table.insert(messages, { role = "system", content = sys_prompt })
-		local user_prompt = M.template_render(template, command, selection, filetype)
+		local user_prompt = M.template_render(template, command, selection, filetype, filename)
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
