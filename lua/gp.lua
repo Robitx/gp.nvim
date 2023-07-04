@@ -650,7 +650,12 @@ M.cmd.ChatRespond = function()
 						end
 
 						-- replace topic in current buffer
+						vim.api.nvim_set_current_buf(buf)
+						vim.cmd("undojoin")
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
+
+						-- move cursor to a new line at the end of the file
+						M._H.feedkeys("G", "x")
 					end)
 				)
 			end
