@@ -614,9 +614,6 @@ M.cmd.ChatRespond = function()
 			vim.cmd("undojoin")
 			vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
-			-- move cursor to a new line at the end of the file
-			M._H.feedkeys("G", "x")
-
 			-- if topic is ?, then generate it
 			if headers.topic == "?" then
 				-- insert last model response
@@ -657,6 +654,9 @@ M.cmd.ChatRespond = function()
 					end)
 				)
 			end
+
+			-- move cursor to a new line at the end of the file
+			M._H.feedkeys("G", "x")
 		end)
 	)
 
