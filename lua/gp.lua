@@ -770,7 +770,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 			handler = M.create_handler(buf, start_line - 1, true)
 		elseif target == M.target.enew then
 			-- create a new buffer
-			buf = vim.api.nvim_create_buf(true, true)
+			buf = vim.api.nvim_create_buf(true, false)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype
