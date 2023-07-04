@@ -872,9 +872,9 @@ M.cmd.VisualPopup = function()
 		M.mode.visual,
 		M.target.popup,
 		M.config.command_prompt_prefix,
-		M.config.command_model,
+		M.config.chat_model,
 		M.config.template_selection,
-		M.config.command_system_prompt
+		M.config.chat_system_prompt
 	)
 end
 
@@ -927,9 +927,9 @@ M.cmd.Popup = function()
 		M.mode.normal,
 		M.target.popup,
 		M.config.command_prompt_prefix,
-		M.config.command_model,
+		M.config.chat_model,
 		M.config.template_command,
-		M.config.command_system_prompt
+		M.config.chat_system_prompt
 	)
 end
 
