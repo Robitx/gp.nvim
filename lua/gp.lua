@@ -460,16 +460,13 @@ M.new_chat = function(mode)
 
 		if selection ~= "" then
 			local filetype = M._H.get_filetype(buf)
-			local filename = vim.api.nvim_buf_get_name(buf)
 			local rendered = M.template_render(M.config.template_selection, "", selection, filetype, filename)
-			if rendered ~= "" then
-				-- strip leading and trailing newlines
-				rendered = rendered:gsub("^%s*(.-)%s*$", "%1")
-				-- add rendered selection template to chat
-				template = template .. "\n" .. rendered .. "\n"
-			end
+			template = template .. "\n" .. rendered
 		end
 	end
+
+	-- strip leading and trailing newlines
+	template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
 
 	-- create chat file
 	os.execute("touch " .. filename)
