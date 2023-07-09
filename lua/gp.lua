@@ -68,25 +68,17 @@ M = {
 -- Generic helper functions
 --------------------------------------------------------------------------------
 
-_H.create_popup = function(title)
+_H.create_popup = function(title, size_func)
 	-- create scratch buffer
 	local buf = vim.api.nvim_create_buf(false, true)
-
-	-- get editor dimensions
-	local editor_width = vim.api.nvim_get_option("columns")
-	local editor_height = vim.api.nvim_get_option("lines")
 
 	-- setting to the middle of the editor
 	local options = {
 		relative = "editor",
-		-- half of the editor width
-		width = math.floor(editor_width / 2),
-		-- half of the editor height
-		height = math.floor(editor_height / 2),
-		-- center of the editor
-		row = math.floor(editor_height / 4),
-		-- center of the editor
-		col = math.floor(editor_width / 4),
+		width = 10,
+		height = 10,
+		row = 10,
+		col = 10,
 		style = "minimal",
 		border = "single",
 		title = title,
@@ -97,8 +89,40 @@ _H.create_popup = function(title)
 	vim.api.nvim_buf_set_keymap(buf, "n", "<esc>", ":q<cr>", { noremap = true, silent = true })
 
 	-- open the window and return the buffer
-	vim.api.nvim_open_win(buf, true, options)
-	return buf
+	local win = vim.api.nvim_open_win(buf, true, options)
+
+	local resize = function()
+		-- get editor dimensions
+		local ew = vim.api.nvim_get_option("columns")
+		local eh = vim.api.nvim_get_option("lines")
+
+		local w, h, r, c = size_func(ew, eh)
+
+		-- setting to the middle of the editor
+		local opts = {
+			relative = "editor",
+			-- half of the editor width
+			width = math.floor(w),
+			-- half of the editor height
+			height = math.floor(h),
+			-- center of the editor
+			row = math.floor(r),
+			-- center of the editor
+			col = math.floor(c),
+		}
+		vim.api.nvim_win_set_config(win, opts)
+	end
+
+	-- register command group
+	local gid = vim.api.nvim_create_augroup(title, { clear = true })
+
+	-- resize on window resize
+	vim.api.nvim_create_autocmd("VimResized", {
+		group = gid,
+		callback = resize,
+	})
+	resize()
+	return buf, win
 end
 
 _H.feedkeys = function(keys, mode)
@@ -781,7 +805,9 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 			handler = M.create_handler(buf, 0, false)
 		elseif target == M.target.popup then
 			-- create a new buffer
-			buf = M._H.create_popup(M._Name .. " popup (close with <esc>)")
+			buf, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
+				return w / 2, h / 2, h / 4, w / 4
+			end)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
