@@ -34,6 +34,8 @@ local config = {
 		.. " in two or three words. Respond only with those words.",
 	-- chat topic model
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
+	-- explicitly confirm deletion of a chat file
+	chat_confirm_delete = true,
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
@@ -726,6 +728,12 @@ M.cmd.ChatDelete = function()
 		return
 	end
 
+	-- delete without confirmation
+	if not M.config.chat_confirm_delete then
+		M.delete_chat(file_name, buf)
+		return
+	end
+
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
@@ -1141,6 +1149,13 @@ M.cmd.ChatFinder = function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local file = picker_files[index]
 
+		-- delete without confirmation
+		if not M.config.chat_confirm_delete then
+			M.delete_chat(file, nil)
+			refresh_picker()
+			return
+		end
+
 		-- ask for confirmation
 		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
 			if input and input:lower() == "y" then
@@ -1380,7 +1395,7 @@ M.cmd.Popup = function()
 	)
 end
 
-M.setup()
-print("gp.lua loaded\n\n")
+--[[ M.setup() ]]
+--[[ print("gp.lua loaded\n\n") ]]
 
 return M
