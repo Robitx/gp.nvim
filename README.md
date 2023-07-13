@@ -42,7 +42,7 @@ and use it in the config (either directly or setup env `OPENAI_API_KEY`).
 Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 ### Dependencies
-The core functionality only needs `curl` installed to make calls to OpenAI API.
+The plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder.
 
 ### Configuration
 
