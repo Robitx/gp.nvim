@@ -430,6 +430,7 @@ M.chat_template = [[
 - model: %s
 - file: %s
 - role: %s
+- temperature: %s
 
 Write your queries after %s. Run :%sChatRespond to generate response.
 
@@ -471,6 +472,7 @@ M.new_chat = function(mode)
 		M.config.chat_model,
 		string.match(filename, "([^/]+)$"),
 		M.config.chat_system_prompt,
+		M.config.chat_temperature,
 		M.config.chat_user_prefix,
 		M.config.cmd_prefix,
 		M.config.chat_user_prefix
@@ -612,12 +614,23 @@ M.cmd.ChatRespond = function()
 		{ "", M.config.chat_assistant_prefix, "" }
 	)
 
+	-- validate temperature
+	local temperature = tonumber(headers.temperature) or M.config.chat_temperature
+	if temperature == nil then
+		temperature = 0.7
+	elseif temperature < 0 then
+		temperature = 0
+	elseif temperature > 2 then
+		temperature = 2
+	end
+
 	-- call the model and write response
 	M.query(
 		{
 			model = headers.model or M.config.chat_model,
 			stream = true,
 			messages = messages,
+			temperature = temperature,
 		},
 		M.create_handler(buf, M._H.last_content_line(buf), true),
 		vim.schedule_wrap(function()
@@ -739,6 +752,16 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 	target = target or M.target.enew
 	model = model or M.config.command_model
 
+	-- validate temperature
+	local temperature = tonumber(M.config.chat_temperature)
+	if temperature == nil then
+		temperature = 0.7
+	elseif temperature < 0 then
+		temperature = 0
+	elseif temperature > 2 then
+		temperature = 2
+	end
+
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
 
@@ -824,6 +847,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 				model = model,
 				stream = true,
 				messages = messages,
+				temperature = temperature,
 			},
 			handler,
 			vim.schedule_wrap(function()
