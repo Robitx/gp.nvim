@@ -68,13 +68,161 @@ M = {
 -- Generic helper functions
 --------------------------------------------------------------------------------
 
-_H.create_popup = function(title, size_func)
+-- fn: function gets wrapped so it only gets called once
+_H.once = function(fn)
+	local once = false
+	return function(...)
+		if once then
+			return
+		end
+		once = true
+		fn(...)
+	end
+end
+
+_H.feedkeys = function(keys, mode)
+	mode = mode or "n"
+	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
+	vim.api.nvim_feedkeys(keys, mode, true)
+end
+
+-- buffers: table of buffers
+-- mode: string - mode to set keymap
+-- key: string - key to set keymap
+-- callback: function - callback to set keymap
+-- desc: string - description for keymap
+_H.set_keymap = function(buffers, mode, key, callback, desc)
+	for _, buf in ipairs(buffers) do
+		vim.keymap.set(mode, key, callback, {
+			noremap = true,
+			silent = true,
+			nowait = true,
+			buffer = buf,
+			desc = desc,
+		})
+	end
+end
+
+-- events: string or table - events to listen to
+-- buffers: table - buffers to listen to (nil for all buffers)
+-- callback: function - callback to call
+-- gid: int - augroup id
+_H.autocmd = function(events, buffers, callback, gid)
+	if buffers then
+		for _, buf in ipairs(buffers) do
+			vim.api.nvim_create_autocmd(events, {
+				group = gid,
+				buffer = buf,
+				callback = vim.schedule_wrap(callback),
+			})
+		end
+	else
+		vim.api.nvim_create_autocmd(events, {
+			group = gid,
+			callback = vim.schedule_wrap(callback),
+		})
+	end
+end
+
+-- cmd: string - command to execute
+-- args: table - arguments for command
+-- callback: function(code, signal, stdout_data, stderr_data)
+_H.process = function(cmd, args, callback)
+	local handle
+	local stdout = vim.loop.new_pipe(false)
+	local stderr = vim.loop.new_pipe(false)
+	local stdout_data = ""
+	local stderr_data = ""
+
+	handle = vim.loop.spawn(
+		cmd,
+		{
+			args = args,
+			stdio = { nil, stdout, stderr },
+		},
+		vim.schedule_wrap(function(code, signal)
+			stdout:read_stop()
+			stderr:read_stop()
+			stdout:close()
+			stderr:close()
+			handle:close()
+			callback(code, signal, stdout_data, stderr_data)
+		end)
+	)
+
+	vim.loop.read_start(stdout, function(err, data)
+		if err then
+			error(vim.inspect(err))
+		end
+		if data then
+			stdout_data = stdout_data .. data
+		end
+	end)
+
+	vim.loop.read_start(stderr, function(err, data)
+		if err then
+			error(vim.inspect(err))
+		end
+		if data then
+			stderr_data = stderr_data .. data
+		end
+	end)
+end
+
+-- directory: string - directory to search in
+-- pattern: string - pattern to search for
+-- callback: function(results, regex)
+-- results: table of elements with file, lnum and line
+-- regex: string - final regex used for search
+_H.grep_directory = function(directory, pattern, callback)
+	pattern = pattern or ""
+	-- replace spaces with wildcards
+	pattern = pattern:gsub("%s+", ".*")
+	-- strip leading and trailing non alphanumeric characters
+	local re = pattern:gsub("^%W*(.-)%W*$", "%1")
+
+	_H.process("grep", { "-irEnZ", pattern, directory }, function(c, _, stdout, _)
+		local results = {}
+		if c ~= 0 then
+			callback(results, re)
+			return
+		end
+		for _, line in ipairs(vim.split(stdout, "\n")) do
+			line = line:gsub("^%s*(.-)%s*$", "%1")
+			-- line contains non whitespace characters
+			if line:match("%S") then
+				-- extract file path (until zero byte)
+				local file = line:match("^(.-)%z")
+				-- substract dir from file
+				local filename = file:gsub(directory .. "/", "")
+				local line_number = line:match("%z(%d+):")
+				local line_text = line:match("%z%d+:(.*)")
+				table.insert(results, {
+					file = filename,
+					lnum = line_number,
+					line = line_text,
+				})
+				-- extract line number
+			end
+		end
+		callback(results, re)
+	end)
+end
+
+-- title: string
+-- size_func: function(editor_width, editor_height) -> width, height, row, col
+-- opts: table - gid=nul, on_leave=false
+-- returns: buffer, window, close function, resize function
+_H.create_popup = function(title, size_func, opts)
+	opts = opts or {}
+
 	-- create scratch buffer
 	local buf = vim.api.nvim_create_buf(false, true)
 
 	-- setting to the middle of the editor
 	local options = {
 		relative = "editor",
+		-- dummy values gets resized later
 		width = 10,
 		height = 10,
 		row = 10,
@@ -84,9 +232,6 @@ _H.create_popup = function(title, size_func)
 		title = title,
 		title_pos = "center",
 	}
-
-	-- make it close on escape
-	vim.api.nvim_buf_set_keymap(buf, "n", "<esc>", ":q<cr>", { noremap = true, silent = true })
 
 	-- open the window and return the buffer
 	local win = vim.api.nvim_open_win(buf, true, options)
@@ -99,7 +244,7 @@ _H.create_popup = function(title, size_func)
 		local w, h, r, c = size_func(ew, eh)
 
 		-- setting to the middle of the editor
-		local opts = {
+		local o = {
 			relative = "editor",
 			-- half of the editor width
 			width = math.floor(w),
@@ -110,25 +255,58 @@ _H.create_popup = function(title, size_func)
 			-- center of the editor
 			col = math.floor(c),
 		}
-		vim.api.nvim_win_set_config(win, opts)
+		vim.api.nvim_win_set_config(win, o)
 	end
 
-	-- register command group
-	local gid = vim.api.nvim_create_augroup(title, { clear = true })
+	-- prepare unique group name and register augroup
+	local gname = title:gsub("[^%w]", "_")
+		.. os.date("_%Y_%m_%d_%H_%M_%S_")
+		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	-- use user defined group id or create new one
+	local pgid = opts.gid or vim.api.nvim_create_augroup(gname, { clear = true })
 
-	-- resize on window resize
-	vim.api.nvim_create_autocmd("VimResized", {
-		group = gid,
-		callback = resize,
-	})
+	-- cleanup on exit
+	local close = _H.once(function()
+		vim.schedule(function()
+			-- delete only internal augroups
+			if not opts.gid then
+				vim.api.nvim_del_augroup_by_id(pgid)
+			end
+			if vim.api.nvim_win_is_valid(win) then
+				vim.api.nvim_win_close(win, true)
+			end
+			if vim.api.nvim_buf_is_valid(buf) then
+				vim.api.nvim_buf_delete(buf, { force = true })
+			end
+		end)
+	end)
+
+	-- resize on vim resize
+	_H.autocmd("VimResized", { buf }, resize, pgid)
+
+	-- cleanup on buffer exit
+	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, pgid)
+
+	-- optional cleanup on buffer leave
+	if opts.on_leave then
+		-- close when entering non-popup buffer
+		_H.autocmd({ "BufEnter" }, nil, function(event)
+			local b = event.buf
+			if b ~= buf then
+				close()
+				-- make sure to set current buffer after close
+				vim.schedule(vim.schedule_wrap(function()
+					vim.api.nvim_set_current_buf(b)
+				end))
+			end
+		end, pgid)
+	end
+
+	-- cleanup on escape exit
+	_H.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
+
 	resize()
-	return buf, win
-end
-
-_H.feedkeys = function(keys, mode)
-	mode = mode or "n"
-	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
-	vim.api.nvim_feedkeys(keys, mode, true)
+	return buf, win, close, resize
 end
 
 _H.last_content_line = function(buf)
@@ -261,6 +439,10 @@ M.setup = function(opts)
 
 	-- make sure _dirs exists
 	for k, v in pairs(M.config) do
+		-- strip trailing slash
+		if k:match("_dir$") and type(v) == "string" then
+			M.config[k] = v:gsub("/$", "")
+		end
 		if k:match("_dir$") and vim.fn.isdirectory(v) == 0 then
 			print(M._Name .. ": creating directory " .. v)
 			vim.fn.mkdir(v, "p")
@@ -405,6 +587,11 @@ M.create_handler = function(buf, line, first_undojoin)
 			vim.cmd("undojoin")
 		end
 
+		-- make sure buffer still exists
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
+
 		-- clean previous response
 		local line_count = #vim.split(response, "\n")
 		vim.api.nvim_buf_set_lines(buf, first_line, first_line + line_count, false, {})
@@ -463,7 +650,12 @@ end
 M.new_chat = function(mode)
 	-- prepare filename
 	local time = os.date("%Y-%m-%d_%H-%M-%S")
-	time = time .. "." .. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	-- make sure stamp is 3 digits
+	while #stamp < 3 do
+		stamp = "0" .. stamp
+	end
+	time = time .. "." .. stamp
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
 	local template = string.format(
@@ -515,6 +707,14 @@ M.cmd.VisualChatNew = function()
 	M.new_chat(M.mode.visual)
 end
 
+M.delete_chat = function(file, buf)
+	-- delete buffer and file
+	if buf and vim.api.nvim_buf_is_valid(buf) then
+		vim.api.nvim_buf_delete(buf, { force = true })
+	end
+	os.remove(file)
+end
+
 M.cmd.ChatDelete = function()
 	-- get buffer and file
 	local buf = vim.api.nvim_get_current_buf()
@@ -529,9 +729,7 @@ M.cmd.ChatDelete = function()
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
-			-- delete buffer and file
-			vim.api.nvim_buf_delete(buf, { force = true })
-			os.remove(file_name)
+			M.delete_chat(file_name, buf)
 		end
 	end)
 end
@@ -696,38 +894,261 @@ M.cmd.ChatRespond = function()
 end
 
 M.cmd.ChatFinder = function()
-	local status_ok, _ = pcall(require, "telescope")
-	if not status_ok then
-		M.error("telescope.nvim is not installed")
-		return
+	local dir = M.config.chat_dir
+
+	-- prepare unique group name and register augroup
+	local gname = "GpExplorer"
+		.. os.date("_%Y_%m_%d_%H_%M_%S_")
+		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+
+	-- prepare three popup buffers and windows
+	local wfactor = 0.9
+	local hfactor = 0.7
+	local preview_ratio = 0.6
+	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
+		"Picker (j/k, <enter>|Open, <esc>|Exit, dd|delete, i|Search)",
+		function(w, h)
+			local wh = math.ceil(h * hfactor - 5)
+			local ww = math.ceil(w * wfactor)
+			local r = math.ceil((h - wh) / 4 - 1)
+			local c = math.ceil((w - ww) / 2)
+			return ww * (1 - preview_ratio), wh, r, c
+		end,
+		{ gid = gid }
+	)
+	--[[ vim.api.nvim_buf_set_option(picker_buf, "filetype", "bash") ]]
+	vim.api.nvim_win_set_option(picker_win, "cursorline", true)
+
+	local preview_buf, preview_win, preview_close, preview_resize = M._H.create_popup(
+		"Preview (edits are ephemeral)",
+		function(w, h)
+			local wh = math.ceil(h * hfactor - 5)
+			local ww = math.ceil(w * wfactor)
+			local r = math.ceil((h - wh) / 4 - 1)
+			local c = math.ceil((w - ww) / 2)
+			return ww * preview_ratio, wh, r, c + math.ceil(ww * (1 - preview_ratio)) + 2
+		end,
+		{ gid = gid }
+	)
+
+	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
+
+	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
+		"Search (<tab>|Next match, <esc>/<enter>|Picker, <esc><esc>|Exit, <enter><enter>|Open)",
+		function(w, h)
+			local wh = math.ceil(h * hfactor - 5)
+			local ww = math.ceil(w * wfactor)
+			local r = math.ceil((h - wh) / 4 - 1)
+			local c = math.ceil((w - ww) / 2)
+			return ww + 2, 1, r + wh + 2, c
+		end,
+		{ gid = gid }
+	)
+	-- set initial content of command buffer
+	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { "topic " })
+
+	-- make highlight group for search by linking to existing Search group
+	local hl_group = "GpExplorerSearch"
+	vim.cmd("highlight default link " .. hl_group .. " Search")
+	local picker_match_id = 0
+	local preview_match_id = 0
+	local regex = ""
+
+	-- clean up augroup and popup buffers/windows
+	local close = _H.once(function()
+		vim.api.nvim_del_augroup_by_id(gid)
+		picker_close()
+		preview_close()
+		command_close()
+	end)
+
+	local resize = function()
+		picker_resize()
+		preview_resize()
+		command_resize()
+		vim.api.nvim_win_set_option(picker_win, "cursorline", true)
 	end
 
-	local builtin = require("telescope.builtin")
-	local actions = require("telescope.actions")
-	local action_state = require("telescope.actions.state")
+	-- logic for updating picker and preview
+	local picker_files = {}
+	local preview_lines = {}
 
-	builtin.grep_string({
-		prompt_title = M._Name .. " Chat Finder",
-		default_text = "^# 'topic: ",
-		shorten_path = true,
-		search_dirs = { M.config.chat_dir },
-		path_display = { "hidden" },
-		only_sort_text = true,
-		word_match = "-w",
-		search = "",
-		-- custom open function
-		attach_mappings = function(prompt_bufnr, _)
-			actions.select_default:replace(function()
-				local selection = action_state.get_selected_entry()
-				actions.close(prompt_bufnr)
-				M.open_chat(selection.filename)
+	local refresh_preview = function()
+		if not vim.api.nvim_buf_is_valid(picker_buf) then
+			return
+		end
 
-				-- move cursor to a new line at the end of the file
-				M._H.feedkeys("G", "x")
-			end)
-			return true
-		end,
-	})
+		-- empty preview buffer
+		vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, {})
+		vim.api.nvim_win_set_cursor(preview_win, { 1, 0 })
+
+		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+		local file = picker_files[index]
+		if not file then
+			return
+		end
+
+		local lines = {}
+		for l in io.lines(file) do
+			table.insert(lines, l)
+		end
+		vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, lines)
+
+		local preview_line = preview_lines[index]
+		if preview_line then
+			vim.api.nvim_win_set_cursor(preview_win, { preview_line, 0 })
+		end
+
+		-- highlight preview
+		if preview_match_id ~= 0 then
+			vim.fn.matchdelete(preview_match_id, preview_win)
+		end
+		if regex == "" then
+			preview_match_id = 0
+			return
+		end
+		preview_match_id = vim.fn.matchadd(hl_group, regex, 0, -1, { window = preview_win })
+	end
+
+	local refresh_picker = function()
+		-- get last line of command buffer
+		local cmd = vim.api.nvim_buf_get_lines(command_buf, -2, -1, false)[1]
+
+		_H.grep_directory(dir, cmd, function(results, re)
+			if not vim.api.nvim_buf_is_valid(picker_buf) then
+				return
+			end
+
+			picker_files = {}
+			preview_lines = {}
+			local picker_lines = {}
+			for _, f in ipairs(results) do
+				table.insert(picker_files, dir .. "/" .. f.file)
+				table.insert(picker_lines, string.format("%s:%s %s", f.file, f.lnum, f.line))
+				table.insert(preview_lines, tonumber(f.lnum))
+			end
+
+			vim.api.nvim_buf_set_lines(picker_buf, 0, -1, false, picker_lines)
+
+			-- prepare regex for highlighting
+			regex = re
+			if regex ~= "" then
+				-- case insensitive
+				regex = "\\c" .. regex
+			end
+
+			refresh_preview()
+
+			-- highlight picker
+			if picker_match_id ~= 0 then
+				vim.fn.matchdelete(picker_match_id, picker_win)
+			end
+			if regex == "" then
+				picker_match_id = 0
+				return
+			end
+			picker_match_id = vim.fn.matchadd(hl_group, regex, 0, -1, { window = picker_win })
+		end)
+	end
+
+	refresh_picker()
+	vim.api.nvim_set_current_win(command_win)
+	vim.api.nvim_command("startinsert!")
+
+	-- resize on VimResized
+	_H.autocmd({ "VimResized" }, nil, resize, gid)
+
+	-- moving cursor on picker window will update preview window
+	_H.autocmd({ "CursorMoved", "CursorMovedI" }, { picker_buf }, function()
+		vim.api.nvim_command("stopinsert")
+		refresh_preview()
+	end, gid)
+
+	-- InsertEnter on picker or preview window will go to command window
+	_H.autocmd({ "InsertEnter" }, { picker_buf, preview_buf }, function()
+		vim.api.nvim_set_current_win(command_win)
+		vim.api.nvim_command("startinsert!")
+	end, gid)
+
+	-- InsertLeave on command window will go to picker window
+	_H.autocmd({ "InsertLeave" }, { command_buf }, function()
+		vim.api.nvim_set_current_win(picker_win)
+		vim.api.nvim_command("stopinsert")
+	end, gid)
+
+	-- when preview becomes active call some function
+	_H.autocmd({ "WinEnter" }, { preview_buf }, function()
+		-- go to normal mode
+		vim.api.nvim_command("stopinsert")
+	end, gid)
+
+	-- when command buffer is written, execute it
+	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+		refresh_picker()
+	end, gid)
+
+	-- close on buffer delete
+	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { picker_buf, preview_buf, command_buf }, close, gid)
+
+	-- close by escape key on any window
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
+
+	-- enter on picker window will open file
+	_H.set_keymap({ picker_buf }, "n", "<cr>", function()
+		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+		local file = picker_files[index]
+		close()
+		-- delay so explorer can close before opening file
+		vim.defer_fn(function()
+			M.open_chat(file)
+
+			-- move cursor to a new line at the end of the file
+			M._H.feedkeys("G", "x")
+		end, 200)
+	end)
+
+	-- enter on preview window will go to picker window
+	_H.set_keymap({ command_buf }, "i", "<cr>", function()
+		vim.api.nvim_set_current_win(picker_win)
+		vim.api.nvim_command("stopinsert")
+	end)
+
+	-- tab in command window will cycle through lines in picker window
+	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
+		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+		local next_index = index + 1
+		if next_index > #picker_files then
+			next_index = 1
+		end
+		vim.api.nvim_win_set_cursor(picker_win, { next_index, 0 })
+		refresh_preview()
+	end)
+
+	-- shift-tab in command window will cycle through lines in picker window
+	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<s-tab>", function()
+		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+		local next_index = index - 1
+		if next_index < 1 then
+			next_index = #picker_files
+		end
+		vim.api.nvim_win_set_cursor(picker_win, { next_index, 0 })
+		refresh_preview()
+	end)
+
+	-- dd on picker or preview window will delete file
+	_H.set_keymap({ picker_buf, preview_buf }, "n", "dd", function()
+		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+		local file = picker_files[index]
+
+		-- ask for confirmation
+		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
+			if input and input:lower() == "y" then
+				M.delete_chat(file, nil)
+				refresh_picker()
+			end
+		end)
+	end)
 end
 
 --------------------
@@ -805,9 +1226,9 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 			handler = M.create_handler(buf, 0, false)
 		elseif target == M.target.popup then
 			-- create a new buffer
-			buf, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
+			buf, _, _, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
 				return w / 2, h / 2, h / 4, w / 4
-			end)
+			end, { on_leave = true, escape = true })
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
@@ -959,7 +1380,7 @@ M.cmd.Popup = function()
 	)
 end
 
---[[ M.setup() ]]
---[[ print("gp.lua loaded\n\n") ]]
+M.setup()
+print("gp.lua loaded\n\n")
 
 return M
