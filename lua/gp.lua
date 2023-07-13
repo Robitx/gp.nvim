@@ -21,8 +21,6 @@ local config = {
 	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
 	-- chat model
 	chat_model = "gpt-3.5-turbo-16k",
-	-- chat temperature
-	chat_temperature = 0.7,
 	-- chat model system prompt
 	chat_system_prompt = "You are a general AI assistant.",
 	-- chat user prompt prefix
@@ -709,10 +707,12 @@ M.cmd.VisualChatNew = function()
 	M.new_chat(M.mode.visual)
 end
 
-M.delete_chat = function(file, buf)
-	-- delete buffer and file
-	if buf and vim.api.nvim_buf_is_valid(buf) then
-		vim.api.nvim_buf_delete(buf, { force = true })
+M.delete_chat = function(file)
+	-- iterate over buffer list and close all buffers with the same name
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_get_name(b) == file then
+			vim.api.nvim_buf_delete(b, { force = true })
+		end
 	end
 	os.remove(file)
 end
@@ -730,14 +730,14 @@ M.cmd.ChatDelete = function()
 
 	-- delete without confirmation
 	if not M.config.chat_confirm_delete then
-		M.delete_chat(file_name, buf)
+		M.delete_chat(file_name)
 		return
 	end
 
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
-			M.delete_chat(file_name, buf)
+			M.delete_chat(file_name)
 		end
 	end)
 end
@@ -1151,7 +1151,7 @@ M.cmd.ChatFinder = function()
 
 		-- delete without confirmation
 		if not M.config.chat_confirm_delete then
-			M.delete_chat(file, nil)
+			M.delete_chat(file)
 			refresh_picker()
 			return
 		end
@@ -1159,7 +1159,7 @@ M.cmd.ChatFinder = function()
 		-- ask for confirmation
 		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
 			if input and input:lower() == "y" then
-				M.delete_chat(file, nil)
+				M.delete_chat(file)
 				refresh_picker()
 			end
 		end)
