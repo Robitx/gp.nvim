@@ -19,8 +19,8 @@ local config = {
 
 	-- directory for storing chat files
 	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
-	-- chat model
-	chat_model = "gpt-3.5-turbo-16k",
+	-- chat model (string with model name or table with model name and parameters)
+	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
 	-- chat model system prompt
 	chat_system_prompt = "You are a general AI assistant.",
 	-- chat user prompt prefix
@@ -30,15 +30,15 @@ local config = {
 	-- chat topic generation prompt
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
 		.. " in two or three words. Respond only with those words.",
-	-- chat topic model
+	-- chat topic model (string with model name or table with model name and parameters)
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
-	-- command model
-	command_model = "gpt-3.5-turbo-16k",
+	-- command model (string with model name or table with model name and parameters)
+	command_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
 	-- command system prompt
 	command_system_prompt = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
 
@@ -374,6 +374,10 @@ _H.template_render = function(template, key_value_pairs)
 	return template
 end
 
+--------------------------------------------------------------------------------
+-- Module helper functions and variables
+--------------------------------------------------------------------------------
+
 M.template_render = function(template, command, selection, filetype, filename)
 	local key_value_pairs = {
 		["{{command}}"] = command,
@@ -383,10 +387,6 @@ M.template_render = function(template, command, selection, filetype, filename)
 	}
 	return _H.template_render(template, key_value_pairs)
 end
-
---------------------------------------------------------------------------------
--- Module helper functions and variables
---------------------------------------------------------------------------------
 
 M.target = {
 	replace = 0, -- for replacing the selection or the current line
@@ -484,6 +484,28 @@ M.call_hook = function(name)
 		return M.cmd_hooks[name](M)
 	end
 	M.error("The hook '" .. name .. "' does not exist.")
+end
+
+M.prepare_payload = function(model, default_model, messages)
+	model = model or default_model
+
+	-- if model is a string
+	if type(model) == "string" then
+		return {
+			model = model,
+			stream = true,
+			messages = messages,
+		}
+	end
+
+	-- if model is a table
+	return {
+		model = model.model,
+		stream = true,
+		messages = messages,
+		temperature = math.max(0, math.min(2, model.temperature or 1)),
+		top_p = math.max(0, math.min(1, model.top_p or 1)),
+	}
 end
 
 -- gpt query
@@ -658,9 +680,15 @@ M.new_chat = function(mode)
 	time = time .. "." .. stamp
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
+	-- encode as json if model is a table
+	local model = M.config.chat_model
+	if type(model) == "table" then
+		model = vim.json.encode(model)
+	end
+
 	local template = string.format(
 		M.chat_template,
-		M.config.chat_model,
+		model,
 		string.match(filename, "([^/]+)$"),
 		M.config.chat_system_prompt,
 		M.config.chat_user_prefix,
@@ -818,13 +846,14 @@ M.cmd.ChatRespond = function()
 		{ "", M.config.chat_assistant_prefix, "" }
 	)
 
+	-- if model contains { } then it is a json string otherwise it is a model name
+	if headers.model and headers.model:match("{.*}") then
+		headers.model = vim.json.decode(headers.model)
+	end
+
 	-- call the model and write response
 	M.query(
-		{
-			model = headers.model or M.config.chat_model,
-			stream = true,
-			messages = messages,
-		},
+		M.prepare_payload(headers.model, M.config.chat_model, messages),
 		M.create_handler(buf, M._H.last_content_line(buf), true),
 		vim.schedule_wrap(function()
 			-- write user prompt
@@ -860,11 +889,7 @@ M.cmd.ChatRespond = function()
 
 				-- call the model
 				M.query(
-					{
-						model = M.config.chat_topic_gen_model,
-						stream = true,
-						messages = messages,
-					},
+					M.prepare_payload(nil, M.config.chat_topic_gen_model, messages),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -1173,7 +1198,6 @@ end
 M.prompt = function(mode, target, prompt, model, template, system_template)
 	mode = mode or M.mode.normal
 	target = target or M.target.enew
-	model = model or M.config.command_model
 
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
@@ -1256,11 +1280,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 
 		-- call the model and write the response
 		M.query(
-			{
-				model = model,
-				stream = true,
-				messages = messages,
-			},
+			M.prepare_payload(model, M.config.command_model, messages),
 			handler,
 			vim.schedule_wrap(function()
 				on_exit()
