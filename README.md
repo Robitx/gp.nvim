@@ -65,8 +65,6 @@ local config = {
 	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
 	-- chat model
 	chat_model = "gpt-3.5-turbo-16k",
-	-- chat temperature
-	chat_temperature = 0.7,
 	-- chat model system prompt
 	chat_system_prompt = "You are a general AI assistant.",
 	-- chat user prompt prefix
@@ -78,6 +76,8 @@ local config = {
 		.. " in two or three words. Respond only with those words.",
 	-- chat topic model
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
+	-- explicitly confirm deletion of a chat file
+	chat_confirm_delete = true,
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
