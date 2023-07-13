@@ -17,11 +17,6 @@ Install the plugin with your preferred package manager:
 -- lazy.nvim
 {
 	"robitx/gp.nvim",
-	dependencies = {
-        -- Telescope (see Dependencies in Readme)
-        { "nvim-telescope/telescope.nvim" },
-        { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
-    },
 	config = function()
 		require("gp").setup(conf)
         	-- shortcuts might be setup here (see Usage > Shortcuts in Readme)
@@ -33,11 +28,6 @@ Install the plugin with your preferred package manager:
 -- packer.nvim
 use({
     "robitx/gp.nvim",
-    requires = {
-        -- Telescope (see Dependencies in Readme)
-        { "nvim-telescope/telescope.nvim" },
-        { "nvim-telescope/telescope-fzf-native.nvim", run = "make" },
-    },
     config = function()
         require("gp").setup(conf)
         -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
@@ -52,49 +42,7 @@ and use it in the config (either directly or setup env `OPENAI_API_KEY`).
 Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 ### Dependencies
-The core functionality only needs `curl` installed to make calls to OpenAI API.
-
-The `:GpChatFinder` (for searching through old chat sessions) requires Telescope, 
-which needs setup on its own for the best experience. See [fzf-setup](https://github.com/nvim-telescope/telescope-fzf-native.nvim#telescope-setup-and-configuration) 
-or canibalize my own config:
-``` lua
--- example telescope setup
-local status_ok, telescope = pcall(require, "telescope")
-if not status_ok then
-	return
-end
-
-local actions = require("telescope.actions")
-
-telescope.setup({
-	defaults = {
-
-		prompt_prefix = " ",
-		selection_caret = " ",
-		path_display = { "smart" },
-		file_ignore_patterns = { ".git/", "node_modules" },
-		extensions = {
-			fzf = {
-				fuzzy = true, -- false will only do exact matching
-				override_generic_sorter = true, -- override the generic sorter
-				override_file_sorter = true, -- override the file sorter
-				case_mode = "smart_case", -- or "ignore_case" or "respect_case"
-				-- the default case_mode is "smart_case"
-			},
-		},
-		mappings = {
-			i = {
-				["<Down>"] = actions.cycle_history_next,
-				["<Up>"] = actions.cycle_history_prev,
-				["<C-j>"] = actions.move_selection_next,
-				["<C-k>"] = actions.move_selection_previous,
-			},
-		},
-	},
-})
-
-telescope.load_extension("fzf")
-```
+The plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder.
 
 ### Configuration
 
@@ -202,7 +150,7 @@ The raw plugin text editing method `prompt`  has six aprameters:
 - Have ChatGPT experience directly in neovim:
 	- `:GpChatNew` - open fresh chat
   	- `:GpVisualChatNew` - open fresh chat using current or last selection
-	- `:GpChatFinder` - open telescope to search through chats
+	- `:GpChatFinder` - open a dialog to search through chats
 	- `:GpChatRespond` - request new gpt response for the current chat
   	- `:GpChatDelete` - delete the current chat
 - Ask GPT and get response to the specified output:
