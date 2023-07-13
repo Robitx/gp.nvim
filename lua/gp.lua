@@ -1134,6 +1134,9 @@ M.cmd.ChatFinder = function()
 		close()
 		-- delay so explorer can close before opening file
 		vim.defer_fn(function()
+			if not file then
+				return
+			end
 			M.open_chat(file)
 
 			-- move cursor to a new line at the end of the file
