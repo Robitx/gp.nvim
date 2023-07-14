@@ -34,6 +34,8 @@ local config = {
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
+	-- conceal model parameters in chat
+	chat_conceal_model_params = true,
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
@@ -667,6 +669,15 @@ M.open_chat = function(file_name)
 	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
 	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
+
+	-- conceal parameters in model header so it's not distracting
+	if not M.config.chat_conceal_model_params then
+		return
+	end
+	vim.opt_local.conceallevel = 2
+	vim.opt_local.concealcursor = ""
+	vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
+	vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
 end
 
 M.new_chat = function(mode)

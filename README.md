@@ -78,6 +78,8 @@ local config = {
 	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
+	-- conceal model parameters in chat
+	chat_conceal_model_params = true,
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
