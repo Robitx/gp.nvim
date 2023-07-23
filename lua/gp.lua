@@ -803,15 +803,15 @@ end
 M.cmd.ChatRespond = function()
 	local buf = vim.api.nvim_get_current_buf()
 
-	-- check if file is in the chat dir
-	local file_name = vim.api.nvim_buf_get_name(buf)
-	if not string.match(file_name, M.config.chat_dir) then
-		print("File " .. file_name .. " is not in chat dir")
-		return
-	end
-
 	-- get all lines
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+	-- check if file looks like a chat file
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	if not (lines[1]:match("^# topic: ") and lines[3]:match("^- model: ")) then
+		print("File " .. file_name .. " does not look like a chat file")
+		return
+	end
 
 	-- headers are fields before first ---
 	local headers = {}
