@@ -10,7 +10,7 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 ### [Here is the full 5 minute example of using the plugin](https://youtu.be/UBc5dL1qBrc)
 
 ## Changelog
-### !! Version > 1.x.x brings a breaking change !!
+### !! Version 1.x.x brings a breaking change !!
 
 The commands now work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3) and the commands with `Visual` prefix were dropped.
 
