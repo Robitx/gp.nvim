@@ -9,6 +9,18 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 
 ### [Here is the full 5 minute example of using the plugin](https://youtu.be/UBc5dL1qBrc)
 
+## Changelog
+### !! Version > 1.x.x brings a breaking change !!
+
+The commands now work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3) and the commands with `Visual` prefix were dropped.
+
+Specifically the commands`:GpChatNew`, `:GpRewrite`, `:GpAppend`, `:GpPrepend`, `:GpEnew`, `:GpPopup` and their shortcuts now work across modes, either:
+- as pure user commands without context in normal/insert mode
+- with current selection (using whole lines) as a context in visual/Visual mode
+- with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
+
+Please update your shortcuts if you use them.
+
 ## Install
 
 Install the plugin with your preferred package manager:
@@ -56,9 +68,16 @@ local config = {
 	cmd_prefix = "Gp",
 	-- example hook functions
 	hooks = {
-		InspectPlugin = function(plugin)
+		InspectPlugin = function(plugin, params)
 			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
+			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
+                -- -- example of making :%GpChatNew a dedicated command which 
+                -- -- opens new chat with the entire current buffer as a context
+		-- BufferChatNew = function(plugin, _)
+		--     -- call GpChatNew command in range mode on whole buffer
+		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
+		-- end,
 	},
 
 	-- directory for storing chat files
@@ -110,11 +129,40 @@ Hooks have access to everything (see `InspectPlugin` example in defaults) and ar
 automatically registered as commands (`GpInspectPlugin`).  
 
 The raw plugin text editing method `prompt`  has six aprameters:
-- `mode` specifying if the prompt works with selection or just the command
+- `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
     ``` lua
-    M.mode = {
-        normal = 0, -- based just on the command
-        visual = 1, -- uses the current or the last visual selection
+    params = {
+          args = "",
+          bang = false,
+          count = -1,
+          fargs = {},
+          line1 = 1352,
+          line2 = 1352,
+          mods = "",
+          name = "GpChatNew",
+          range = 0,
+          reg = "",
+          smods = {
+                browse = false,
+                confirm = false,
+                emsg_silent = false,
+                hide = false,
+                horizontal = false,
+                keepalt = false,
+                keepjumps = false,
+                keepmarks = false,
+                keeppatterns = false,
+                lockmarks = false,
+                noautocmd = false,
+                noswapfile = false,
+                sandbox = false,
+                silent = false,
+                split = "",
+                tab = -1,
+                unsilent = false,
+                verbose = -1,
+                vertical = false
+          }
     }
     ```
 - `target` specifying where to direct GPT response
@@ -150,23 +198,21 @@ The raw plugin text editing method `prompt`  has six aprameters:
 
 ### Commands
 - Have ChatGPT experience directly in neovim:
-	- `:GpChatNew` - open fresh chat
-  	- `:GpVisualChatNew` - open fresh chat using current or last selection
+	- `:GpChatNew` - open fresh chat - either empty or with the visual selection or specified range as a context
 	- `:GpChatFinder` - open a dialog to search through chats
 	- `:GpChatRespond` - request new gpt response for the current chat
   	- `:GpChatDelete` - delete the current chat
 - Ask GPT and get response to the specified output:
-	- `:GpInline` - answers into the current line (gets replaced)
-	- `:GpAppend` - answers after the current line
-	- `:GpPrepend` - answers before the before the current line
+	- `:GpRewrite` - answer replaces the current line, visual selection or range
+	- `:GpAppend` - answers after the current line, visual selection or range
+	- `:GpPrepend` - answers before the current line, selection or range
 	- `:GpEnew` - answers into new buffer
-	- `:GpPopup` - answers into pop up window
-- Ask GPT with the current or last selection as a context:
-	- `:GpVisualRewrite` - answer replaces selection
-	- `:GpVisualAppend` - answers after the selection
-	- `:GpVisualPrepend` - answers before the selection
-	- `:GpVisualEnew` - answers into a new buffer
-	- `:GpVisualPopup` - answers into a popup window
+	- `:GpPopup` - answers into pop up window  
+
+  all these command work either:
+    - as pure user commands without any other context in normal/insert mode
+    - with current selection (using whole lines) as a context in visual/Visual mode
+    - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
 - Run your own custom hook commands:
     - `:GpInspectPlugin` - inspect GPT prompt plugin object
 
@@ -195,19 +241,19 @@ vim.keymap.set({"n", "i"}, "<C-g><C-g>", "<cmd>GpChatRespond<cr>", keymapOptions
 vim.keymap.set({"n", "i"}, "<C-g>d", "<cmd>GpChatDelete<cr>", keymapOptions("Chat Delete"))
 
 -- Prompt commands
-vim.keymap.set({"n", "i"}, "<C-g>i", "<cmd>GpInline<cr>", keymapOptions("Inline"))
+vim.keymap.set({"n", "i"}, "<C-g>r", "<cmd>GpRewrite<cr>", keymapOptions("Inline Rewrite"))
 vim.keymap.set({"n", "i"}, "<C-g>a", "<cmd>GpAppend<cr>", keymapOptions("Append"))
 vim.keymap.set({"n", "i"}, "<C-g>b", "<cmd>GpPrepend<cr>", keymapOptions("Prepend"))
 vim.keymap.set({"n", "i"}, "<C-g>e", "<cmd>GpEnew<cr>", keymapOptions("Enew"))
 vim.keymap.set({"n", "i"}, "<C-g>p", "<cmd>GpPopup<cr>", keymapOptions("Popup"))
 
 -- Visual commands
-vim.keymap.set("v", "<C-g>c", "<cmd>GpVisualChatNew<cr>", keymapOptions("Visual Chat New"))
-vim.keymap.set("v", "<C-g>r", "<cmd>GpVisualRewrite<cr>", keymapOptions("Visual Rewrite"))
-vim.keymap.set("v", "<C-g>a", "<cmd>GpVisualAppend<cr>", keymapOptions("Visual Append"))
-vim.keymap.set("v", "<C-g>b", "<cmd>GpVisualPrepend<cr>", keymapOptions("Visual Prepend"))
-vim.keymap.set("v", "<C-g>e", "<cmd>GpVisualEnew<cr>", keymapOptions("Visual Enew"))
-vim.keymap.set("v", "<C-g>p", "<cmd>GpVisualPopup<cr>", keymapOptions("Visual Popup"))
+vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
+vim.keymap.set("v", "<C-g>r", ":<C-u>'<,'>GpRewrite<cr>", keymapOptions("Visual Rewrite"))
+vim.keymap.set("v", "<C-g>a", ":<C-u>'<,'>GpAppend<cr>", keymapOptions("Visual Append"))
+vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual Prepend"))
+vim.keymap.set("v", "<C-g>e", ":<C-u>'<,'>GpEnew<cr>", keymapOptions("Visual Enew"))
+vim.keymap.set("v", "<C-g>p", ":<C-u>'<,'>GpPopup<cr>", keymapOptions("Visual Popup"))
 ```
 
 #### Whichkey
@@ -219,13 +265,13 @@ Or go more fancy by using [which-key.nvim](https://github.com/folke/which-key.nv
 require("which-key").register({
     -- ...
 	["<C-g>"] = {
-		c = { "<cmd>GpVisualChatNew<cr>", "Visual Chat New" },
+		c = { ":<C-u>'<,'>GpChatNew<cr>", "Visual Chat New" },
 
-		r = { "<cmd>GpVisualRewrite<cr>", "Visual Rewrite" },
-		a = { "<cmd>GpVisualAppend<cr>", "Visual Append" },
-		b = { "<cmd>GpVisualPrepend<cr>", "Visual Prepend" },
-		e = { "<cmd>GpVisualEnew<cr>", "Visual Enew" },
-		p = { "<cmd>GpVisualPopup<cr>", "Visual Popup" },
+		r = { ":<C-u>'<,'>GpRewrite<cr>", "Visual Rewrite" },
+		a = { ":<C-u>'<,'>GpAppend<cr>", "Visual Append" },
+		b = { ":<C-u>'<,'>GpPrepend<cr>", "Visual Prepend" },
+		e = { ":<C-u>'<,'>GpEnew<cr>", "Visual Enew" },
+		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
 	},
     -- ...
 }, {
@@ -246,7 +292,7 @@ require("which-key").register({
 		d = { "<cmd>GpChatDelete<cr>", "Chat Delete" },
 		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 
-		i = { "<cmd>GpInline<cr>", "Inline" },
+		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
@@ -271,7 +317,7 @@ require("which-key").register({
 		d = { "<cmd>GpChatDelete<cr>", "Chat Delete" },
 		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 
-		i = { "<cmd>GpInline<cr>", "Inline" },
+		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
