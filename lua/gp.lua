@@ -83,6 +83,8 @@ _H.once = function(fn)
 	end
 end
 
+-- keys: string of keystrokes
+-- mode: string of vim mode ('n', 'i', 'c', etc.), default is 'n'
 _H.feedkeys = function(keys, mode)
 	mode = mode or "n"
 	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
@@ -312,6 +314,7 @@ _H.create_popup = function(title, size_func, opts)
 	return buf, win, close, resize
 end
 
+-- returns the last line with content of specified buffer
 _H.last_content_line = function(buf)
 	buf = buf or vim.api.nvim_get_current_buf()
 	-- go from end and return number of last nonwhitespace line
@@ -326,26 +329,12 @@ _H.last_content_line = function(buf)
 	return 0
 end
 
-_H.get_selection = function(buf)
-	-- call esc to get to normal mode, so < and > marks are set properly
-	M._H.feedkeys("<esc>", "x")
-	local start_line = vim.api.nvim_buf_get_mark(buf, "<")[1]
-	local end_line = vim.api.nvim_buf_get_mark(buf, ">")[1]
-
-	local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
-	local selection = table.concat(lines, "\n")
-
-	-- user should see the selection
-	if string.lower(vim.api.nvim_get_mode().mode) ~= "v" then
-		M._H.feedkeys("gv", "x")
-	end
-	return selection, start_line, end_line
-end
-
+-- returns filetype of specified buffer
 _H.get_filetype = function(buf)
 	return vim.api.nvim_buf_get_option(buf, "filetype")
 end
 
+-- returns rendered template with specified key replaced by value
 _H.template_replace = function(template, key, value)
 	if template == nil then
 		return nil
@@ -365,6 +354,7 @@ _H.template_replace = function(template, key, value)
 	return template
 end
 
+-- returns rendered template with keys replaced by values from key_value_pairs
 _H.template_render = function(template, key_value_pairs)
 	if template == nil then
 		return nil
@@ -471,14 +461,14 @@ M.setup = function(opts)
 end
 
 M.target = {
-	rewrite = 0, -- for replacing the selection or the current line
-	append = 1, -- for appending after the selection or the current line
-	prepend = 2, -- for prepending before the selection or the current line
+	rewrite = 0, -- for replacing the selection, range or the current line
+	append = 1, -- for appending after the selection, range or the current line
+	prepend = 2, -- for prepending before the selection, range or the current line
 	enew = 3, -- for writing into the new buffer
 	popup = 4, -- for writing into the popup window
 }
 
--- creates commands for each target
+-- creates prompt commands for each target
 M.prepare_commands = function()
 	for name, target in pairs(M.target) do
 		-- uppercase first letter
@@ -771,7 +761,7 @@ end
 M.delete_chat = function(file)
 	-- iterate over buffer list and close all buffers with the same name
 	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_get_name(b) == file then
+		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file then
 			vim.api.nvim_buf_delete(b, { force = true })
 		end
 	end
