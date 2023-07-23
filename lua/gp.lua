@@ -809,6 +809,13 @@ M.cmd.ChatRespond = function()
 	-- get all lines
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 
+	-- check if file looks like a chat file
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	if not (lines[1]:match("^# topic: ") and lines[3]:match("^- model: ")) then
+		print("File " .. file_name .. " does not look like a chat file")
+		return
+	end
+
 	-- headers are fields before first ---
 	local headers = {}
 	local headers_done = false
