@@ -100,6 +100,10 @@ local config = {
 	chat_confirm_delete = true,
 	-- conceal model parameters in chat
 	chat_conceal_model_params = true,
+	-- local shortcuts bound to the chat buffer
+	-- (be careful to choose something which will work across specified modes)
+	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
+	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
@@ -219,7 +223,7 @@ The raw plugin text editing method `prompt`  has six aprameters:
 
 ### Shortcuts
 
-There are no default shortcuts to mess with your own config. Bellow are examples for you to adjust or just use directly.
+There are no default global shortcuts to mess with your own config. Bellow are examples for you to adjust or just use directly.
 
 #### Native
 
@@ -238,8 +242,6 @@ end
 -- Chat commands
 vim.keymap.set({"n", "i"}, "<C-g>c", "<cmd>GpChatNew<cr>", keymapOptions("New Chat"))
 vim.keymap.set({"n", "i"}, "<C-g>f", "<cmd>GpChatFinder<cr>", keymapOptions("Chat Finder"))
-vim.keymap.set({"n", "i"}, "<C-g><C-g>", "<cmd>GpChatRespond<cr>", keymapOptions("Chat Respond"))
-vim.keymap.set({"n", "i"}, "<C-g>d", "<cmd>GpChatDelete<cr>", keymapOptions("Chat Delete"))
 
 -- Prompt commands
 vim.keymap.set({"n", "i"}, "<C-g>r", "<cmd>GpRewrite<cr>", keymapOptions("Inline Rewrite"))
@@ -290,8 +292,6 @@ require("which-key").register({
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
-		d = { "<cmd>GpChatDelete<cr>", "Chat Delete" },
-		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 
 		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
@@ -315,8 +315,6 @@ require("which-key").register({
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
-		d = { "<cmd>GpChatDelete<cr>", "Chat Delete" },
-		["<C-g>"] = { "<cmd>GpChatRespond<cr>", "Chat Respond" },
 
 		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
 		a = { "<cmd>GpAppend<cr>", "Append" },

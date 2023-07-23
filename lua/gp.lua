@@ -44,6 +44,10 @@ local config = {
 	chat_confirm_delete = true,
 	-- conceal model parameters in chat
 	chat_conceal_model_params = true,
+	-- local shortcuts bound to the chat buffer
+	-- (be careful to choose something which will work across specified modes)
+	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
+	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
@@ -668,7 +672,8 @@ M.chat_template = [[
 - file: %s
 - role: %s
 
-Write your queries after %s. Run :%sChatRespond to generate response.
+Write your queries after %s. Run `%s` shortcut or :%sChatRespond to generate response.
+Chats are saved automatically. To delete this chat run `%s` shortcut or :%sChatDelete.
 
 ---
 
@@ -695,6 +700,15 @@ M.open_chat = function(file_name)
 	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
 	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
+
+	-- register shortcuts local to this buffer
+	local buf = vim.api.nvim_get_current_buf()
+	-- respond shortcut
+	local rs = M.config.chat_shortcut_respond
+	_H.set_keymap({ buf }, rs.modes, rs.shortcut, M.cmd.ChatRespond, "GPT prompt Chat Respond")
+	-- delete shortcut
+	local ds = M.config.chat_shortcut_delete
+	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
 
 	-- conceal parameters in model header so it's not distracting
 	if not M.config.chat_conceal_model_params then
@@ -729,6 +743,9 @@ M.cmd.ChatNew = function(params)
 		string.match(filename, "([^/]+)$"),
 		M.config.chat_system_prompt,
 		M.config.chat_user_prefix,
+		M.config.chat_shortcut_respond.shortcut,
+		M.config.cmd_prefix,
+		M.config.chat_shortcut_delete.shortcut,
 		M.config.cmd_prefix,
 		M.config.chat_user_prefix
 	)
@@ -802,6 +819,9 @@ end
 
 M.cmd.ChatRespond = function()
 	local buf = vim.api.nvim_get_current_buf()
+
+	-- go to normal mode
+	vim.cmd("stopinsert")
 
 	-- get all lines
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
