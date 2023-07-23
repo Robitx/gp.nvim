@@ -26,7 +26,7 @@ local config = {
 	},
 
 	-- directory for storing chat files
-	chat_dir = os.getenv("HOME") .. "/.local/share/nvim/gp/chats",
+	chat_dir = vim.fn.stdpath('data'):gsub("/$", "") .. "/gp/chats",
 	-- chat model (string with model name or table with model name and parameters)
 	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
 	-- chat model system prompt
