@@ -72,8 +72,9 @@ local config = {
 			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
 			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
-                -- -- example of making :%GpChatNew a dedicated command which 
-                -- -- opens new chat with the entire current buffer as a context
+
+		-- -- example of making :%GpChatNew a dedicated command which
+		-- -- opens new chat with the entire current buffer as a context
 		-- BufferChatNew = function(plugin, _)
 		--     -- call GpChatNew command in range mode on whole buffer
 		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
@@ -105,12 +106,12 @@ local config = {
 	-- command model (string with model name or table with model name and parameters)
 	command_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
 	-- command system prompt
-	command_system_prompt = "You are an AI that strictly generates pure formated final code, without providing any comments or explanations.",
+	command_system_prompt = "You are an AI that strictly generates just the formated final code.",
 
 	-- templates
 	template_selection = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond just with the pure formated final code. !!And please: No ``` code ``` blocks.",
+		.. "\n\nRespond just with the formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
 }
 
