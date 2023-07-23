@@ -12,8 +12,9 @@ local config = {
 	cmd_prefix = "Gp",
 	-- example hook functions
 	hooks = {
-		InspectPlugin = function(plugin)
+		InspectPlugin = function(plugin, params)
 			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
+			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
 	},
 
@@ -390,19 +391,6 @@ M.template_render = function(template, command, selection, filetype, filename)
 	return _H.template_render(template, key_value_pairs)
 end
 
-M.target = {
-	replace = 0, -- for replacing the selection or the current line
-	append = 1, -- for appending after the selection or the current line
-	prepend = 2, -- for prepending before the selection or the current line
-	enew = 3, -- for writing into the new buffer
-	popup = 4, -- for writing into the popup window
-}
-
-M.mode = {
-	normal = 0, -- based just on the command
-	visual = 1, -- uses the current or the last visual selection
-}
-
 -- nicer error messages
 M.error = function(msg)
 	error(string.format("\n\n%s error:\n%s\n", M._Name, msg))
@@ -451,19 +439,21 @@ M.setup = function(opts)
 		end
 	end
 
+	M.prepare_commands()
+
 	-- register user commands
 	for hook, _ in pairs(M.cmd_hooks) do
-		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function()
-			M.call_hook(hook)
-		end, { nargs = "?", range = (hook:match("^Visual") ~= nil), desc = "GPT Prompt plugin" })
+		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
+			M.call_hook(hook, params)
+		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
 	end
 
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.cmd_hooks[cmd] == nil then
-			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function()
-				M.cmd[cmd]()
-			end, { nargs = "?", range = (cmd:match("^Visual") ~= nil), desc = "GPT Prompt plugin" })
+			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
+				M.cmd[cmd](params)
+			end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
 		end
 	end
 
@@ -480,10 +470,49 @@ M.setup = function(opts)
 	end
 end
 
+M.target = {
+	rewrite = 0, -- for replacing the selection or the current line
+	append = 1, -- for appending after the selection or the current line
+	prepend = 2, -- for prepending before the selection or the current line
+	enew = 3, -- for writing into the new buffer
+	popup = 4, -- for writing into the popup window
+}
+
+-- creates commands for each target
+M.prepare_commands = function()
+	for name, target in pairs(M.target) do
+		-- uppercase first letter
+		local command = name:gsub("^%l", string.upper)
+
+		-- model to use
+		local model = M.config.command_model
+		-- popup is like ephemeral one off chat
+		if target == M.target.popup then
+			model = M.config.chat_model
+		end
+
+		local prefix = M.config.command_prompt_prefix
+		local system_prompt = M.config.command_system_prompt
+
+		M.cmd[command] = function(params)
+			-- template is chosen dynamically based on mode in which the command is called
+			local template = M.config.template_command
+			if params.range == 2 then
+				template = M.config.template_selection
+				-- rewrite needs custom template
+				if target == M.target.rewrite then
+					template = M.config.template_rewrite
+				end
+			end
+			M.prompt(params, target, prefix, model, template, system_prompt)
+		end
+	end
+end
+
 -- hook caller
-M.call_hook = function(name)
+M.call_hook = function(name, params)
 	if M.cmd_hooks[name] ~= nil then
-		return M.cmd_hooks[name](M)
+		return M.cmd_hooks[name](M, params)
 	end
 	M.error("The hook '" .. name .. "' does not exist.")
 end
@@ -680,7 +709,7 @@ M.open_chat = function(file_name)
 	vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
 end
 
-M.new_chat = function(mode)
+M.cmd.ChatNew = function(params)
 	-- prepare filename
 	local time = os.date("%Y-%m-%d_%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
@@ -707,12 +736,13 @@ M.new_chat = function(mode)
 		M.config.chat_user_prefix
 	)
 
-	if mode == M.mode.visual then
+	if params.range == 2 then
 		-- get current buffer
 		local buf = vim.api.nvim_get_current_buf()
 
-		-- make sure the user has selected some text
-		local selection, _, _ = M._H.get_selection(buf)
+		-- get range lines
+		local lines = vim.api.nvim_buf_get_lines(buf, params.line1 - 1, params.line2, false)
+		local selection = table.concat(lines, "\n")
 
 		if selection ~= "" then
 			local filetype = M._H.get_filetype(buf)
@@ -736,14 +766,6 @@ M.new_chat = function(mode)
 
 	-- move cursor to a new line at the end of the file
 	M._H.feedkeys("G", "x")
-end
-
-M.cmd.ChatNew = function()
-	M.new_chat(M.mode.normal)
-end
-
-M.cmd.VisualChatNew = function()
-	M.new_chat(M.mode.visual)
 end
 
 M.delete_chat = function(file)
@@ -1209,8 +1231,7 @@ end
 -- Prompt logic
 --------------------
 
-M.prompt = function(mode, target, prompt, model, template, system_template)
-	mode = mode or M.mode.normal
+M.prompt = function(params, target, prompt, model, template, system_template)
 	target = target or M.target.enew
 
 	-- get current buffer
@@ -1221,9 +1242,12 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 	local start_line = vim.api.nvim_win_get_cursor(0)[1]
 	local end_line = start_line
 
-	if mode == M.mode.visual then
-		-- make sure the user has selected some text
-		selection, start_line, end_line = M._H.get_selection(buf)
+	-- handle range
+	if params.range == 2 then
+		start_line = params.line1
+		end_line = params.line2
+		local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
+		selection = table.concat(lines, "\n")
 
 		if selection == "" then
 			print("Please select some text to rewrite")
@@ -1249,7 +1273,7 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 		M._H.feedkeys("<esc>", "x")
 
 		-- mode specific logic
-		if target == M.target.replace then
+		if target == M.target.rewrite then
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
@@ -1317,116 +1341,6 @@ M.prompt = function(mode, target, prompt, model, template, system_template)
 			callback(input)
 		end)
 	end)
-end
-
-M.cmd.VisualRewrite = function()
-	M.prompt(
-		M.mode.visual,
-		M.target.replace,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_rewrite,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.VisualAppend = function()
-	M.prompt(
-		M.mode.visual,
-		M.target.append,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_selection,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.VisualPrepend = function()
-	M.prompt(
-		M.mode.visual,
-		M.target.prepend,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_selection,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.VisualEnew = function()
-	M.prompt(
-		M.mode.visual,
-		M.target.enew,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_selection,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.VisualPopup = function()
-	M.prompt(
-		M.mode.visual,
-		M.target.popup,
-		M.config.command_prompt_prefix,
-		M.config.chat_model,
-		M.config.template_selection,
-		M.config.chat_system_prompt
-	)
-end
-
-M.cmd.Inline = function()
-	M.prompt(
-		M.mode.normal,
-		M.target.replace,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_command,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.Append = function()
-	M.prompt(
-		M.mode.normal,
-		M.target.append,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_command,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.Prepend = function()
-	M.prompt(
-		M.mode.normal,
-		M.target.prepend,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_command,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.Enew = function()
-	M.prompt(
-		M.mode.normal,
-		M.target.enew,
-		M.config.command_prompt_prefix,
-		M.config.command_model,
-		M.config.template_command,
-		M.config.command_system_prompt
-	)
-end
-
-M.cmd.Popup = function()
-	M.prompt(
-		M.mode.normal,
-		M.target.popup,
-		M.config.command_prompt_prefix,
-		M.config.chat_model,
-		M.config.template_command,
-		M.config.chat_system_prompt
-	)
 end
 
 --[[ M.setup() ]]
