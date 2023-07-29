@@ -23,14 +23,18 @@ Please update your shortcuts if you use them.
 
 ## Install
 
-Install the plugin with your preferred package manager:
+### 1. Install the plugin with your preferred package manager:
 
 ```lua
 -- lazy.nvim
 {
 	"robitx/gp.nvim",
 	config = function()
-		require("gp").setup(conf)
+		require("gp").setup()
+
+		-- or setup with your own config (see Install > Configuration in Readme)
+		-- require("gp").setup(conf)
+
         	-- shortcuts might be setup here (see Usage > Shortcuts in Readme)
 	end,
 }
@@ -41,27 +45,31 @@ Install the plugin with your preferred package manager:
 use({
     "robitx/gp.nvim",
     config = function()
-        require("gp").setup(conf)
+        require("gp").setup()
+
+	-- or setup with your own config (see Install > Configuration in Readme)
+	-- require("gp").setup(conf)
+
         -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
     end,
 })
 ```
 
-### OpenAI API key
+### 2. OpenAI API key
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
-and use it in the config (either directly or setup env `OPENAI_API_KEY`).
+and use it in the [config](#configuration) (or **setup env `OPENAI_API_KEY`**).
 
 Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
-### Dependencies
-The plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder.
+### 3. Dependencies
+The plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux / BSD / Mac OS should be covered.
 
-### Configuration
+### 4. Configuration
 
 Here are the default values:
 
 ```lua
-local config = {
+local conf = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
 	-- prefix for all commands
@@ -122,7 +130,7 @@ local config = {
 ...
 
 -- call setup on your config
-require("gp").setup(config)
+require("gp").setup(conf)
 
 -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
 ```
