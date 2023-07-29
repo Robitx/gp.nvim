@@ -127,78 +127,6 @@ require("gp").setup(config)
 -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
 ```
 
-### Extend functionality
-
-You can extend/override the plugin functionality with your own, by putting functions into `config.hooks`.
-Hooks have access to everything (see `InspectPlugin` example in defaults) and are 
-automatically registered as commands (`GpInspectPlugin`).  
-
-The raw plugin text editing method `prompt`  has six aprameters:
-- `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
-    ``` lua
-    params = {
-          args = "",
-          bang = false,
-          count = -1,
-          fargs = {},
-          line1 = 1352,
-          line2 = 1352,
-          mods = "",
-          name = "GpChatNew",
-          range = 0,
-          reg = "",
-          smods = {
-                browse = false,
-                confirm = false,
-                emsg_silent = false,
-                hide = false,
-                horizontal = false,
-                keepalt = false,
-                keepjumps = false,
-                keepmarks = false,
-                keeppatterns = false,
-                lockmarks = false,
-                noautocmd = false,
-                noswapfile = false,
-                sandbox = false,
-                silent = false,
-                split = "",
-                tab = -1,
-                unsilent = false,
-                verbose = -1,
-                vertical = false
-          }
-    }
-    ```
-- `target` specifying where to direct GPT response
-    ``` lua
-    M.target = {
-        replace = 0, -- for replacing the selection or the current line
-        append = 1, -- for appending after the selection or the current line
-        prepend = 2, -- for prepending before the selection or the current line
-        enew = 3, -- for writing into the new buffer
-        popup = 4, -- for writing into the popup window
-    }
-    ```
-- `prompt`
-	- string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
-	- if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
-	- simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
-	  (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
-- `model`
-    - see [gpt model overview](https://platform.openai.com/docs/models/overview)
-- `template`
-	- template of the user message send to gpt
-	- string can include variables bellow:  
-	 
-		| name      | Description |
-		|--------------|----------|
-		| `{{filetype}}` |  filetype of the current buffer |
-		| `{{selection}}` | last or currently selected text |
-		| `{{command}}` | instructions provided by the user |
-- `system_template`
-	- See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
-
 ## Usage
 
 ### Commands
@@ -332,6 +260,78 @@ require("which-key").register({
 	nowait = true,
 })
 ```
+## Extend functionality
+
+You can extend/override the plugin functionality with your own, by putting functions into `config.hooks`.
+Hooks have access to everything (see `InspectPlugin` example in defaults) and are 
+automatically registered as commands (`GpInspectPlugin`).  
+
+The raw plugin text editing method `prompt`  has six aprameters:
+- `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
+    ``` lua
+    params = {
+          args = "",
+          bang = false,
+          count = -1,
+          fargs = {},
+          line1 = 1352,
+          line2 = 1352,
+          mods = "",
+          name = "GpChatNew",
+          range = 0,
+          reg = "",
+          smods = {
+                browse = false,
+                confirm = false,
+                emsg_silent = false,
+                hide = false,
+                horizontal = false,
+                keepalt = false,
+                keepjumps = false,
+                keepmarks = false,
+                keeppatterns = false,
+                lockmarks = false,
+                noautocmd = false,
+                noswapfile = false,
+                sandbox = false,
+                silent = false,
+                split = "",
+                tab = -1,
+                unsilent = false,
+                verbose = -1,
+                vertical = false
+          }
+    }
+    ```
+- `target` specifying where to direct GPT response
+    ``` lua
+    M.target = {
+        replace = 0, -- for replacing the selection or the current line
+        append = 1, -- for appending after the selection or the current line
+        prepend = 2, -- for prepending before the selection or the current line
+        enew = 3, -- for writing into the new buffer
+        popup = 4, -- for writing into the popup window
+    }
+    ```
+- `prompt`
+	- string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
+	- if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
+	- simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
+	  (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
+- `model`
+    - see [gpt model overview](https://platform.openai.com/docs/models/overview)
+- `template`
+	- template of the user message send to gpt
+	- string can include variables bellow:  
+	 
+		| name      | Description |
+		|--------------|----------|
+		| `{{filetype}}` |  filetype of the current buffer |
+		| `{{selection}}` | last or currently selected text |
+		| `{{command}}` | instructions provided by the user |
+- `system_template`
+	- See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
+
 
 
 ## Attribution/Alternatives
