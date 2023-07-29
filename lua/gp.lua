@@ -26,7 +26,7 @@ local config = {
 	},
 
 	-- directory for storing chat files
-	chat_dir = vim.fn.stdpath('data'):gsub("/$", "") .. "/gp/chats",
+	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat model (string with model name or table with model name and parameters)
 	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
 	-- chat model system prompt
@@ -197,7 +197,7 @@ _H.grep_directory = function(directory, pattern, callback)
 	-- strip leading and trailing non alphanumeric characters
 	local re = pattern:gsub("^%W*(.-)%W*$", "%1")
 
-	_H.process("grep", { "-irEnZ", pattern, directory }, function(c, _, stdout, _)
+	_H.process("grep", { "-irEn", "--null", pattern, directory }, function(c, _, stdout, _)
 		local results = {}
 		if c ~= 0 then
 			callback(results, re)
