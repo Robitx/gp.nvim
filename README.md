@@ -108,8 +108,10 @@ local conf = {
 	command_system_prompt = "You are an AI that strictly generates just the formated final code.",
 
 	-- templates
-	template_selection = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+	template_selection = "I have the following code from {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+	template_rewrite = "I have the following code from {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
 
@@ -122,6 +124,7 @@ local conf = {
 
 		-- your own functions can go here, see README for more examples like
 		-- :GpExplain, :GpUnitTests.., :GpBetterChatNew, ..
+
 	},
 }
 
@@ -301,7 +304,8 @@ Here are some more examples:
         local template = "I have the following code from {{filename}}:\n\n"
             .. "```{{filetype}}\n{{selection}}\n```\n\n"
             .. "Please respond by writing table driven unit tests for the code above."
-        gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model, template, gp.config.command_system_prompt)
+        gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
+            template, gp.config.command_system_prompt)
     end,
     ```
 
@@ -312,7 +316,8 @@ Here are some more examples:
         local template = "I have the following code from {{filename}}:\n\n"
             .. "```{{filetype}}\n{{selection}}\n```\n\n"
             .. "Please respond by explaining the code above."
-        gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model, template, gp.config.chat_system_prompt)
+        gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model,
+            template, gp.config.chat_system_prompt)
     end,
     ```
 

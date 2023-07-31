@@ -44,8 +44,10 @@ local config = {
 	command_system_prompt = "You are an AI that strictly generates just the formated final code.",
 
 	-- templates
-	template_selection = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+	template_selection = "I have the following code from {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+	template_rewrite = "I have the following code from {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
 
@@ -55,6 +57,9 @@ local config = {
 			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
 			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
+
+		-- your own functions can go here, see README for more examples like
+		-- :GpExplain, :GpUnitTests.., :GpBetterChatNew, ..
 
 		-- -- example of making :%GpChatNew a dedicated command which
 		-- -- opens new chat with the entire current buffer as a context
@@ -76,7 +81,8 @@ local config = {
 		-- 	local template = "I have the following code from {{filename}}:\n\n"
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by writing table driven unit tests for the code above."
-		-- 	gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model, template, gp.config.command_system_prompt)
+		-- 	gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
+		--         template, gp.config.command_system_prompt)
 		-- end,
 
 		-- -- example of adding command which explains the selected code
@@ -84,7 +90,8 @@ local config = {
 		-- 	local template = "I have the following code from {{filename}}:\n\n"
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by explaining the code above."
-		-- 	gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model, template, gp.config.chat_system_prompt)
+		-- 	gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model,
+		--         template, gp.config.chat_system_prompt)
 		-- end,
 	},
 }
