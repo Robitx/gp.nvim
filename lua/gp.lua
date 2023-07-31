@@ -58,47 +58,33 @@ local config = {
 
 		-- -- example of making :%GpChatNew a dedicated command which
 		-- -- opens new chat with the entire current buffer as a context
-		-- BufferChatNew = function(plugin, _)
+		-- BufferChatNew = function(gp, _)
 		--     -- call GpChatNew command in range mode on whole buffer
-		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
+		--     vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
 		-- end,
 
 		-- -- example of adding a custom chat command with non-default parameters
 		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
-		-- BetterChatNew = function(plugin, params)
+		-- BetterChatNew = function(gp, params)
 		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
 		-- 	local chat_system_prompt = "You are a general AI assistant."
-		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
+		-- 	gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
 		-- end,
 
 		-- -- example of adding command which writes unit tests for the selected code
-		-- UnitTests = function(plugin, params)
+		-- UnitTests = function(gp, params)
 		-- 	local template = "I have the following code from {{filename}}:\n\n"
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by writing table driven unit tests for the code above."
-		-- 	plugin.Prompt(
-		-- 		params,
-		-- 		plugin.Target.enew,
-		-- 		nil,
-		-- 		plugin.config.command_model,
-		-- 		template,
-		-- 		plugin.config.command_system_prompt
-		-- 	)
+		-- 	gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model, template, gp.config.command_system_prompt)
 		-- end,
 
 		-- -- example of adding command which explains the selected code
-		-- Explain = function(plugin, params)
+		-- Explain = function(gp, params)
 		-- 	local template = "I have the following code from {{filename}}:\n\n"
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by explaining the code above."
-		-- 	plugin.Prompt(
-		-- 		params,
-		-- 		plugin.Target.popup,
-		-- 		nil,
-		-- 		plugin.config.command_model,
-		-- 		template,
-		-- 		plugin.config.chat_system_prompt
-		-- 	)
+		-- 	gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model, template, gp.config.chat_system_prompt)
 		-- end,
 	},
 }
