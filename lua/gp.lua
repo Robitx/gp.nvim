@@ -23,6 +23,14 @@ local config = {
 		--     -- call GpChatNew command in range mode on whole buffer
 		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
 		-- end,
+
+		-- -- example of adding of adding a custom chat command with non-default parameters
+		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+		-- CustomChatNew = function(plugin, params)
+		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+		-- 	local chat_system_prompt = "You are a general AI assistant."
+		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
+		-- end,
 	},
 
 	-- directory for storing chat files
@@ -721,7 +729,7 @@ M.open_chat = function(file_name)
 	vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
 end
 
-M.cmd.ChatNew = function(params)
+M.cmd.ChatNew = function(params, model, system_prompt)
 	-- prepare filename
 	local time = os.date("%Y-%m-%d_%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
@@ -733,7 +741,7 @@ M.cmd.ChatNew = function(params)
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
 	-- encode as json if model is a table
-	local model = M.config.chat_model
+	model = model or M.config.chat_model
 	if type(model) == "table" then
 		model = vim.json.encode(model)
 	end
@@ -742,7 +750,7 @@ M.cmd.ChatNew = function(params)
 		M.chat_template,
 		model,
 		string.match(filename, "([^/]+)$"),
-		M.config.chat_system_prompt,
+		system_prompt or M.config.chat_system_prompt,
 		M.config.chat_user_prefix,
 		M.config.chat_shortcut_respond.shortcut,
 		M.config.cmd_prefix,

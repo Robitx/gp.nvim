@@ -87,6 +87,14 @@ local conf = {
 		--     -- call GpChatNew command in range mode on whole buffer
 		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
 		-- end,
+
+		-- -- example of adding of adding a custom chat command with non-default parameters
+		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+		-- CustomChatNew = function(plugin, params)
+		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+		-- 	local chat_system_prompt = "You are a general AI assistant."
+		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
+		-- end,
 	},
 
 	-- directory for storing chat files
