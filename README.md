@@ -90,7 +90,7 @@ local conf = {
 	},
 
 	-- directory for storing chat files
-	chat_dir = vim.fn.stdpath('data'):gsub("/$", "") .. "/gp/chats",
+	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat model (string with model name or table with model name and parameters)
 	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
 	-- chat model system prompt
@@ -113,6 +113,7 @@ local conf = {
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 
+	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
 	-- command model (string with model name or table with model name and parameters)
