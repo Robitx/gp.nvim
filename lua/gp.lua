@@ -24,7 +24,7 @@ local config = {
 		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
 		-- end,
 
-		-- -- example of adding of adding a custom chat command with non-default parameters
+		-- -- example of adding a custom chat command with non-default parameters
 		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
 		-- CustomChatNew = function(plugin, params)
 		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
