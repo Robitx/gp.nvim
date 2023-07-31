@@ -10,28 +10,6 @@ local config = {
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
 	-- prefix for all commands
 	cmd_prefix = "Gp",
-	-- example hook functions
-	hooks = {
-		InspectPlugin = function(plugin, params)
-			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
-			print(string.format("Command params:\n%s", vim.inspect(params)))
-		end,
-
-		-- -- example of making :%GpChatNew a dedicated command which
-		-- -- opens new chat with the entire current buffer as a context
-		-- BufferChatNew = function(plugin, _)
-		--     -- call GpChatNew command in range mode on whole buffer
-		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
-		-- end,
-
-		-- -- example of adding a custom chat command with non-default parameters
-		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
-		-- CustomChatNew = function(plugin, params)
-		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
-		-- 	local chat_system_prompt = "You are a general AI assistant."
-		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
-		-- end,
-	},
 
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
@@ -70,6 +48,59 @@ local config = {
 	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
+
+	-- example hook functions (see Extend functionality section in the README)
+	hooks = {
+		InspectPlugin = function(plugin, params)
+			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
+			print(string.format("Command params:\n%s", vim.inspect(params)))
+		end,
+
+		-- -- example of making :%GpChatNew a dedicated command which
+		-- -- opens new chat with the entire current buffer as a context
+		-- BufferChatNew = function(plugin, _)
+		--     -- call GpChatNew command in range mode on whole buffer
+		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
+		-- end,
+
+		-- -- example of adding a custom chat command with non-default parameters
+		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+		-- BetterChatNew = function(plugin, params)
+		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+		-- 	local chat_system_prompt = "You are a general AI assistant."
+		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
+		-- end,
+
+		-- -- example of adding command which writes unit tests for the selected code
+		-- UnitTests = function(plugin, params)
+		-- 	local template = "I have the following code from {{filename}}:\n\n"
+		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
+		-- 		.. "Please respond by writing table driven unit tests for the code above."
+		-- 	plugin.Prompt(
+		-- 		params,
+		-- 		plugin.Target.enew,
+		-- 		nil,
+		-- 		plugin.config.command_model,
+		-- 		template,
+		-- 		plugin.config.command_system_prompt
+		-- 	)
+		-- end,
+
+		-- -- example of adding command which explains the selected code
+		-- Explain = function(plugin, params)
+		-- 	local template = "I have the following code from {{filename}}:\n\n"
+		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
+		-- 		.. "Please respond by explaining the code above."
+		-- 	plugin.Prompt(
+		-- 		params,
+		-- 		plugin.Target.popup,
+		-- 		nil,
+		-- 		plugin.config.command_model,
+		-- 		template,
+		-- 		plugin.config.chat_system_prompt
+		-- 	)
+		-- end,
+	},
 }
 
 --------------------------------------------------------------------------------
@@ -480,7 +511,7 @@ M.setup = function(opts)
 	end
 end
 
-M.target = {
+M.Target = {
 	rewrite = 0, -- for replacing the selection, range or the current line
 	append = 1, -- for appending after the selection, range or the current line
 	prepend = 2, -- for prepending before the selection, range or the current line
@@ -490,14 +521,14 @@ M.target = {
 
 -- creates prompt commands for each target
 M.prepare_commands = function()
-	for name, target in pairs(M.target) do
+	for name, target in pairs(M.Target) do
 		-- uppercase first letter
 		local command = name:gsub("^%l", string.upper)
 
 		-- model to use
 		local model = M.config.command_model
 		-- popup is like ephemeral one off chat
-		if target == M.target.popup then
+		if target == M.Target.popup then
 			model = M.config.chat_model
 		end
 
@@ -510,11 +541,11 @@ M.prepare_commands = function()
 			if params.range == 2 then
 				template = M.config.template_selection
 				-- rewrite needs custom template
-				if target == M.target.rewrite then
+				if target == M.Target.rewrite then
 					template = M.config.template_rewrite
 				end
 			end
-			M.prompt(params, target, prefix, model, template, system_prompt)
+			M.Prompt(params, target, prefix, model, template, system_prompt)
 		end
 	end
 end
@@ -1257,8 +1288,8 @@ end
 -- Prompt logic
 --------------------
 
-M.prompt = function(params, target, prompt, model, template, system_template)
-	target = target or M.target.enew
+M.Prompt = function(params, target, prompt, model, template, system_template)
+	target = target or M.Target.enew
 
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
@@ -1299,26 +1330,26 @@ M.prompt = function(params, target, prompt, model, template, system_template)
 		M._H.feedkeys("<esc>", "x")
 
 		-- mode specific logic
-		if target == M.target.rewrite then
+		if target == M.Target.rewrite then
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
 			handler = M.create_handler(buf, start_line - 1, true)
-		elseif target == M.target.append then
+		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "", "" }, "l", true, true)
 			-- prepare handler
 			handler = M.create_handler(buf, end_line + 1, true)
-		elseif target == M.target.prepend then
+		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "", "" }, "l", false, true)
 			-- prepare handler
 			handler = M.create_handler(buf, start_line - 1, true)
-		elseif target == M.target.enew then
+		elseif target == M.Target.enew then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
 			-- set the created buffer as the current buffer
@@ -1327,7 +1358,7 @@ M.prompt = function(params, target, prompt, model, template, system_template)
 			vim.api.nvim_buf_set_option(buf, "filetype", filetype)
 			-- prepare handler
 			handler = M.create_handler(buf, 0, false)
-		elseif target == M.target.popup then
+		elseif target == M.Target.popup then
 			-- create a new buffer
 			buf, _, _, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
 				return w / 2, h / 2, h / 4, w / 4

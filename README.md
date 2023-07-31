@@ -74,28 +74,6 @@ local conf = {
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
 	-- prefix for all commands
 	cmd_prefix = "Gp",
-	-- example hook functions
-	hooks = {
-		InspectPlugin = function(plugin, params)
-			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
-			print(string.format("Command params:\n%s", vim.inspect(params)))
-		end,
-
-		-- -- example of making :%GpChatNew a dedicated command which
-		-- -- opens new chat with the entire current buffer as a context
-		-- BufferChatNew = function(plugin, _)
-		--     -- call GpChatNew command in range mode on whole buffer
-		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
-		-- end,
-
-		-- -- example of adding a custom chat command with non-default parameters
-		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
-		-- CustomChatNew = function(plugin, params)
-		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
-		-- 	local chat_system_prompt = "You are a general AI assistant."
-		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
-		-- end,
-	},
 
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
@@ -134,6 +112,59 @@ local conf = {
 	template_rewrite = "I have the following code from {{filename}}:\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the formated final code. !!And please: No ``` code ``` blocks.",
 	template_command = "{{command}}",
+
+	-- example hook functions (see Extend functionality section in the README)
+	hooks = {
+		InspectPlugin = function(plugin, params)
+			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
+			print(string.format("Command params:\n%s", vim.inspect(params)))
+		end,
+
+		-- -- example of making :%GpChatNew a dedicated command which
+		-- -- opens new chat with the entire current buffer as a context
+		-- BufferChatNew = function(plugin, _)
+		--     -- call GpChatNew command in range mode on whole buffer
+		--     vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
+		-- end,
+
+		-- -- example of adding a custom chat command with non-default parameters
+		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+		-- CustomChatNew = function(plugin, params)
+		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+		-- 	local chat_system_prompt = "You are a general AI assistant."
+		-- 	plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
+		-- end,
+
+		-- -- example of adding command which writes unit tests for the selected code
+		-- UnitTests = function(plugin, params)
+		-- 	local template = "I have the following code from {{filename}}:\n\n"
+		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
+		-- 		.. "Please respond by writing table driven unit tests for the code above."
+		-- 	plugin.Prompt(
+		-- 		params,
+		-- 		plugin.Target.enew,
+		-- 		nil,
+		-- 		plugin.config.command_model,
+		-- 		template,
+		-- 		plugin.config.command_system_prompt
+		-- 	)
+		-- end,
+
+		-- -- example of adding command which explains the selected code
+		-- Explain = function(plugin, params)
+		-- 	local template = "I have the following code from {{filename}}:\n\n"
+		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
+		-- 		.. "Please respond by explaining the code above."
+		-- 	plugin.Prompt(
+		-- 		params,
+		-- 		plugin.Target.popup,
+		-- 		nil,
+		-- 		plugin.config.command_model,
+		-- 		template,
+		-- 		plugin.config.chat_system_prompt
+		-- 	)
+		-- end,
+	},
 }
 
 ...
@@ -281,10 +312,68 @@ require("which-key").register({
 
 You can extend/override the plugin functionality with your own, by putting functions into `config.hooks`.
 Hooks have access to everything (see `InspectPlugin` example in defaults) and are 
-automatically registered as commands (`GpInspectPlugin`).  
+automatically registered as commands (`GpInspectPlugin`).
 
-The raw plugin text editing method `prompt`  has six aprameters:
-- `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
+Here are some examples:
+- `:GpBufferChatNew`
+    ``` lua
+    -- example of making :%GpChatNew a dedicated command which
+    -- opens new chat with the entire current buffer as a context
+    BufferChatNew = function(plugin, _)
+        -- call GpChatNew command in range mode on whole buffer
+        vim.api.nvim_command("%" .. plugin.config.cmd_prefix .. "ChatNew")
+    end,
+    ```
+
+- `:GpBetterChatNew`
+    ``` lua
+    -- example of adding a custom chat command with non-default parameters
+    -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+    BetterChatNew = function(plugin, params)
+        local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+        local chat_system_prompt = "You are a general AI assistant."
+        plugin.cmd.ChatNew(params, chat_model, chat_system_prompt)
+    end,
+    ```
+
+- `:GpUnitTests`
+    ``` lua
+    -- example of adding command which writes unit tests for the selected code
+    UnitTests = function(plugin, params)
+        local template = "I have the following code from {{filename}}:\n\n"
+            .. "```{{filetype}}\n{{selection}}\n```\n\n"
+            .. "Please respond by writing table driven unit tests for the code above."
+        plugin.Prompt(
+            params,
+            plugin.Target.enew,
+            nil,
+            plugin.config.command_model,
+            template,
+            plugin.config.command_system_prompt
+        )
+    end,
+    ```
+
+- `:GpExplain`
+    ``` lua
+    -- example of adding command which explains the selected code
+    Explain = function(plugin, params)
+        local template = "I have the following code from {{filename}}:\n\n"
+            .. "```{{filetype}}\n{{selection}}\n```\n\n"
+            .. "Please respond by explaining the code above."
+        plugin.Prompt(
+            params,
+            plugin.Target.popup,
+            nil,
+            plugin.config.command_model,
+            template,
+            plugin.config.chat_system_prompt
+        )
+    end,
+    ```
+
+The raw plugin text editing method `Prompt`  has six aprameters:
+- `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
     ``` lua
     params = {
           args = "",
