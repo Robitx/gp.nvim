@@ -58,6 +58,21 @@ local config = {
 			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
 
+		-- GpImplememnt implements the provided selection/range based on comments in the code
+		Implement = function(gp, params)
+			local template = "I have the following code from {{filename}}:\n\n"
+				.. "```{{filetype}}\n{{selection}}\n```\n\n"
+				.. "Please respond by finishing the code above according to comment instructions."
+			gp.Prompt(
+				params,
+				gp.Target.rewrite,
+				nil, -- command will run directly without any prompting for user input
+				gp.config.command_model,
+				template,
+				gp.config.command_system_prompt
+			)
+		end,
+
 		-- your own functions can go here, see README for more examples like
 		-- :GpExplain, :GpUnitTests.., :GpBetterChatNew, ..
 

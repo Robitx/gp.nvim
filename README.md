@@ -122,6 +122,21 @@ local conf = {
 			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
 
+		-- GpImplement finishes the provided selection/range based on comments in the code
+		Implement = function(gp, params)
+			local template = "I have the following code from {{filename}}:\n\n"
+				.. "```{{filetype}}\n{{selection}}\n```\n\n"
+				.. "Please respond by finishing the code above according to comment instructions."
+			gp.Prompt(
+				params,
+				gp.Target.rewrite,
+				nil, -- command will run directly without any prompting for user input
+				gp.config.command_model,
+				template,
+				gp.config.command_system_prompt
+			)
+		end,
+
 		-- your own functions can go here, see README for more examples like
 		-- :GpExplain, :GpUnitTests.., :GpBetterChatNew, ..
 
@@ -149,7 +164,9 @@ require("gp").setup(conf)
 	- `:GpAppend` - answers after the current line, visual selection or range
 	- `:GpPrepend` - answers before the current line, selection or range
 	- `:GpEnew` - answers into new buffer
-	- `:GpPopup` - answers into pop up window  
+	- `:GpPopup` - answers into pop up window
+	- `:GpImplement` - default example hook command for finishing the code
+	  in visual selection or range based on provided comments
 
   all these command work either:
     - as pure user commands without any other context in normal/insert mode
