@@ -601,6 +601,8 @@ M.query = function(payload, handler, on_exit)
 
 	-- clear response
 	M._response = ""
+	M._first_line = -1
+	M._last_line = -1
 
 	-- prepare pipes
 	local stdout = vim.loop.new_pipe(false)
@@ -706,6 +708,8 @@ M.create_handler = function(buf, line, first_undojoin)
 		-- move cursor to end of response
 		local end_line = first_line + #vim.split(response, "\n")
 		vim.api.nvim_win_set_cursor(0, { end_line, 0 })
+		M._first_line = first_line
+		M._last_line = end_line - 1
 	end)
 end
 
@@ -1321,9 +1325,23 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 	end
 
 	local callback = function(command)
-		-- dummy handler and on_exit
+		-- dummy handler
 		local handler = function() end
-		local on_exit = function() end
+		-- default on_exit strips trailing backticks if response was markdown snippet
+		local on_exit = function()
+			-- get content of M._first_line and M._last_line
+			local fl = vim.api.nvim_buf_get_lines(buf, M._first_line, M._first_line + 1, false)[1]
+			local ll = vim.api.nvim_buf_get_lines(buf, M._last_line, M._last_line + 1, false)[1]
+			-- if fl and ll starts with triple backticks, remove these lines
+			if fl and ll and fl:match("^```") and ll:match("^```") then
+				-- remove first line with undojoin
+				vim.cmd("undojoin")
+				vim.api.nvim_buf_set_lines(buf, M._first_line, M._first_line + 1, false, {})
+				-- remove last line
+				vim.cmd("undojoin")
+				vim.api.nvim_buf_set_lines(buf, M._last_line - 1, M._last_line, false, {})
+			end
+		end
 
 		-- prepare messages
 		local messages = {}
