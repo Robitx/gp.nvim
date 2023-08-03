@@ -112,7 +112,7 @@ local conf = {
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following code from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond just with the formated final code. !!And please: No ``` code ``` blocks.",
+		.. "\n\nRespond just with the snippet of code that should be inserted.",
 	template_command = "{{command}}",
 
 	-- example hook functions (see Extend functionality section in the README)
@@ -126,7 +126,9 @@ local conf = {
 		Implement = function(gp, params)
 			local template = "I have the following code from {{filename}}:\n\n"
 				.. "```{{filetype}}\n{{selection}}\n```\n\n"
-				.. "Please respond by finishing the code above according to comment instructions."
+				.. "Please finish the code above according to comment instructions."
+				.. "\n\nRespond just with the snippet of code that should be inserted."
+
 			gp.Prompt(
 				params,
 				gp.Target.rewrite,
