@@ -535,15 +535,16 @@ M.prepare_commands = function()
 		-- uppercase first letter
 		local command = name:gsub("^%l", string.upper)
 
+		local prefix = M.config.command_prompt_prefix
+		local system_prompt = M.config.command_system_prompt
+
 		-- model to use
 		local model = M.config.command_model
 		-- popup is like ephemeral one off chat
 		if target == M.Target.popup then
 			model = M.config.chat_model
+			system_prompt = M.config.chat_system_prompt
 		end
-
-		local prefix = M.config.command_prompt_prefix
-		local system_prompt = M.config.command_system_prompt
 
 		M.cmd[command] = function(params)
 			-- template is chosen dynamically based on mode in which the command is called
@@ -686,6 +687,10 @@ M.create_handler = function(buf, line, first_undojoin)
 
 	local response = ""
 	return vim.schedule_wrap(function(chunk)
+		-- if buf is not valid, stop
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
 		-- undojoin takes previous change into account, so skip it for the first chunk
 		if skip_first_undojoin then
 			skip_first_undojoin = false
@@ -1331,6 +1336,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		local handler = function() end
 		-- default on_exit strips trailing backticks if response was markdown snippet
 		local on_exit = function()
+			-- if buf is not valid, return
+			if not vim.api.nvim_buf_is_valid(buf) then
+				return
+			end
+
 			-- get content of M._first_line and M._last_line
 			local fl = vim.api.nvim_buf_get_lines(buf, M._first_line, M._first_line + 1, false)[1]
 			local ll = vim.api.nvim_buf_get_lines(buf, M._last_line, M._last_line + 1, false)[1]
