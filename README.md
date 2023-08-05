@@ -174,6 +174,7 @@ require("gp").setup(conf)
     - as pure user commands without any other context in normal/insert mode
     - with current selection (using whole lines) as a context in visual/Visual mode
     - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
+- To stop the stream of currently running gpt response you can use `:GpStop`
 - Run your own custom hook commands:
     - `:GpInspectPlugin` - inspect GPT prompt plugin object
 
@@ -213,6 +214,8 @@ vim.keymap.set("v", "<C-g>a", ":<C-u>'<,'>GpAppend<cr>", keymapOptions("Visual A
 vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual Prepend"))
 vim.keymap.set("v", "<C-g>e", ":<C-u>'<,'>GpEnew<cr>", keymapOptions("Visual Enew"))
 vim.keymap.set("v", "<C-g>p", ":<C-u>'<,'>GpPopup<cr>", keymapOptions("Visual Popup"))
+
+vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
 ```
 
 #### Whichkey
@@ -231,6 +234,7 @@ require("which-key").register({
 		b = { ":<C-u>'<,'>GpPrepend<cr>", "Visual Prepend" },
 		e = { ":<C-u>'<,'>GpEnew<cr>", "Visual Enew" },
 		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
+		s = { "<cmd>GpStop<cr>", "Stop" },
 	},
     -- ...
 }, {
@@ -254,6 +258,7 @@ require("which-key").register({
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
+		s = { "<cmd>GpStop<cr>", "Stop" },
 	},
     -- ...
 }, {
@@ -277,6 +282,7 @@ require("which-key").register({
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
+		s = { "<cmd>GpStop<cr>", "Stop" },
 	},
     -- ...
 }, {

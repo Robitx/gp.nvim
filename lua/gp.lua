@@ -612,7 +612,7 @@ M.query = function(payload, handler, on_exit)
 	local stderr = vim.loop.new_pipe(false)
 
 	-- spawn curl process
-	vim.loop.spawn("curl", {
+	M._handle, M._pid = vim.loop.spawn("curl", {
 		args = {
 			"--no-buffer",
 			"-s",
@@ -677,6 +677,16 @@ M.query = function(payload, handler, on_exit)
 			print("stderr data: " .. vim.inspect(chunk))
 		end
 	end)
+end
+
+-- stop recieving gpt response
+M.cmd.Stop = function()
+	if M._handle ~= nil and not M._handle:is_closing() then
+		M._handle:close()
+		vim.loop.kill(M._pid, 15)
+		M._handle = nil
+		M._pid = nil
+	end
 end
 
 -- response handler
