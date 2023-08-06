@@ -133,7 +133,7 @@ M = {
 -- Generic helper functions
 --------------------------------------------------------------------------------
 
--- fn: function gets wrapped so it only gets called once
+---@param fn function # function to wrap so it only gets called once
 _H.once = function(fn)
 	local once = false
 	return function(...)
@@ -145,19 +145,19 @@ _H.once = function(fn)
 	end
 end
 
--- keys: string of keystrokes
--- mode: string of vim mode ('n', 'i', 'c', etc.), default is 'n'
+---@param keys string # string of keystrokes
+---@param mode string # string of vim mode ('n', 'i', 'c', etc.), default is 'n'
 _H.feedkeys = function(keys, mode)
 	mode = mode or "n"
 	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
 	vim.api.nvim_feedkeys(keys, mode, true)
 end
 
--- buffers: table of buffers
--- mode: string - mode to set keymap
--- key: string - key to set keymap
--- callback: function - callback to set keymap
--- desc: string - description for keymap
+---@param buffers table # table of buffers
+---@param mode table | string # mode(s) to set keymap for
+---@param key string # shortcut key
+---@param callback function | string # callback or string to set keymap
+---@param desc string | nil # optional description for keymap
 _H.set_keymap = function(buffers, mode, key, callback, desc)
 	for _, buf in ipairs(buffers) do
 		vim.keymap.set(mode, key, callback, {
@@ -170,10 +170,10 @@ _H.set_keymap = function(buffers, mode, key, callback, desc)
 	end
 end
 
--- events: string or table - events to listen to
--- buffers: table - buffers to listen to (nil for all buffers)
--- callback: function - callback to call
--- gid: int - augroup id
+---@param events string | table # events to listen to
+---@param buffers table | nil # buffers to listen to (nil for all buffers)
+---@param callback function # callback to call
+---@param gid number # augroup id
 _H.autocmd = function(events, buffers, callback, gid)
 	if buffers then
 		for _, buf in ipairs(buffers) do
@@ -201,9 +201,9 @@ _H.delete_buffer = function(file_name)
 	end
 end
 
--- cmd: string - command to execute
--- args: table - arguments for command
--- callback: function(code, signal, stdout_data, stderr_data)
+---@param cmd string # command to execute
+---@param args table # arguments for command
+---@param callback function # callback function(code, signal, stdout_data, stderr_data)
 _H.process = function(cmd, args, callback)
 	local handle
 	local stdout = vim.loop.new_pipe(false)
@@ -246,9 +246,9 @@ _H.process = function(cmd, args, callback)
 	end)
 end
 
--- directory: string - directory to search in
--- pattern: string - pattern to search for
--- callback: function(results, regex)
+---@param directory string # directory to search in
+---@param pattern string # pattern to search for
+---@param callback function # callback function(results, regex)
 -- results: table of elements with file, lnum and line
 -- regex: string - final regex used for search
 _H.grep_directory = function(directory, pattern, callback)
@@ -286,10 +286,10 @@ _H.grep_directory = function(directory, pattern, callback)
 	end)
 end
 
--- title: string
--- size_func: function(editor_width, editor_height) -> width, height, row, col
--- opts: table - gid=nul, on_leave=false
--- returns: buffer, window, close function, resize function
+---@param title string # title of the popup
+---@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
+---@param opts table # options - gid=nul, on_leave=false
+---returns table with buffer, window, close function, resize function
 _H.create_popup = function(title, size_func, opts)
 	opts = opts or {}
 
@@ -388,7 +388,8 @@ _H.create_popup = function(title, size_func, opts)
 	return buf, win, close, resize
 end
 
--- returns the last line with content of specified buffer
+---@param buf number # buffer number
+---@return number # returns the first line with content of specified buffer
 _H.last_content_line = function(buf)
 	buf = buf or vim.api.nvim_get_current_buf()
 	-- go from end and return number of last nonwhitespace line
@@ -403,7 +404,8 @@ _H.last_content_line = function(buf)
 	return 0
 end
 
--- returns filetype of specified buffer
+---@param buf number # buffer number
+---@return string # returns filetype of specified buffer
 _H.get_filetype = function(buf)
 	return vim.api.nvim_buf_get_option(buf, "filetype")
 end
@@ -428,7 +430,9 @@ _H.template_replace = function(template, key, value)
 	return template
 end
 
--- returns rendered template with keys replaced by values from key_value_pairs
+---@param template string | nil # template string
+---@param key_value_pairs table # table with key value pairs
+---@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
 _H.template_render = function(template, key_value_pairs)
 	if template == nil then
 		return nil
