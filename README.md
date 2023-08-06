@@ -98,6 +98,7 @@ local conf = {
 	-- (be careful to choose something which will work across specified modes)
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
+	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
 
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input
@@ -157,7 +158,10 @@ require("gp").setup(conf)
 
 ### Commands
 - Have ChatGPT experience directly in neovim:
-	- `:GpChatNew` - open fresh chat - either empty or with the visual selection or specified range as a context
+	- `:GpChatNew` - open fresh chat in the current window
+	  (either empty or with the visual selection or specified range as a context)
+	- `:GpChatToggle` - open chat in toggleable popup window
+	  (the last active chat or a fresh one with selection or a range as a context)
 	- `:GpChatFinder` - open a dialog to search through chats
 	- `:GpChatRespond` - request new gpt response for the current chat
   	- `:GpChatDelete` - delete the current chat
@@ -198,6 +202,7 @@ end
 
 -- Chat commands
 vim.keymap.set({"n", "i"}, "<C-g>c", "<cmd>GpChatNew<cr>", keymapOptions("New Chat"))
+vim.keymap.set({"n", "i"}, "<C-g>t", "<cmd>GpChatToggle<cr>", keymapOptions("Toggle Popup Chat"))
 vim.keymap.set({"n", "i"}, "<C-g>f", "<cmd>GpChatFinder<cr>", keymapOptions("Chat Finder"))
 
 -- Prompt commands
@@ -209,6 +214,7 @@ vim.keymap.set({"n", "i"}, "<C-g>p", "<cmd>GpPopup<cr>", keymapOptions("Popup"))
 
 -- Visual commands
 vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
+vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
 vim.keymap.set("v", "<C-g>r", ":<C-u>'<,'>GpRewrite<cr>", keymapOptions("Visual Rewrite"))
 vim.keymap.set("v", "<C-g>a", ":<C-u>'<,'>GpAppend<cr>", keymapOptions("Visual Append"))
 vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual Prepend"))
@@ -228,6 +234,7 @@ require("which-key").register({
     -- ...
 	["<C-g>"] = {
 		c = { ":<C-u>'<,'>GpChatNew<cr>", "Visual Chat New" },
+		t = { ":<C-u>'<,'>GpChatToggle<cr>", "Visual Popup Chat" },
 
 		r = { ":<C-u>'<,'>GpRewrite<cr>", "Visual Rewrite" },
 		a = { ":<C-u>'<,'>GpAppend<cr>", "Visual Append" },
@@ -251,6 +258,7 @@ require("which-key").register({
     -- ...
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
+		t = { "<cmd>GpChatToggle<cr>", "Toggle Popup Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
 
 		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
@@ -275,6 +283,7 @@ require("which-key").register({
     -- ...
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
+		t = { "<cmd>GpChatToggle<cr>", "Toggle Popup Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
 
 		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
