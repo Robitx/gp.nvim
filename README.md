@@ -14,7 +14,8 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 
 The commands now work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3) and the commands with `Visual` prefix were dropped.
 
-Specifically the commands`:GpChatNew`, `:GpRewrite`, `:GpAppend`, `:GpPrepend`, `:GpEnew`, `:GpPopup` and their shortcuts now work across modes, either:
+Specifically the commands`:GpChatNew`, `:GpRewrite`, `:GpAppend`, `:GpPrepend`, `:GpEnew`, `:GpPopup` and  
+their shortcuts now work across modes, either:
 - as pure user commands without context in normal/insert mode
 - with current selection (using whole lines) as a context in visual/Visual mode
 - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
@@ -158,9 +159,9 @@ require("gp").setup(conf)
 
 ### Commands
 - Have ChatGPT experience directly in neovim:
-	- `:GpChatNew` - open fresh chat in the current window
+	- `:GpChatNew` - open fresh chat in the current window  
 	  (either empty or with the visual selection or specified range as a context)
-	- `:GpChatToggle` - open chat in toggleable popup window
+	- `:GpChatToggle` - open chat in toggleable popup window  
 	  (the last active chat or a fresh one with selection or a range as a context)
 	- `:GpChatFinder` - open a dialog to search through chats
 	- `:GpChatRespond` - request new gpt response for the current chat
@@ -171,8 +172,8 @@ require("gp").setup(conf)
 	- `:GpPrepend` - answers before the current line, selection or range
 	- `:GpEnew` - answers into new buffer
 	- `:GpPopup` - answers into pop up window
-	- `:GpImplement` - default example hook command for finishing the code
-	  in visual selection or range based on provided comments
+	- `:GpImplement` - default example hook command for finishing the code  
+	  based on comments provided in visual selection or specified range 
 
   all these command work either:
     - as pure user commands without any other context in normal/insert mode
