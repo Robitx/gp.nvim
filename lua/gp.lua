@@ -190,6 +190,16 @@ _H.autocmd = function(events, buffers, callback, gid)
 	end
 end
 
+---@param file_name string # name of the file for which to delete buffers
+_H.delete_buffer = function(file_name)
+	-- iterate over buffer list and close all buffers with the same name
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file_name then
+			vim.api.nvim_buf_delete(b, { force = true })
+		end
+	end
+end
+
 -- cmd: string - command to execute
 -- args: table - arguments for command
 -- callback: function(code, signal, stdout_data, stderr_data)
@@ -282,8 +292,8 @@ end
 _H.create_popup = function(title, size_func, opts)
 	opts = opts or {}
 
-	-- create scratch buffer
-	local buf = vim.api.nvim_create_buf(false, true)
+	-- create buffer
+	local buf = vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
 
 	-- setting to the middle of the editor
 	local options = {
@@ -369,7 +379,9 @@ _H.create_popup = function(title, size_func, opts)
 	end
 
 	-- cleanup on escape exit
-	_H.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
+	if opts.escape then
+		_H.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
+	end
 
 	resize()
 	return buf, win, close, resize
@@ -748,28 +760,74 @@ Chats are saved automatically. To delete this chat run `%s` shortcut or :%sChatD
 
 %s]]
 
-M.open_chat = function(file_name)
-	-- is it already open in a buffer?
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_get_name(buf) == file_name then
-			for _, win in ipairs(vim.api.nvim_list_wins()) do
-				if vim.api.nvim_win_get_buf(win) == buf then
-					vim.api.nvim_set_current_win(win)
-					return
+M._chat_popup = { win = nil, buf = nil, close = nil }
+
+---@return boolean # true if popup was closed
+M._chat_popup_close = function()
+	if M._chat_popup and M._chat_popup.win and vim.api.nvim_win_is_valid(M._chat_popup.win) then
+		M._chat_popup.close()
+		M._chat_popup = nil
+		return true
+	end
+	return false
+end
+
+---@param file_name string
+---@param popup boolean
+M.open_chat = function(file_name, popup)
+	if popup ~= nil then
+		-- delete buffer with same file name if it exists
+		M._H.delete_buffer(file_name)
+
+		-- close previous popup if it exists
+		M._chat_popup_close()
+
+		-- create popup
+		local b, win, close, _ = M._H.create_popup(M._Name .. " Chat Popup", function(w, h)
+			return w * 0.8, h * 0.8, h * 0.1, w * 0.1
+		end, { on_leave = false, escape = false, persist = true })
+
+		M._chat_popup = { win = win, buf = b, close = close }
+
+		-- read file into buffer and force write it
+		vim.api.nvim_command("silent 0read " .. file_name)
+		vim.api.nvim_command("silent file " .. file_name)
+		vim.api.nvim_command("silent write! " .. file_name)
+
+		-- delete whitespace lines at the end of the file
+		local last_content_line = M._H.last_content_line(b)
+		vim.api.nvim_buf_set_lines(b, last_content_line, -1, false, {})
+		-- insert a new line at the end of the file
+		vim.api.nvim_buf_set_lines(b, -1, -1, false, { "" })
+	else
+		-- is it already open in a buffer?
+		for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_get_name(buf) == file_name then
+				for _, win in ipairs(vim.api.nvim_list_wins()) do
+					if vim.api.nvim_win_get_buf(win) == buf then
+						vim.api.nvim_set_current_win(win)
+						return
+					end
 				end
 			end
 		end
+
+		-- open in new buffer
+		vim.api.nvim_command("edit " .. file_name)
 	end
 
-	-- open in new buffer
-	vim.api.nvim_command("edit " .. file_name)
+	-- make last.md a symlink to the last opened chat file
+	local last = M.config.chat_dir .. "/last.md"
+	if file_name ~= last then
+		os.execute("ln -sf " .. file_name .. " " .. last)
+	end
+
 	-- disable swapping for this buffer and set filetype to markdown
 	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
 	-- better text wrapping
 	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
 	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
-
 	-- register shortcuts local to this buffer
 	local buf = vim.api.nvim_get_current_buf()
 	-- respond shortcut
@@ -787,9 +845,12 @@ M.open_chat = function(file_name)
 	vim.opt_local.concealcursor = ""
 	vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
 	vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
+
+	-- move cursor to a new line at the end of the file
+	M._H.feedkeys("G", "x")
 end
 
-M.cmd.ChatNew = function(params, model, system_prompt)
+M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	-- prepare filename
 	local time = os.date("%Y-%m-%d_%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
@@ -840,24 +901,37 @@ M.cmd.ChatNew = function(params, model, system_prompt)
 
 	-- create chat file
 	os.execute("touch " .. filename)
+	os.execute("echo '" .. template .. "' > " .. filename)
 
 	-- open and configure chat file
-	M.open_chat(filename)
+	M.open_chat(filename, popup)
+end
 
-	-- write chat template
-	vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(template, "\n"))
+M.cmd.ChatToggle = function(params, model, system_prompt)
+	-- close popup if it's open
+	if M._chat_popup_close() then
+		return
+	end
 
-	-- move cursor to a new line at the end of the file
-	M._H.feedkeys("G", "x")
+	-- if the range is 2, we want to create a new chat file with the selection
+	if params.range ~= 2 then
+		-- check if last.md chat file exists and open it
+		local last = M.config.chat_dir .. "/last.md"
+		if vim.fn.filereadable(last) == 1 then
+			-- resolve symlink
+			last = vim.fn.resolve(last)
+			M.open_chat(last, true)
+			return
+		end
+	end
+
+	-- create new chat file otherwise
+	M.cmd.ChatNew(params, model, system_prompt, true)
 end
 
 M.delete_chat = function(file)
 	-- iterate over buffer list and close all buffers with the same name
-	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file then
-			vim.api.nvim_buf_delete(b, { force = true })
-		end
-	end
+	M._H.delete_buffer(file)
 	os.remove(file)
 end
 
@@ -1059,7 +1133,7 @@ M.cmd.ChatFinder = function()
 	local hfactor = 0.7
 	local preview_ratio = 0.6
 	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
-		"Picker (j/k, <enter>|Open, <esc>|Exit, dd|delete, i|Search)",
+		"Picker: j/k <Esc> <Enter> <Alt+Enter>|Pop dd|Del i|Srch",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
 			local ww = math.ceil(w * wfactor)
@@ -1087,7 +1161,7 @@ M.cmd.ChatFinder = function()
 	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
 
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
-		"Search (<tab>|Next match, <esc>/<enter>|Picker, <esc><esc>|Exit, <enter><enter>|Open)",
+		"Search: <Tab>/<Shift+Tab>|Navigate <Esc>/<Enter>|Picker 2x<Esc>|Exit 2x<Enter>|Open 2x<Alt+Enter>|Popup",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
 			local ww = math.ceil(w * wfactor)
@@ -1196,8 +1270,9 @@ M.cmd.ChatFinder = function()
 			if picker_match_id ~= 0 then
 				vim.fn.matchdelete(picker_match_id, picker_win)
 			end
+
+			picker_match_id = 0
 			if regex == "" then
-				picker_match_id = 0
 				return
 			end
 			picker_match_id = vim.fn.matchadd(hl_group, regex, 0, -1, { window = picker_win })
@@ -1246,8 +1321,7 @@ M.cmd.ChatFinder = function()
 	-- close by escape key on any window
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
 
-	-- enter on picker window will open file
-	_H.set_keymap({ picker_buf }, "n", "<cr>", function()
+	local open_chat = function(popup)
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local file = picker_files[index]
 		close()
@@ -1256,11 +1330,14 @@ M.cmd.ChatFinder = function()
 			if not file then
 				return
 			end
-			M.open_chat(file)
-
-			-- move cursor to a new line at the end of the file
-			M._H.feedkeys("G", "x")
+			M.open_chat(file, popup)
 		end, 200)
+	end
+
+	-- enter on picker window will open file
+	_H.set_keymap({ picker_buf }, "n", "<cr>", open_chat)
+	_H.set_keymap({ picker_buf }, "n", "<a-cr>", function()
+		open_chat(true)
 	end)
 
 	-- enter on preview window will go to picker window
