@@ -34,6 +34,7 @@ local config = {
 	-- (be careful to choose something which will work across specified modes)
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
+	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
 
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input
@@ -753,8 +754,9 @@ M.chat_template = [[
 - file: %s
 - role: %s
 
-Write your queries after %s. Run `%s` shortcut or :%sChatRespond to generate response.
-Chats are saved automatically. To delete this chat run `%s` shortcut or :%sChatDelete.
+Write your queries after %s. Use the `%s` shortcut or :%sChatRespond command to generate a response.
+Chats are saved automatically. To delete this chat, use the `%s` shortcut or :%sChatDelete command.
+Be cautious of very long chats. Start a fresh chat by using the `%s` shortcut or :%sChatNew command.
 
 ---
 
@@ -836,6 +838,16 @@ M.open_chat = function(file_name, popup)
 	-- delete shortcut
 	local ds = M.config.chat_shortcut_delete
 	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+	-- new shortcut
+	local ns = M.config.chat_shortcut_new
+	local cmd = M.config.cmd_prefix .. "ChatNew<cr>"
+	for _, mode in ipairs(ns.modes) do
+		if mode == "n" or mode == "i" then
+			_H.set_keymap({ buf }, mode, ns.shortcut, ":" .. cmd, "GPT prompt Chat New")
+		else
+			_H.set_keymap({ buf }, mode, ns.shortcut, ":<C-u>'<,'>" .. cmd, "GPT prompt Chat New")
+		end
+	end
 
 	-- conceal parameters in model header so it's not distracting
 	if not M.config.chat_conceal_model_params then
@@ -851,6 +863,12 @@ M.open_chat = function(file_name, popup)
 end
 
 M.cmd.ChatNew = function(params, model, system_prompt, popup)
+	-- if popup chat is open, close it and start a new one
+	if M._chat_popup_close() then
+		M.cmd.ChatNew(params, model, system_prompt, true)
+		return
+	end
+
 	-- prepare filename
 	local time = os.date("%Y-%m-%d_%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
@@ -876,6 +894,8 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 		M.config.chat_shortcut_respond.shortcut,
 		M.config.cmd_prefix,
 		M.config.chat_shortcut_delete.shortcut,
+		M.config.cmd_prefix,
+		M.config.chat_shortcut_new.shortcut,
 		M.config.cmd_prefix,
 		M.config.chat_user_prefix
 	)
