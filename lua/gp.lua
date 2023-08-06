@@ -754,9 +754,9 @@ M.chat_template = [[
 - file: %s
 - role: %s
 
-Write your queries after %s. Use the `%s` shortcut or :%sChatRespond command to generate a response.
-Chats are saved automatically. To delete this chat, use the `%s` shortcut or :%sChatDelete command.
-Be cautious of very long chats. Start a fresh chat by using the `%s` shortcut or :%sChatNew command.
+Write your queries after %s. Use `%s` or :%sChatRespond to generate a response.
+Chats are saved automatically. To delete this chat, use `%s` or :%sChatDelete.
+Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
 
 ---
 
