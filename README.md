@@ -29,7 +29,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
 	- multimodal - same command works for normal/insert mode, with selection or a range
 	- many possible output targets - rewrite, prepend, append, new buffer, popup
 	- non interactive command mode available for common repetitive tasks implementable as simple hooks  
-	  (explain something in a popup window, write unit tests for selected code, finish code based on comments in it, etc.)
+	  (explain something in a popup window, write unit tests for selected code into a new buffer, finish selected code based on comments in it, etc.)
 
 ## Changelog
 ### !! Version 1.x.x brings a breaking change !!
