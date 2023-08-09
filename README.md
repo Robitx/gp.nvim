@@ -21,8 +21,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
 - **ChatGPT like sessions**
 	- just good old neovim buffers formated as markdown with autosave and few buffer bound shortcuts
 	- last chat also quickly accessible via toggable popup window
-	- chat finder - management popup for searching, previewing, deleting and opening chat sessions
-	- 
+	- chat finder - management popup for searching, previewing, deleting and opening chat sessions 
 - **Instructable text/code operations**
 	- templating mechanism to combine user instructions, selections etc into the gpt query
 	- multimodal - same command works for normal/insert mode, with selection or a range
