@@ -8,6 +8,28 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 </p>
 
 ### [Here is the full 5 minute example of using the plugin](https://youtu.be/UBc5dL1qBrc)
+## Goals and Features
+The goal is to extend Neovim with the **power of GPT models in a simple unobtrusive extensible way.**  
+Trying to keep things as native as possible - reusing and integrating well with the natural features of (Neo)vim.
+- **Streaming responses**
+	- no spinner wheel and waiting for the full answer
+	- response generation can be canceled half way through
+	- properly working undo (response can be undone with a single `u`)
+- **Infinitely extensible** via hook functions specified as part of the config
+	- hooks have access to everything in the plugin and are automatically registered as commands
+	- see [Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
+- **ChatGPT like sessions**
+	- just good old neovim buffers formated as markdown with autosave and few buffer bound shortcuts
+	- last chat also quickly accessible via toggable popup window
+	- chat finder - management popup for searching, previewing, deleting and opening chat sessions
+	- 
+- **Instructable text/code operations**
+	- templating mechanism to combine user instructions, selections etc into the gpt query
+	- multimodal - same command works for normal/insert mode, with selection or a range
+	- many possible output targets - rewrite, prepend, append, new buffer, popup
+	- non interactive command mode available for common repetitive tasks implementable as simple hooks  
+	  (explain something in a popup window, write unit tests for selected code, finish code based on comments in it, etc.)
+
 
 ## Changelog
 ### !! Version 1.x.x brings a breaking change !!
@@ -58,7 +80,7 @@ use({
 
 ### 2. OpenAI API key
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
-and use it in the [config](#configuration) (or **setup env `OPENAI_API_KEY`**).
+and use it in the [config](#4-configuration) (or **setup env `OPENAI_API_KEY`**).
 
 Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
@@ -311,27 +333,6 @@ Hooks have access to everything (see `InspectPlugin` example in defaults) and ar
 automatically registered as commands (`GpInspectPlugin`).
 
 Here are some more examples:
-- `:GpBufferChatNew`
-    ``` lua
-    -- example of making :%GpChatNew a dedicated command which
-    -- opens new chat with the entire current buffer as a context
-    BufferChatNew = function(gp, _)
-        -- call GpChatNew command in range mode on whole buffer
-        vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
-    end,
-    ```
-
-- `:GpBetterChatNew`
-    ``` lua
-    -- example of adding a custom chat command with non-default parameters
-    -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
-    BetterChatNew = function(gp, params)
-        local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
-        local chat_system_prompt = "You are a general AI assistant."
-        gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
-    end,
-    ```
-
 - `:GpUnitTests`
     ``` lua
     -- example of adding command which writes unit tests for the selected code
@@ -353,6 +354,27 @@ Here are some more examples:
             .. "Please respond by explaining the code above."
         gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model,
             template, gp.config.chat_system_prompt)
+    end,
+    ```
+
+- `:GpBufferChatNew`
+    ``` lua
+    -- example of making :%GpChatNew a dedicated command which
+    -- opens new chat with the entire current buffer as a context
+    BufferChatNew = function(gp, _)
+        -- call GpChatNew command in range mode on whole buffer
+        vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
+    end,
+    ```
+
+- `:GpBetterChatNew`
+    ``` lua
+    -- example of adding a custom chat command with non-default parameters
+    -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+    BetterChatNew = function(gp, params)
+        local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+        local chat_system_prompt = "You are a general AI assistant."
+        gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
     end,
     ```
 
