@@ -18,6 +18,8 @@ Trying to keep things as native as possible - reusing and integrating well with 
 - **Infinitely extensible** via hook functions specified as part of the config
 	- hooks have access to everything in the plugin and are automatically registered as commands
 	- see [Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
+- **Minimum dependencies** (`neovim`, `curl` and `grep`)  
+	- zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
 	- just good old neovim buffers formated as markdown with autosave and few buffer bound shortcuts
 	- last chat also quickly accessible via toggable popup window
@@ -28,7 +30,6 @@ Trying to keep things as native as possible - reusing and integrating well with 
 	- many possible output targets - rewrite, prepend, append, new buffer, popup
 	- non interactive command mode available for common repetitive tasks implementable as simple hooks  
 	  (explain something in a popup window, write unit tests for selected code, finish code based on comments in it, etc.)
-
 
 ## Changelog
 ### !! Version 1.x.x brings a breaking change !!
