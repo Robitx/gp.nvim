@@ -924,8 +924,7 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
 
 	-- create chat file
-	os.execute("touch " .. filename)
-	os.execute("echo '" .. template .. "' > " .. filename)
+	vim.fn.writefile(vim.split(template, "\n"), filename)
 
 	-- open and configure chat file
 	M.open_chat(filename, popup)
