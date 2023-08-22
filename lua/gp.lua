@@ -206,15 +206,15 @@ end
 
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
----@param callback function # callback function(code, signal, stdout_data, stderr_data)
+---@param callback function | nil # callback function(code, signal, stdout_data, stderr_data)
 _H.process = function(cmd, args, callback)
-	local handle
+	local handle, pid
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 	local stdout_data = ""
 	local stderr_data = ""
 
-	handle = vim.loop.spawn(
+	handle, pid = vim.loop.spawn(
 		cmd,
 		{
 			args = args,
@@ -226,9 +226,15 @@ _H.process = function(cmd, args, callback)
 			stdout:close()
 			stderr:close()
 			handle:close()
-			callback(code, signal, stdout_data, stderr_data)
+			print(stdout_data)
+			if callback then
+				callback(code, signal, stdout_data, stderr_data)
+			end
 		end)
 	)
+
+	M._handle = handle
+	M._pid = pid
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
@@ -665,16 +671,20 @@ M.query = function(payload, handler, on_exit)
 
 	local buffer = ""
 
-	local function process_line(line)
-		line = line:gsub("^data: ", "")
-		if line:match("chat%.completion%.chunk") then
-			line = vim.json.decode(line)
-			local content = line.choices[1].delta.content
-			if content ~= nil then
-				-- store response for debugging
-				M._response = M._response .. content
-				-- call response handler
-				handler(content)
+	---@param lines_chunk string
+	local function process_lines(lines_chunk)
+		local lines = vim.split(lines_chunk, "\n")
+		for _, line in ipairs(lines) do
+			line = line:gsub("^data: ", "")
+			if line:match("chat%.completion%.chunk") then
+				line = vim.json.decode(line)
+				local content = line.choices[1].delta.content
+				if content ~= nil then
+					-- store response for debugging
+					M._response = M._response .. content
+					-- call response handler
+					handler(content)
+				end
 			end
 		end
 	end
@@ -692,17 +702,13 @@ M.query = function(payload, handler, on_exit)
 				-- save the rest of the buffer for the next chunk
 				buffer = buffer:sub(last_newline_pos + 1)
 
-				-- iterate over complete_lines instead of the chunk
-				local lines = vim.split(complete_lines, "\n")
-				for _, line in ipairs(lines) do
-					process_line(line)
-				end
+				process_lines(complete_lines)
 			end
 		-- chunk is nil when EOF is reached
 		else
 			-- if there's remaining data in the buffer, process it
 			if #buffer > 0 then
-				process_line(buffer)
+				process_lines(buffer)
 			end
 
 			-- optional on_exit handler
@@ -727,6 +733,7 @@ end
 -- stop recieving gpt response
 M.cmd.Stop = function()
 	if M._handle ~= nil and not M._handle:is_closing() then
+		print("stopping")
 		M._handle:close()
 		vim.loop.kill(M._pid, 15)
 		M._handle = nil
@@ -1576,7 +1583,82 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 	end)
 end
 
---[[ M.setup() ]]
---[[ print("gp.lua loaded\n\n") ]]
+---@param callback function # callback function(text)
+M.Whisper = function(callback)
+	-- create popup
+	local b, win, close_popup, _ = M._H.create_popup(M._Name .. " Whisper ", function(w, h)
+		return w * 0.4, h * 0.4, h * 0.3, w * 0.3
+	end, { on_leave = false, escape = false, persist = false })
+	local message = { "Speak your " }
+	vim.api.nvim_buf_set_lines(b, 0, 1, false, message)
+
+	local close = _H.once(function()
+		M.cmd.Stop()
+		close_popup()
+		print("Whisper closed")
+	end)
+
+	_H.set_keymap({ b }, "n", "<esc>", close)
+
+	--[[ if true then ]]
+	--[[ 	return ]]
+	--[[ end ]]
+
+	local cmd =
+		-- create tmp dir
+		"mkdir -p /tmp/whisper && "
+		-- record audio
+		.. "sox -q -c 1 -d /tmp/whisper/to.wav silence 1 0.1 1% 1 1.0 1% &&"
+		-- remove silence, speed up and convert to mp3
+		.. "sox -q /tmp/whisper/to.wav -C 196.5 /tmp/whisper/fo.mp3 silence -l 1 0.2 1% -1 0.5 1% tempo 1.75 && "
+		-- call openai
+		.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
+		.. '-H "Authorization: Bearer '
+		.. M.config.openai_api_key
+		.. '" -H "Content-Type: multipart/form-data" '
+		.. '-F model="whisper-1" -F language="en" -F file="@/tmp/whisper/fo.mp3" '
+		.. '-F response_format="text"'
+	--[[ .. '-F response_format="text" > /tmp/whisper/wo && ' ]]
+	-- type the response
+	--[[ .. 'xdotool type "$(cat /tmp/whisper/wo)"' ]]
+
+	M._H.process("bash", { "-c", cmd }, function(c, _, stdout, _)
+		-- close popup
+		close_popup()
+
+		if c ~= 0 then
+			print("error", c)
+			return
+		end
+
+		if callback and stdout then
+			-- split by newline and join with space
+			stdout = table.concat(vim.split(stdout, "\n"), " ")
+			-- remove trailing whitespace
+			stdout = stdout:gsub("%s+$", "")
+			callback(stdout)
+		end
+	end)
+end
+
+M.cmd.Whisper = function(params)
+	local buf = vim.api.nvim_get_current_buf()
+	local first_line = vim.api.nvim_win_get_cursor(0)[1] - 1
+	M.Whisper(function(text)
+		print(vim.inspect(text))
+
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
+
+		if text then
+			-- put the text in the buffer on current line
+			vim.api.nvim_buf_set_lines(buf, first_line, first_line + 1, false, { text })
+		end
+	end)
+end
+
+M.setup()
+print("gp.lua loaded\n\n")
 
 return M
