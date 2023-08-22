@@ -572,7 +572,7 @@ M.prepare_commands = function()
 			system_prompt = M.config.chat_system_prompt
 		end
 
-		M.cmd[command] = function(params)
+		local cmd = function(params, whisper)
 			-- template is chosen dynamically based on mode in which the command is called
 			local template = M.config.template_command
 			if params.range == 2 then
@@ -582,7 +582,19 @@ M.prepare_commands = function()
 					template = M.config.template_rewrite
 				end
 			end
-			M.Prompt(params, target, prefix, model, template, system_prompt)
+			M.Prompt(params, target, prefix, model, template, system_prompt, whisper)
+		end
+
+		M.cmd[command] = function(params)
+			cmd(params)
+		end
+
+		M.cmd["Whisper" .. command] = function(params)
+			M.Whisper(function(text)
+				vim.schedule(function()
+					cmd(params, text)
+				end)
+			end)
 		end
 	end
 end
@@ -1452,7 +1464,7 @@ end
 -- Prompt logic
 --------------------
 
-M.Prompt = function(params, target, prompt, model, template, system_template)
+M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
 	target = target or M.Target.enew
 
 	-- get current buffer
@@ -1574,7 +1586,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		end
 
 		-- if prompt is provided, ask the user to enter the command
-		vim.ui.input({ prompt = prompt }, function(input)
+		vim.ui.input({ prompt = prompt, default = whisper }, function(input)
 			if not input or input == "" then
 				return
 			end
@@ -1586,7 +1598,7 @@ end
 ---@param callback function # callback function(text)
 M.Whisper = function(callback)
 	-- create popup
-	local b, win, close_popup, _ = M._H.create_popup(M._Name .. " Whisper ", function(w, h)
+	local b, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper ", function(w, h)
 		return w * 0.4, h * 0.4, h * 0.3, w * 0.3
 	end, { on_leave = false, escape = false, persist = false })
 	local message = { "Speak your " }
@@ -1643,17 +1655,23 @@ end
 
 M.cmd.Whisper = function(params)
 	local buf = vim.api.nvim_get_current_buf()
-	local first_line = vim.api.nvim_win_get_cursor(0)[1] - 1
-	M.Whisper(function(text)
-		print(vim.inspect(text))
+	local start_line = vim.api.nvim_win_get_cursor(0)[1]
+	local end_line = start_line
 
+	-- handle range
+	if params.range == 2 then
+		start_line = params.line1
+		end_line = params.line2
+	end
+
+	M.Whisper(function(text)
+		-- if buf is not valid, stop
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
 		end
 
 		if text then
-			-- put the text in the buffer on current line
-			vim.api.nvim_buf_set_lines(buf, first_line, first_line + 1, false, { text })
+			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
 		end
 	end)
 end
