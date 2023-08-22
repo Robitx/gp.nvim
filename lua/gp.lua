@@ -663,29 +663,48 @@ M.query = function(payload, handler, on_exit)
 		vim.loop.close(stderr)
 	end)
 
+	local buffer = ""
+
+	local function process_line(line)
+		line = line:gsub("^data: ", "")
+		if line:match("chat%.completion%.chunk") then
+			line = vim.json.decode(line)
+			local content = line.choices[1].delta.content
+			if content ~= nil then
+				-- store response for debugging
+				M._response = M._response .. content
+				-- call response handler
+				handler(content)
+			end
+		end
+	end
+
 	-- read stdout
 	vim.loop.read_start(stdout, function(err, chunk)
 		if err then
 			M.error("OpenAI query stdout error: " .. vim.inspect(err))
 		elseif chunk then
-			-- iterate over lines
-			local lines = vim.split(chunk, "\n")
-			for _, line in ipairs(lines) do
-				-- parse out content for handler
-				line = line:gsub("^data: ", "")
-				if line:match("chat%.completion%.chunk") then
-					line = vim.json.decode(line)
-					local content = line.choices[1].delta.content
-					if content ~= nil then
-						-- store response for debugging
-						M._response = M._response .. content
-						-- call response handler
-						handler(content)
-					end
+			-- add the incoming chunk to the buffer
+			buffer = buffer .. chunk
+			local last_newline_pos = buffer:find("\n[^\n]*$")
+			if last_newline_pos then
+				local complete_lines = buffer:sub(1, last_newline_pos - 1)
+				-- save the rest of the buffer for the next chunk
+				buffer = buffer:sub(last_newline_pos + 1)
+
+				-- iterate over complete_lines instead of the chunk
+				local lines = vim.split(complete_lines, "\n")
+				for _, line in ipairs(lines) do
+					process_line(line)
 				end
 			end
 		-- chunk is nil when EOF is reached
 		else
+			-- if there's remaining data in the buffer, process it
+			if #buffer > 0 then
+				process_line(buffer)
+			end
+
 			-- optional on_exit handler
 			if type(on_exit) == "function" then
 				on_exit()
