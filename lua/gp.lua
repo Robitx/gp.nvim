@@ -733,7 +733,6 @@ end
 -- stop recieving gpt response
 M.cmd.Stop = function()
 	if M._handle ~= nil and not M._handle:is_closing() then
-		print("stopping")
 		M._handle:close()
 		vim.loop.kill(M._pid, 15)
 		M._handle = nil
