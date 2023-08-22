@@ -95,6 +95,9 @@ Here are the default values:
 local conf = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
+	-- api endpoint (you can change this to azure endpoint)
+	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
+	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
 	-- prefix for all commands
 	cmd_prefix = "Gp",
 

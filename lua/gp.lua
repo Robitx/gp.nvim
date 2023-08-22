@@ -8,6 +8,9 @@
 local config = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
+	-- api endpoint (you can change this to azure endpoint)
+	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
+	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
 	-- prefix for all commands
 	cmd_prefix = "Gp",
 
@@ -628,16 +631,22 @@ M.query = function(payload, handler, on_exit)
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 
+	-- try to replace model in endpoint (for azure)
+	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
+
 	-- spawn curl process
 	M._handle, M._pid = vim.loop.spawn("curl", {
 		args = {
 			"--no-buffer",
 			"-s",
-			"https://api.openai.com/v1/chat/completions",
+			endpoint,
 			"-H",
 			"Content-Type: application/json",
+			-- api-key is for azure, authorization is for openai
 			"-H",
 			"Authorization: Bearer " .. M.config.openai_api_key,
+			"-H",
+			"api-key: " .. M.config.openai_api_key,
 			"-d",
 			vim.json.encode(payload),
 			--[[ "--doesnt_exist" ]]
