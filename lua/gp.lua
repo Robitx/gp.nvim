@@ -745,11 +745,15 @@ end
 -- stop recieving gpt response
 M.cmd.Stop = function()
 	if M._handle ~= nil and not M._handle:is_closing() then
-		print("stopping")
 		M._handle:close()
 		vim.loop.kill(M._pid, 15)
 		M._handle = nil
 		M._pid = nil
+	end
+
+	if M._whisper_stop then
+		M._whisper_stop()
+		M._whisper_stop = nil
 	end
 end
 
@@ -1598,17 +1602,48 @@ end
 ---@param callback function # callback function(text)
 M.Whisper = function(callback)
 	-- create popup
-	local b, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper ", function(w, h)
-		return w * 0.4, h * 0.4, h * 0.3, w * 0.3
+	local b, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper", function(w, h)
+		return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
 	end, { on_leave = false, escape = false, persist = false })
-	local message = { "Speak your " }
-	vim.api.nvim_buf_set_lines(b, 0, 1, false, message)
+
+	-- animated instructions in the popup
+	local counter = 0
+	local timer = vim.loop.new_timer()
+	timer:start(
+		0,
+		200,
+		vim.schedule_wrap(function()
+			if vim.api.nvim_buf_is_valid(b) then
+				vim.api.nvim_buf_set_lines(b, 0, -1, false, {
+					"    ",
+					"    Speak 👄 loudly 📣 into microphone 🎤: ",
+					"    " .. string.rep("👂", counter),
+					"    ",
+					"    Avoid long pauses once you start speaking.",
+					"    Transcription starts automatically when",
+					"    you stop speeking for at least one second.",
+					"    ",
+					"    Cancel with <esc> or :GpStop.",
+					"    ",
+					"    Last recording is saved in /tmp/gp_whisper/.",
+				})
+			end
+			counter = counter + 1
+			if counter % 20 == 0 then
+				counter = 0
+			end
+		end)
+	)
 
 	local close = _H.once(function()
-		M.cmd.Stop()
+		if timer then
+			timer:stop()
+			timer:close()
+		end
 		close_popup()
-		print("Whisper closed")
+		M.cmd.Stop()
 	end)
+	M._whisper_stop = close
 
 	_H.set_keymap({ b }, "n", "<esc>", close)
 
@@ -1618,37 +1653,38 @@ M.Whisper = function(callback)
 
 	local cmd =
 		-- create tmp dir
-		"mkdir -p /tmp/whisper && "
+		"mkdir -p /tmp/gp_whisper && cd /tmp/gp_whisper && "
 		-- record audio
-		.. "sox -q -c 1 -d /tmp/whisper/to.wav silence 1 0.1 1% 1 1.0 1% &&"
+		.. "sox -q -c 1 -d rec.wav silence 1 0.1 1% 1 1.0 1% &&"
 		-- remove silence, speed up and convert to mp3
-		.. "sox -q /tmp/whisper/to.wav -C 196.5 /tmp/whisper/fo.mp3 silence -l 1 0.2 1% -1 0.5 1% tempo 1.75 && "
+		.. "sox -q rec.wav -C 196.5 rec.mp3 silence -l 1 0.2 1% -1 0.5 1% tempo 1.75 && "
 		-- call openai
 		.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
 		.. '-H "Authorization: Bearer '
 		.. M.config.openai_api_key
 		.. '" -H "Content-Type: multipart/form-data" '
-		.. '-F model="whisper-1" -F language="en" -F file="@/tmp/whisper/fo.mp3" '
-		.. '-F response_format="text"'
-	--[[ .. '-F response_format="text" > /tmp/whisper/wo && ' ]]
-	-- type the response
-	--[[ .. 'xdotool type "$(cat /tmp/whisper/wo)"' ]]
+		.. '-F model="whisper-1" -F language="en" -F file="@rec.mp3" '
+		.. '-F response_format="json"'
 
-	M._H.process("bash", { "-c", cmd }, function(c, _, stdout, _)
-		-- close popup
-		close_popup()
+	M._H.process("bash", { "-c", cmd }, function(code, signal, stdout, _)
+		close()
 
-		if c ~= 0 then
-			print("error", c)
+		if code ~= 0 then
+			M.error(string.format("Whisper query exited: %d, %d", code, signal))
 			return
 		end
 
+		local text = vim.json.decode(stdout).text
+		if not text then
+			M.error("Whisper query no text: " .. vim.inspect(stdout))
+			return
+		end
+
+		text = table.concat(vim.split(text, "\n"), " ")
+		text = text:gsub("%s+$", "")
+
 		if callback and stdout then
-			-- split by newline and join with space
-			stdout = table.concat(vim.split(stdout, "\n"), " ")
-			-- remove trailing whitespace
-			stdout = stdout:gsub("%s+$", "")
-			callback(stdout)
+			callback(text)
 		end
 	end)
 end
