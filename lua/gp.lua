@@ -1601,6 +1601,12 @@ end
 
 ---@param callback function # callback function(text)
 M.Whisper = function(callback)
+	-- make sure sox is installed
+	if vim.fn.executable("sox") == 0 then
+		M.error("sox is not installed")
+		return
+	end
+
 	-- create popup
 	local b, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper", function(w, h)
 		return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
@@ -1652,7 +1658,7 @@ M.Whisper = function(callback)
 	--[[ end ]]
 
 	local cmd =
-		-- create tmp dir
+		-- create tmp dir and move there
 		"mkdir -p /tmp/gp_whisper && cd /tmp/gp_whisper && "
 		-- record audio
 		.. "sox -q -c 1 -d rec.wav silence 1 0.1 1% 1 1.0 1% &&"
@@ -1712,7 +1718,7 @@ M.cmd.Whisper = function(params)
 	end)
 end
 
-M.setup()
-print("gp.lua loaded\n\n")
+--[[ M.setup() ]]
+--[[ print("gp.lua loaded\n\n") ]]
 
 return M
