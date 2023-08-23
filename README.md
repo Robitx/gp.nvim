@@ -18,7 +18,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
 - **Infinitely extensible** via hook functions specified as part of the config
 	- hooks have access to everything in the plugin and are automatically registered as commands
 	- see [Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
-- **Minimum dependencies** (`neovim`, `curl` and `grep`)  
+- **Minimum dependencies** (`neovim`, `curl`, `grep` and optionally `sox`)  
 	- zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
 	- just good old neovim buffers formated as markdown with autosave and few buffer bound shortcuts
@@ -85,7 +85,9 @@ and use it in the [config](#4-configuration) (or **setup env `OPENAI_API_KEY`**)
 Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 ### 3. Dependencies
-The plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux / BSD / Mac OS should be covered.
+The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux / BSD / Mac OS should be covered.
+
+Voice commands depend on `SoX` (Sound eXchange) which handles audio recording and processing.
 
 ### 4. Configuration
 
@@ -204,6 +206,13 @@ require("gp").setup(conf)
     - as pure user commands without any other context in normal/insert mode
     - with current selection (using whole lines) as a context in visual/Visual mode
     - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
+- Voice commands transcribed by Whisper API:
+    - `:GpWhisper` - transcription replaces the current line, visual selection or range
+	- `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
+	- `:GpWhisperAppend` - answers after the current line, visual selection or range
+	- `:GpWhisperPrepend` - answers before the current line, selection or range
+	- `:GpWhisperEnew` - answers into new buffer
+	- `:GpWhisperPopup` - answers into pop up window
 - To stop the stream of currently running gpt response you can use `:GpStop`
 - Run your own custom hook commands:
     - `:GpInspectPlugin` - inspect GPT prompt plugin object
@@ -238,6 +247,9 @@ vim.keymap.set({"n", "i"}, "<C-g>b", "<cmd>GpPrepend<cr>", keymapOptions("Prepen
 vim.keymap.set({"n", "i"}, "<C-g>e", "<cmd>GpEnew<cr>", keymapOptions("Enew"))
 vim.keymap.set({"n", "i"}, "<C-g>p", "<cmd>GpPopup<cr>", keymapOptions("Popup"))
 
+-- Voice commands
+vim.keymap.set({"n", "i"}, "<C-g>w", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
+
 -- Visual commands
 vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
 vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
@@ -246,6 +258,8 @@ vim.keymap.set("v", "<C-g>a", ":<C-u>'<,'>GpAppend<cr>", keymapOptions("Visual A
 vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual Prepend"))
 vim.keymap.set("v", "<C-g>e", ":<C-u>'<,'>GpEnew<cr>", keymapOptions("Visual Enew"))
 vim.keymap.set("v", "<C-g>p", ":<C-u>'<,'>GpPopup<cr>", keymapOptions("Visual Popup"))
+
+vim.keymap.set("v", "<C-g>w", ":<C-u>'<,'>GpWhisper<cr>", keymapOptions("Whisper"))
 
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
 ```
@@ -268,6 +282,8 @@ require("which-key").register({
 		e = { ":<C-u>'<,'>GpEnew<cr>", "Visual Enew" },
 		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
+
+		w = { ":<C-u>'<,'>GpWhisper<cr>", "Whisper" },
 	},
     -- ...
 }, {
@@ -293,6 +309,8 @@ require("which-key").register({
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
+
+		w = { "<cmd>GpWhisper<cr>", "Whisper" },
 	},
     -- ...
 }, {
@@ -318,6 +336,8 @@ require("which-key").register({
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
+
+		w = { "<cmd>GpWhisper<cr>", "Whisper" },
 	},
     -- ...
 }, {
@@ -381,7 +401,7 @@ Here are some more examples:
     end,
     ```
 
-The raw plugin text editing method `Prompt`  has six aprameters:
+The raw plugin text editing method `Prompt`  has seven aprameters:
 - `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
     ``` lua
     params = {
@@ -446,6 +466,9 @@ The raw plugin text editing method `Prompt`  has six aprameters:
 		| `{{command}}` | instructions provided by the user |
 - `system_template`
 	- See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
+- `whisper`
+	- optional string serving as a default for input prompt (for example generated from speech by Whisper)
+
 
 
 
