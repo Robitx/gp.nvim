@@ -8,36 +8,45 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 </p>
 
 ### [Here is the full 5 minute example of using the plugin](https://youtu.be/UBc5dL1qBrc)
+
 ## Goals and Features
+
 The goal is to extend Neovim with the **power of GPT models in a simple unobtrusive extensible way.**  
 Trying to keep things as native as possible - reusing and integrating well with the natural features of (Neo)vim.
+
 - **Streaming responses**
-	- no spinner wheel and waiting for the full answer
-	- response generation can be canceled half way through
-	- properly working undo (response can be undone with a single `u`)
+  - no spinner wheel and waiting for the full answer
+  - response generation can be canceled half way through
+  - properly working undo (response can be undone with a single `u`)
 - **Infinitely extensible** via hook functions specified as part of the config
-	- hooks have access to everything in the plugin and are automatically registered as commands
-	- see [Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
-- **Minimum dependencies** (`neovim`, `curl` and `grep`)  
-	- zero dependencies on other lua plugins to minimize chance of breakage
+  - hooks have access to everything in the plugin and are automatically registered as commands
+  - see [Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
+- **Minimum dependencies** (`neovim`, `curl`, `grep` and optionally `sox`)
+  - zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
-	- just good old neovim buffers formated as markdown with autosave and few buffer bound shortcuts
-	- last chat also quickly accessible via toggable popup window
-	- chat finder - management popup for searching, previewing, deleting and opening chat sessions 
+  - just good old neovim buffers formated as markdown with autosave and few buffer bound shortcuts
+  - last chat also quickly accessible via toggable popup window
+  - chat finder - management popup for searching, previewing, deleting and opening chat sessions
 - **Instructable text/code operations**
-	- templating mechanism to combine user instructions, selections etc into the gpt query
-	- multimodal - same command works for normal/insert mode, with selection or a range
-	- many possible output targets - rewrite, prepend, append, new buffer, popup
-	- non interactive command mode available for common repetitive tasks implementable as simple hooks  
-	  (explain something in a popup window, write unit tests for selected code into a new buffer, finish selected code based on comments in it, etc.)
+  - templating mechanism to combine user instructions, selections etc into the gpt query
+  - multimodal - same command works for normal/insert mode, with selection or a range
+  - many possible output targets - rewrite, prepend, append, new buffer, popup
+  - non interactive command mode available for common repetitive tasks implementable as simple hooks  
+    (explain something in a popup window, write unit tests for selected code into a new buffer,  
+    finish selected code based on comments in it, etc.)
+- **Speech to text support**
+  - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
+    (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
 ## Changelog
+
 ### !! Version 1.x.x brings a breaking change !!
 
 The commands now work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3) and the commands with `Visual` prefix were dropped.
 
 Specifically the commands`:GpChatNew`, `:GpRewrite`, `:GpAppend`, `:GpPrepend`, `:GpEnew`, `:GpPopup` and  
 their shortcuts now work across modes, either:
+
 - as pure user commands without context in normal/insert mode
 - with current selection (using whole lines) as a context in visual/Visual mode
 - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
@@ -79,19 +88,23 @@ use({
 ```
 
 ### 2. OpenAI API key
+
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
 and use it in the [config](#4-configuration) (or **setup env `OPENAI_API_KEY`**).
 
 Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 ### 3. Dependencies
-The plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux / BSD / Mac OS should be covered.
+
+The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux / BSD / Mac OS should be covered.
+
+Voice commands depend on `SoX` (Sound eXchange) which handles audio recording and processing.
 
 ### 4. Configuration
 
 Here are the default values:
 
-```lua
+````lua
 local conf = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
@@ -142,6 +155,19 @@ local conf = {
 		.. "\n\nRespond just with the snippet of code that should be inserted.",
 	template_command = "{{command}}",
 
+	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
+	-- Whisper costs $0.006 / minute (rounded to the nearest second)
+	-- by eliminating silence and speeding up the tempo of the recording
+	-- we can reduce the cost by 50% or more and get the results faster
+	-- directory for storing whisper files
+	whisper_dir = "/tmp/gp_whisper",
+	-- threshold used by sox to detect silence vs speech
+	whisper_silence = "1.0%",
+	-- whisper max recording time (mm:ss)
+	whisper_max_time = "05:00",
+	-- whisper tempo (1.0 is normal speed)
+	whisper_tempo = "1.75",
+
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
@@ -178,35 +204,46 @@ local conf = {
 require("gp").setup(conf)
 
 -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
-```
+````
 
 ## Usage
 
 ### Commands
+
 - Have ChatGPT experience directly in neovim:
-	- `:GpChatNew` - open fresh chat in the current window  
-	  (either empty or with the visual selection or specified range as a context)
-	- `:GpChatToggle` - open chat in toggleable popup window  
-	  (the last active chat or a fresh one with selection or a range as a context)
-	- `:GpChatFinder` - open a dialog to search through chats
-	- `:GpChatRespond` - request new gpt response for the current chat
-  	- `:GpChatDelete` - delete the current chat
+  - `:GpChatNew` - open fresh chat in the current window  
+    (either empty or with the visual selection or specified range as a context)
+  - `:GpChatToggle` - open chat in toggleable popup window  
+    (the last active chat or a fresh one with selection or a range as a context)
+  - `:GpChatFinder` - open a dialog to search through chats
+  - `:GpChatRespond` - request new gpt response for the current chat
+    - `:GpChatDelete` - delete the current chat
 - Ask GPT and get response to the specified output:
-	- `:GpRewrite` - answer replaces the current line, visual selection or range
-	- `:GpAppend` - answers after the current line, visual selection or range
-	- `:GpPrepend` - answers before the current line, selection or range
-	- `:GpEnew` - answers into new buffer
-	- `:GpPopup` - answers into pop up window
-	- `:GpImplement` - default example hook command for finishing the code  
-	  based on comments provided in visual selection or specified range 
+
+  - `:GpRewrite` - answer replaces the current line, visual selection or range
+  - `:GpAppend` - answers after the current line, visual selection or range
+  - `:GpPrepend` - answers before the current line, selection or range
+  - `:GpEnew` - answers into new buffer
+  - `:GpPopup` - answers into pop up window
+  - `:GpImplement` - default example hook command for finishing the code  
+    based on comments provided in visual selection or specified range
 
   all these command work either:
-    - as pure user commands without any other context in normal/insert mode
-    - with current selection (using whole lines) as a context in visual/Visual mode
-    - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
+
+  - as pure user commands without any other context in normal/insert mode
+  - with current selection (using whole lines) as a context in visual/Visual mode
+  - with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
+
+- Voice commands transcribed by Whisper API:
+  - `:GpWhisper` - transcription replaces the current line, visual selection or range
+  - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
+  - `:GpWhisperAppend` - answers after the current line, visual selection or range
+  - `:GpWhisperPrepend` - answers before the current line, selection or range
+  - `:GpWhisperEnew` - answers into new buffer
+  - `:GpWhisperPopup` - answers into pop up window
 - To stop the stream of currently running gpt response you can use `:GpStop`
 - Run your own custom hook commands:
-    - `:GpInspectPlugin` - inspect GPT prompt plugin object
+  - `:GpInspectPlugin` - inspect GPT prompt plugin object
 
 ### Shortcuts
 
@@ -214,9 +251,10 @@ There are no default global shortcuts to mess with your own config. Bellow are e
 
 #### Native
 
-You can use the good old `vim.keymap.set` and paste the following after `require("gp").setup(conf)` call 
+You can use the good old `vim.keymap.set` and paste the following after `require("gp").setup(conf)` call
 (or anywhere you keep shortcuts if you want them at one place).
-``` lua
+
+```lua
 local function keymapOptions(desc)
     return {
         noremap = true,
@@ -231,6 +269,9 @@ vim.keymap.set({"n", "i"}, "<C-g>c", "<cmd>GpChatNew<cr>", keymapOptions("New Ch
 vim.keymap.set({"n", "i"}, "<C-g>t", "<cmd>GpChatToggle<cr>", keymapOptions("Toggle Popup Chat"))
 vim.keymap.set({"n", "i"}, "<C-g>f", "<cmd>GpChatFinder<cr>", keymapOptions("Chat Finder"))
 
+vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
+vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
+
 -- Prompt commands
 vim.keymap.set({"n", "i"}, "<C-g>r", "<cmd>GpRewrite<cr>", keymapOptions("Inline Rewrite"))
 vim.keymap.set({"n", "i"}, "<C-g>a", "<cmd>GpAppend<cr>", keymapOptions("Append"))
@@ -238,22 +279,37 @@ vim.keymap.set({"n", "i"}, "<C-g>b", "<cmd>GpPrepend<cr>", keymapOptions("Prepen
 vim.keymap.set({"n", "i"}, "<C-g>e", "<cmd>GpEnew<cr>", keymapOptions("Enew"))
 vim.keymap.set({"n", "i"}, "<C-g>p", "<cmd>GpPopup<cr>", keymapOptions("Popup"))
 
--- Visual commands
-vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
-vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
 vim.keymap.set("v", "<C-g>r", ":<C-u>'<,'>GpRewrite<cr>", keymapOptions("Visual Rewrite"))
 vim.keymap.set("v", "<C-g>a", ":<C-u>'<,'>GpAppend<cr>", keymapOptions("Visual Append"))
 vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual Prepend"))
 vim.keymap.set("v", "<C-g>e", ":<C-u>'<,'>GpEnew<cr>", keymapOptions("Visual Enew"))
 vim.keymap.set("v", "<C-g>p", ":<C-u>'<,'>GpPopup<cr>", keymapOptions("Visual Popup"))
 
+
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
+
+
+-- optional Whisper commands
+vim.keymap.set({"n", "i"}, "<C-g>w", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
+vim.keymap.set({"n", "i"}, "<C-g>R", "<cmd>GpWhisperRewrite<cr>", keymapOptions("Inline Rewrite"))
+vim.keymap.set({"n", "i"}, "<C-g>A", "<cmd>GpWhisperAppend<cr>", keymapOptions("Append"))
+vim.keymap.set({"n", "i"}, "<C-g>B", "<cmd>GpWhisperPrepend<cr>", keymapOptions("Prepend"))
+vim.keymap.set({"n", "i"}, "<C-g>E", "<cmd>GpWhisperEnew<cr>", keymapOptions("Enew"))
+vim.keymap.set({"n", "i"}, "<C-g>P", "<cmd>GpWhisperPopup<cr>", keymapOptions("Popup"))
+
+vim.keymap.set("v", "<C-g>w", ":<C-u>'<,'>GpWhisper<cr>", keymapOptions("Whisper"))
+vim.keymap.set("v", "<C-g>R", ":<C-u>'<,'>GpWhisperRewrite<cr>", keymapOptions("Visual Rewrite"))
+vim.keymap.set("v", "<C-g>A", ":<C-u>'<,'>GpWhisperAppend<cr>", keymapOptions("Visual Append"))
+vim.keymap.set("v", "<C-g>B", ":<C-u>'<,'>GpWhisperPrepend<cr>", keymapOptions("Visual Prepend"))
+vim.keymap.set("v", "<C-g>E", ":<C-u>'<,'>GpWhisperEnew<cr>", keymapOptions("Visual Enew"))
+vim.keymap.set("v", "<C-g>P", ":<C-u>'<,'>GpWhisperPopup<cr>", keymapOptions("Visual Popup"))
 ```
 
 #### Whichkey
 
 Or go more fancy by using [which-key.nvim](https://github.com/folke/which-key.nvim) plugin:
-``` lua
+
+```lua
 -- VISUAL mode mappings
 -- s, x, v modes are handled the same way by which_key
 require("which-key").register({
@@ -268,12 +324,21 @@ require("which-key").register({
 		e = { ":<C-u>'<,'>GpEnew<cr>", "Visual Enew" },
 		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
+
+
+                -- optional Whisper commands
+		w = { ":<C-u>'<,'>GpWhisper<cr>", "Whisper" },
+		R = { ":<C-u>'<,'>GpwhisperRewrite<cr>", "Whisper Visual Rewrite" },
+		A = { ":<C-u>'<,'>GpwhisperAppend<cr>", "Whisper Visual Append" },
+		B = { ":<C-u>'<,'>GpwhisperPrepend<cr>", "Whisper Visual Prepend" },
+		E = { ":<C-u>'<,'>GpwhisperEnew<cr>", "Whisper Visual Enew" },
+		P = { ":<C-u>'<,'>GpwhisperPopup<cr>", "Whisper Visual Popup" },
 	},
     -- ...
 }, {
 	mode = "v", -- VISUAL mode
 	prefix = "",
-	buffer = nil, 
+	buffer = nil,
 	silent = true,
 	noremap = true,
 	nowait = true,
@@ -293,12 +358,20 @@ require("which-key").register({
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
+
+                -- optional Whisper commands
+		w = { "<cmd>GpWhisper<cr>", "Whisper" },
+		R = { "<cmd>GpWhisperRewrite<cr>", "Whisper Inline Rewrite" },
+		A = { "<cmd>GpWhisperAppend<cr>", "Whisper Append" },
+		B = { "<cmd>GpWhisperPrepend<cr>", "Whisper Prepend" },
+		E = { "<cmd>GpWhisperEnew<cr>", "Whisper Enew" },
+		P = { "<cmd>GpWhisperPopup<cr>", "Whisper Popup" },
 	},
     -- ...
 }, {
 	mode = "n", -- NORMAL mode
 	prefix = "",
-	buffer = nil, 
+	buffer = nil,
 	silent = true,
 	noremap = true,
 	nowait = true,
@@ -318,148 +391,166 @@ require("which-key").register({
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
+
+                -- optional Whisper commands
+		w = { "<cmd>GpWhisper<cr>", "Whisper" },
+		R = { "<cmd>GpWhisperRewrite<cr>", "Whisper Inline Rewrite" },
+		A = { "<cmd>GpWhisperAppend<cr>", "Whisper Append" },
+		B = { "<cmd>GpWhisperPrepend<cr>", "Whisper Prepend" },
+		E = { "<cmd>GpWhisperEnew<cr>", "Whisper Enew" },
+		P = { "<cmd>GpWhisperPopup<cr>", "Whisper Popup" },
 	},
     -- ...
 }, {
 	mode = "i", -- INSERT mode
 	prefix = "",
-	buffer = nil, 
+	buffer = nil,
 	silent = true,
 	noremap = true,
 	nowait = true,
 })
 ```
+
 ## Extend functionality
 
 You can extend/override the plugin functionality with your own, by putting functions into `config.hooks`.
-Hooks have access to everything (see `InspectPlugin` example in defaults) and are 
+Hooks have access to everything (see `InspectPlugin` example in defaults) and are
 automatically registered as commands (`GpInspectPlugin`).
 
 Here are some more examples:
+
 - `:GpUnitTests`
-    ``` lua
-    -- example of adding command which writes unit tests for the selected code
-    UnitTests = function(gp, params)
-        local template = "I have the following code from {{filename}}:\n\n"
-            .. "```{{filetype}}\n{{selection}}\n```\n\n"
-            .. "Please respond by writing table driven unit tests for the code above."
-        gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
-            template, gp.config.command_system_prompt)
-    end,
-    ```
+
+  ````lua
+  -- example of adding command which writes unit tests for the selected code
+  UnitTests = function(gp, params)
+      local template = "I have the following code from {{filename}}:\n\n"
+          .. "```{{filetype}}\n{{selection}}\n```\n\n"
+          .. "Please respond by writing table driven unit tests for the code above."
+      gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
+          template, gp.config.command_system_prompt)
+  end,
+  ````
 
 - `:GpExplain`
-    ``` lua
-    -- example of adding command which explains the selected code
-    Explain = function(gp, params)
-        local template = "I have the following code from {{filename}}:\n\n"
-            .. "```{{filetype}}\n{{selection}}\n```\n\n"
-            .. "Please respond by explaining the code above."
-        gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model,
-            template, gp.config.chat_system_prompt)
-    end,
-    ```
+
+  ````lua
+  -- example of adding command which explains the selected code
+  Explain = function(gp, params)
+      local template = "I have the following code from {{filename}}:\n\n"
+          .. "```{{filetype}}\n{{selection}}\n```\n\n"
+          .. "Please respond by explaining the code above."
+      gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model,
+          template, gp.config.chat_system_prompt)
+  end,
+  ````
 
 - `:GpBufferChatNew`
-    ``` lua
-    -- example of making :%GpChatNew a dedicated command which
-    -- opens new chat with the entire current buffer as a context
-    BufferChatNew = function(gp, _)
-        -- call GpChatNew command in range mode on whole buffer
-        vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
-    end,
-    ```
+
+  ```lua
+  -- example of making :%GpChatNew a dedicated command which
+  -- opens new chat with the entire current buffer as a context
+  BufferChatNew = function(gp, _)
+      -- call GpChatNew command in range mode on whole buffer
+      vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
+  end,
+  ```
 
 - `:GpBetterChatNew`
-    ``` lua
-    -- example of adding a custom chat command with non-default parameters
-    -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
-    BetterChatNew = function(gp, params)
-        local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
-        local chat_system_prompt = "You are a general AI assistant."
-        gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
-    end,
-    ```
+  ```lua
+  -- example of adding a custom chat command with non-default parameters
+  -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
+  BetterChatNew = function(gp, params)
+      local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+      local chat_system_prompt = "You are a general AI assistant."
+      gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
+  end,
+  ```
 
-The raw plugin text editing method `Prompt`  has six aprameters:
+The raw plugin text editing method `Prompt` has seven aprameters:
+
 - `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
-    ``` lua
-    params = {
-          args = "",
-          bang = false,
-          count = -1,
-          fargs = {},
-          line1 = 1352,
-          line2 = 1352,
-          mods = "",
-          name = "GpChatNew",
-          range = 0,
-          reg = "",
-          smods = {
-                browse = false,
-                confirm = false,
-                emsg_silent = false,
-                hide = false,
-                horizontal = false,
-                keepalt = false,
-                keepjumps = false,
-                keepmarks = false,
-                keeppatterns = false,
-                lockmarks = false,
-                noautocmd = false,
-                noswapfile = false,
-                sandbox = false,
-                silent = false,
-                split = "",
-                tab = -1,
-                unsilent = false,
-                verbose = -1,
-                vertical = false
-          }
-    }
-    ```
+  ```lua
+  params = {
+        args = "",
+        bang = false,
+        count = -1,
+        fargs = {},
+        line1 = 1352,
+        line2 = 1352,
+        mods = "",
+        name = "GpChatNew",
+        range = 0,
+        reg = "",
+        smods = {
+              browse = false,
+              confirm = false,
+              emsg_silent = false,
+              hide = false,
+              horizontal = false,
+              keepalt = false,
+              keepjumps = false,
+              keepmarks = false,
+              keeppatterns = false,
+              lockmarks = false,
+              noautocmd = false,
+              noswapfile = false,
+              sandbox = false,
+              silent = false,
+              split = "",
+              tab = -1,
+              unsilent = false,
+              verbose = -1,
+              vertical = false
+        }
+  }
+  ```
 - `target` specifying where to direct GPT response
-    ``` lua
-    M.target = {
-        replace = 0, -- for replacing the selection or the current line
-        append = 1, -- for appending after the selection or the current line
-        prepend = 2, -- for prepending before the selection or the current line
-        enew = 3, -- for writing into the new buffer
-        popup = 4, -- for writing into the popup window
-    }
-    ```
+  ```lua
+  M.target = {
+      replace = 0, -- for replacing the selection or the current line
+      append = 1, -- for appending after the selection or the current line
+      prepend = 2, -- for prepending before the selection or the current line
+      enew = 3, -- for writing into the new buffer
+      popup = 4, -- for writing into the popup window
+  }
+  ```
 - `prompt`
-	- string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
-	- if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
-	- simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
-	  (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
+  - string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
+  - if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
+  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
+    (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
 - `model`
-    - see [gpt model overview](https://platform.openai.com/docs/models/overview)
+  - see [gpt model overview](https://platform.openai.com/docs/models/overview)
 - `template`
-	- template of the user message send to gpt
-	- string can include variables bellow:  
-	 
-		| name      | Description |
-		|--------------|----------|
-		| `{{filetype}}` |  filetype of the current buffer |
-		| `{{selection}}` | last or currently selected text |
-		| `{{command}}` | instructions provided by the user |
+
+  - template of the user message send to gpt
+  - string can include variables bellow:
+
+    | name            | Description                       |
+    | --------------- | --------------------------------- |
+    | `{{filetype}}`  | filetype of the current buffer    |
+    | `{{selection}}` | last or currently selected text   |
+    | `{{command}}`   | instructions provided by the user |
+
 - `system_template`
-	- See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
-
-
+  - See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
+- `whisper`
+  - optional string serving as a default for input prompt (for example generated from speech by Whisper)
 
 ## Attribution/Alternatives
+
 There is already a bunch of similar plugins which served as sources of inspiration
+
 - [thmsmlr/gpt.nvim](https://github.com/thmsmlr/gpt.nvim)
-    - \+ nicely implemented streaming response from OpenAI API
-    - \+ later added chat sessions
-    - \- a lots of things are hard coded
-    - \- undo isn't handled properly
-    - \- originally considered forking it, but it has no licence so far
-- [dpayne/CodeGPT.nvim](https://github.com/dpayne/CodeGPT.nvim) 
-    - \+ templating mechanism to combine user input selection and so on for gpt query
-    - \- doesn't use streaming (one has to wait for the whole answer to show up)
+  - \+ nicely implemented streaming response from OpenAI API
+  - \+ later added chat sessions
+  - \- a lots of things are hard coded
+  - \- undo isn't handled properly
+  - \- originally considered forking it, but it has no licence so far
+- [dpayne/CodeGPT.nvim](https://github.com/dpayne/CodeGPT.nvim)
+  - \+ templating mechanism to combine user input selection and so on for gpt query
+  - \- doesn't use streaming (one has to wait for the whole answer to show up)
 - [jackMort/ChatGPT.nvim](https://github.com/jackMort/ChatGPT.nvim)
-    - most popular at the moment but overcomplicated for my taste  
-      (its like a GUI over the vim itself and I'd like to stay inside vim 🙂)
+  - most popular at the moment but overcomplicated for my taste  
+    (its like a GUI over the vim itself and I'd like to stay inside vim 🙂)

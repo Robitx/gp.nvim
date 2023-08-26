@@ -55,6 +55,19 @@ local config = {
 		.. "\n\nRespond just with the snippet of code that should be inserted.",
 	template_command = "{{command}}",
 
+	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
+	-- Whisper costs $0.006 / minute (rounded to the nearest second)
+	-- by eliminating silence and speeding up the tempo of the recording
+	-- we can reduce the cost by 50% or more and get the results faster
+	-- directory for storing whisper files
+	whisper_dir = "/tmp/gp_whisper",
+	-- threshold used by sox to detect silence vs speech
+	whisper_silence = "1.0%",
+	-- whisper max recording time (mm:ss)
+	whisper_max_time = "05:00",
+	-- whisper tempo (1.0 is normal speed)
+	whisper_tempo = "1.75",
+
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
@@ -206,51 +219,62 @@ end
 
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
----@param callback function | nil # callback function(code, signal, stdout_data, stderr_data)
-_H.process = function(cmd, args, callback)
+---@param callback function | nil # exit callback function(code, signal, stdout_data, stderr_data)
+---@param out_reader function | nil # stdout reader function(err, data)
+---@param err_reader function | nil # stderr reader function(err, data)
+_H.process = function(cmd, args, callback, out_reader, err_reader)
 	local handle, pid
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 	local stdout_data = ""
 	local stderr_data = ""
 
-	handle, pid = vim.loop.spawn(
-		cmd,
-		{
-			args = args,
-			stdio = { nil, stdout, stderr },
-		},
-		vim.schedule_wrap(function(code, signal)
-			stdout:read_stop()
-			stderr:read_stop()
-			stdout:close()
-			stderr:close()
+	local on_exit = _H.once(vim.schedule_wrap(function(code, signal)
+		stdout:read_stop()
+		stderr:read_stop()
+		stdout:close()
+		stderr:close()
+		if handle and not handle:is_closing() then
 			handle:close()
-			print(stdout_data)
-			if callback then
-				callback(code, signal, stdout_data, stderr_data)
-			end
-		end)
-	)
+		end
+		if callback then
+			callback(code, signal, stdout_data, stderr_data)
+		end
+		M._handle = nil
+		M._pid = nil
+	end))
+
+	handle, pid = vim.loop.spawn(cmd, {
+		args = args,
+		stdio = { nil, stdout, stderr },
+		hide = true,
+		detach = true,
+	}, on_exit)
 
 	M._handle = handle
 	M._pid = pid
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
-			error(vim.inspect(err))
+			M.error("Error reading stdout: " .. vim.inspect(err))
 		end
 		if data then
 			stdout_data = stdout_data .. data
+		end
+		if out_reader then
+			out_reader(err, data)
 		end
 	end)
 
 	vim.loop.read_start(stderr, function(err, data)
 		if err then
-			error(vim.inspect(err))
+			M.error("Error reading stderr: " .. vim.inspect(err))
 		end
 		if data then
 			stderr_data = stderr_data .. data
+		end
+		if err_reader then
+			err_reader(err, data)
 		end
 	end)
 end
@@ -572,7 +596,7 @@ M.prepare_commands = function()
 			system_prompt = M.config.chat_system_prompt
 		end
 
-		M.cmd[command] = function(params)
+		local cmd = function(params, whisper)
 			-- template is chosen dynamically based on mode in which the command is called
 			local template = M.config.template_command
 			if params.range == 2 then
@@ -582,7 +606,19 @@ M.prepare_commands = function()
 					template = M.config.template_rewrite
 				end
 			end
-			M.Prompt(params, target, prefix, model, template, system_prompt)
+			M.Prompt(params, target, prefix, model, template, system_prompt, whisper)
+		end
+
+		M.cmd[command] = function(params)
+			cmd(params)
+		end
+
+		M.cmd["Whisper" .. command] = function(params)
+			M.Whisper(function(text)
+				vim.schedule(function()
+					cmd(params, text)
+				end)
+			end)
 		end
 	end
 end
@@ -633,110 +669,82 @@ M.query = function(payload, handler, on_exit)
 	M._first_line = -1
 	M._last_line = -1
 
-	-- prepare pipes
-	local stdout = vim.loop.new_pipe(false)
-	local stderr = vim.loop.new_pipe(false)
+	local out_reader = function()
+		local buffer = ""
 
-	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
-
-	-- spawn curl process
-	M._handle, M._pid = vim.loop.spawn("curl", {
-		args = {
-			"--no-buffer",
-			"-s",
-			endpoint,
-			"-H",
-			"Content-Type: application/json",
-			-- api-key is for azure, authorization is for openai
-			"-H",
-			"Authorization: Bearer " .. M.config.openai_api_key,
-			"-H",
-			"api-key: " .. M.config.openai_api_key,
-			"-d",
-			vim.json.encode(payload),
-			--[[ "--doesnt_exist" ]]
-		},
-		stdio = { nil, stdout, stderr },
-	}, function(code, signal)
-		-- process cleanup
-		if code ~= 0 then
-			M.error(string.format("OpenAI query exited: %d, %d", code, signal))
+		---@param lines_chunk string
+		local function process_lines(lines_chunk)
+			local lines = vim.split(lines_chunk, "\n")
+			for _, line in ipairs(lines) do
+				line = line:gsub("^data: ", "")
+				if line:match("chat%.completion%.chunk") then
+					line = vim.json.decode(line)
+					local content = line.choices[1].delta.content
+					if content ~= nil then
+						-- store response for debugging
+						M._response = M._response .. content
+						-- call response handler
+						handler(content)
+					end
+				end
+			end
 		end
-		vim.loop.read_stop(stdout)
-		vim.loop.read_stop(stderr)
-		vim.loop.close(stdout)
-		vim.loop.close(stderr)
-	end)
 
-	local buffer = ""
+		-- closure for vim.loop.read_start(stdout, fn)
+		return function(err, chunk)
+			if err then
+				M.error("OpenAI query stdout error: " .. vim.inspect(err))
+			elseif chunk then
+				-- add the incoming chunk to the buffer
+				buffer = buffer .. chunk
+				local last_newline_pos = buffer:find("\n[^\n]*$")
+				if last_newline_pos then
+					local complete_lines = buffer:sub(1, last_newline_pos - 1)
+					-- save the rest of the buffer for the next chunk
+					buffer = buffer:sub(last_newline_pos + 1)
 
-	---@param lines_chunk string
-	local function process_lines(lines_chunk)
-		local lines = vim.split(lines_chunk, "\n")
-		for _, line in ipairs(lines) do
-			line = line:gsub("^data: ", "")
-			if line:match("chat%.completion%.chunk") then
-				line = vim.json.decode(line)
-				local content = line.choices[1].delta.content
-				if content ~= nil then
-					-- store response for debugging
-					M._response = M._response .. content
-					-- call response handler
-					handler(content)
+					process_lines(complete_lines)
+				end
+			-- chunk is nil when EOF is reached
+			else
+				-- if there's remaining data in the buffer, process it
+				if #buffer > 0 then
+					process_lines(buffer)
+				end
+
+				-- optional on_exit handler
+				if type(on_exit) == "function" then
+					on_exit()
 				end
 			end
 		end
 	end
 
-	-- read stdout
-	vim.loop.read_start(stdout, function(err, chunk)
-		if err then
-			M.error("OpenAI query stdout error: " .. vim.inspect(err))
-		elseif chunk then
-			-- add the incoming chunk to the buffer
-			buffer = buffer .. chunk
-			local last_newline_pos = buffer:find("\n[^\n]*$")
-			if last_newline_pos then
-				local complete_lines = buffer:sub(1, last_newline_pos - 1)
-				-- save the rest of the buffer for the next chunk
-				buffer = buffer:sub(last_newline_pos + 1)
+	-- try to replace model in endpoint (for azure)
+	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
 
-				process_lines(complete_lines)
-			end
-		-- chunk is nil when EOF is reached
-		else
-			-- if there's remaining data in the buffer, process it
-			if #buffer > 0 then
-				process_lines(buffer)
-			end
-
-			-- optional on_exit handler
-			if type(on_exit) == "function" then
-				on_exit()
-			end
-		end
-	end)
-
-	-- read stderr
-	vim.loop.read_start(stderr, function(err, chunk)
-		if err then
-			M.error("OpenAI query stderr error: " .. vim.inspect(err))
-		end
-
-		if chunk then
-			print("stderr data: " .. vim.inspect(chunk))
-		end
-	end)
+	M._H.process("curl", {
+		"--no-buffer",
+		"-s",
+		endpoint,
+		"-H",
+		"Content-Type: application/json",
+		-- api-key is for azure, authorization is for openai
+		"-H",
+		"Authorization: Bearer " .. M.config.openai_api_key,
+		"-H",
+		"api-key: " .. M.config.openai_api_key,
+		"-d",
+		vim.json.encode(payload),
+		--[[ "--doesnt_exist" ]]
+	}, nil, out_reader(), nil)
 end
 
 -- stop recieving gpt response
-M.cmd.Stop = function()
+---@param signal number | nil # signal to send to the process
+M.cmd.Stop = function(signal)
 	if M._handle ~= nil and not M._handle:is_closing() then
-		M._handle:close()
-		vim.loop.kill(M._pid, 15)
-		M._handle = nil
-		M._pid = nil
+		vim.loop.kill(M._pid, signal or 15)
 	end
 end
 
@@ -1451,7 +1459,7 @@ end
 -- Prompt logic
 --------------------
 
-M.Prompt = function(params, target, prompt, model, template, system_template)
+M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
 	target = target or M.Target.enew
 
 	-- get current buffer
@@ -1573,12 +1581,180 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		end
 
 		-- if prompt is provided, ask the user to enter the command
-		vim.ui.input({ prompt = prompt }, function(input)
+		vim.ui.input({ prompt = prompt, default = whisper }, function(input)
 			if not input or input == "" then
 				return
 			end
 			callback(input)
 		end)
+	end)
+end
+
+---@param callback function # callback function(text)
+M.Whisper = function(callback)
+	-- make sure sox is installed
+	if vim.fn.executable("sox") == 0 then
+		M.error("sox is not installed")
+		return
+	end
+
+	-- prepare unique group name and register augroup
+	local gname = "GpWhisper"
+		.. os.date("_%Y_%m_%d_%H_%M_%S_")
+		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+
+	-- create popup
+	local buf, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper", function(w, h)
+		return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
+	end, { gid = gid, on_leave = false, escape = false, persist = false })
+
+	-- animated instructions in the popup
+	local counter = 0
+	local timer = vim.loop.new_timer()
+	timer:start(
+		0,
+		200,
+		vim.schedule_wrap(function()
+			if vim.api.nvim_buf_is_valid(buf) then
+				vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+					"    ",
+					"    Speak 👄 loudly 📣 into the microphone 🎤: ",
+					"    " .. string.rep("👂", counter),
+					"    ",
+					"    Pressing <Enter> starts the transcription.",
+					"    ",
+					"    Cancel the recording with <esc> or :GpStop.",
+					"    ",
+					"    The last recording is in /tmp/gp_whisper/.",
+				})
+			end
+			counter = counter + 1
+			if counter % 22 == 0 then
+				counter = 0
+			end
+		end)
+	)
+
+	local close = _H.once(function()
+		if timer then
+			timer:stop()
+			timer:close()
+		end
+		close_popup()
+		vim.api.nvim_del_augroup_by_id(gid)
+		M.cmd.Stop()
+	end)
+
+	_H.set_keymap({ buf }, "n", "<esc>", function()
+		M.cmd.Stop()
+	end)
+
+	local continue = false
+	_H.set_keymap({ buf }, "n", "<cr>", function()
+		continue = true
+		vim.defer_fn(function()
+			M.cmd.Stop()
+		end, 300)
+	end)
+
+	-- cleanup on buffer exit
+	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
+
+	-- transcribe the recording
+	local transcribe = function()
+		local cmd = "cd "
+			.. M.config.whisper_dir
+			.. " && "
+			-- normalize volume
+			.. "sox --norm=-3 rec.wav norm.wav && "
+			-- remove silence, speed up, pad and convert to mp3
+			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.2 "
+			.. M.config.whisper_silence
+			.. " -1 0.5 "
+			.. M.config.whisper_silence
+			.. " pad 0.1 0.1 tempo "
+			.. M.config.whisper_tempo
+			.. " && "
+			-- call openai
+			.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
+			.. '-H "Authorization: Bearer '
+			.. M.config.openai_api_key
+			.. '" -H "Content-Type: multipart/form-data" '
+			.. '-F model="whisper-1" -F language="en" -F file="@final.mp3" '
+			.. '-F response_format="json"'
+
+		M._H.process("bash", { "-c", cmd }, function(code, signal, stdout, _)
+			if code ~= 0 then
+				M.error(string.format("Whisper query exited: %d, %d", code, signal))
+				return
+			end
+
+			local text = vim.json.decode(stdout).text
+			if not text then
+				M.error("Whisper query no text: " .. vim.inspect(stdout))
+				return
+			end
+
+			text = table.concat(vim.split(text, "\n"), " ")
+			text = text:gsub("%s+$", "")
+
+			if callback and stdout then
+				callback(text)
+			end
+		end)
+	end
+
+	M._H.process("sox", {
+		--[[ "-q", ]]
+		-- single channel
+		"-c",
+		"1",
+		-- output file
+		"-d",
+		M.config.whisper_dir .. "/rec.wav",
+		-- max recording time
+		"trim",
+		"0",
+		M.config.whisper_max_time,
+	}, function(code, signal, _, _)
+		close()
+
+		if code and code ~= 0 then
+			M.error("Sox exited with code and signal: " .. code .. " " .. signal)
+			return
+		end
+
+		if not continue then
+			return
+		end
+
+		vim.schedule(function()
+			transcribe()
+		end)
+	end)
+end
+
+M.cmd.Whisper = function(params)
+	local buf = vim.api.nvim_get_current_buf()
+	local start_line = vim.api.nvim_win_get_cursor(0)[1]
+	local end_line = start_line
+
+	-- handle range
+	if params.range == 2 then
+		start_line = params.line1
+		end_line = params.line2
+	end
+
+	M.Whisper(function(text)
+		-- if buf is not valid, stop
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
+
+		if text then
+			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
+		end
 	end)
 end
 
