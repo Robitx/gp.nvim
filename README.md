@@ -144,6 +144,19 @@ local conf = {
 		.. "\n\nRespond just with the snippet of code that should be inserted.",
 	template_command = "{{command}}",
 
+	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
+	-- Whisper costs $0.006 / minute (rounded to the nearest second)
+	-- by eliminating silence and speeding up the tempo of the recording
+	-- we can reduce the cost by 50% or more and get the results faster
+	-- directory for storing whisper files
+	whisper_dir = "/tmp/gp_whisper",
+	-- threshold used by sox to detect silence vs speech
+	whisper_silence = "1.0%",
+	-- whisper max recording time (mm:ss)
+	whisper_max_time = "05:00",
+	-- whisper tempo (1.0 is normal speed)
+	whisper_tempo = "1.75",
+
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
@@ -247,9 +260,6 @@ vim.keymap.set({"n", "i"}, "<C-g>b", "<cmd>GpPrepend<cr>", keymapOptions("Prepen
 vim.keymap.set({"n", "i"}, "<C-g>e", "<cmd>GpEnew<cr>", keymapOptions("Enew"))
 vim.keymap.set({"n", "i"}, "<C-g>p", "<cmd>GpPopup<cr>", keymapOptions("Popup"))
 
--- Voice commands
-vim.keymap.set({"n", "i"}, "<C-g>w", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
-
 -- Visual commands
 vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
 vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
@@ -259,9 +269,23 @@ vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual 
 vim.keymap.set("v", "<C-g>e", ":<C-u>'<,'>GpEnew<cr>", keymapOptions("Visual Enew"))
 vim.keymap.set("v", "<C-g>p", ":<C-u>'<,'>GpPopup<cr>", keymapOptions("Visual Popup"))
 
-vim.keymap.set("v", "<C-g>w", ":<C-u>'<,'>GpWhisper<cr>", keymapOptions("Whisper"))
-
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
+
+
+-- optional Whisper commands
+vim.keymap.set({"n", "i"}, "<C-g>w", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
+vim.keymap.set({"n", "i"}, "<C-g>R", "<cmd>GpWhisperRewrite<cr>", keymapOptions("Inline Rewrite"))
+vim.keymap.set({"n", "i"}, "<C-g>A", "<cmd>GpWhisperAppend<cr>", keymapOptions("Append"))
+vim.keymap.set({"n", "i"}, "<C-g>B", "<cmd>GpWhisperPrepend<cr>", keymapOptions("Prepend"))
+vim.keymap.set({"n", "i"}, "<C-g>E", "<cmd>GpWhisperEnew<cr>", keymapOptions("Enew"))
+vim.keymap.set({"n", "i"}, "<C-g>P", "<cmd>GpWhisperPopup<cr>", keymapOptions("Popup"))
+
+vim.keymap.set("v", "<C-g>w", ":<C-u>'<,'>GpWhisper<cr>", keymapOptions("Whisper"))
+vim.keymap.set("v", "<C-g>R", ":<C-u>'<,'>GpWhisperRewrite<cr>", keymapOptions("Visual Rewrite"))
+vim.keymap.set("v", "<C-g>A", ":<C-u>'<,'>GpWhisperAppend<cr>", keymapOptions("Visual Append"))
+vim.keymap.set("v", "<C-g>B", ":<C-u>'<,'>GpWhisperPrepend<cr>", keymapOptions("Visual Prepend"))
+vim.keymap.set("v", "<C-g>E", ":<C-u>'<,'>GpWhisperEnew<cr>", keymapOptions("Visual Enew"))
+vim.keymap.set("v", "<C-g>P", ":<C-u>'<,'>GpWhisperPopup<cr>", keymapOptions("Visual Popup"))
 ```
 
 #### Whichkey
@@ -283,7 +307,14 @@ require("which-key").register({
 		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
+
+        -- optional Whisper commands
 		w = { ":<C-u>'<,'>GpWhisper<cr>", "Whisper" },
+		R = { ":<C-u>'<,'>GpwhisperRewrite<cr>", "Whisper Visual Rewrite" },
+		A = { ":<C-u>'<,'>GpwhisperAppend<cr>", "Whisper Visual Append" },
+		B = { ":<C-u>'<,'>GpwhisperPrepend<cr>", "Whisper Visual Prepend" },
+		E = { ":<C-u>'<,'>GpwhisperEnew<cr>", "Whisper Visual Enew" },
+		P = { ":<C-u>'<,'>GpwhisperPopup<cr>", "Whisper Visual Popup" },
 	},
     -- ...
 }, {
@@ -310,7 +341,13 @@ require("which-key").register({
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
+        -- optional Whisper commands
 		w = { "<cmd>GpWhisper<cr>", "Whisper" },
+		R = { "<cmd>GpWhisperRewrite<cr>", "Whisper Inline Rewrite" },
+		A = { "<cmd>GpWhisperAppend<cr>", "Whisper Append" },
+		B = { "<cmd>GpWhisperPrepend<cr>", "Whisper Prepend" },
+		E = { "<cmd>GpWhisperEnew<cr>", "Whisper Enew" },
+		P = { "<cmd>GpWhisperPopup<cr>", "Whisper Popup" },
 	},
     -- ...
 }, {
@@ -337,7 +374,13 @@ require("which-key").register({
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
+        -- optional Whisper commands
 		w = { "<cmd>GpWhisper<cr>", "Whisper" },
+		R = { "<cmd>GpWhisperRewrite<cr>", "Whisper Inline Rewrite" },
+		A = { "<cmd>GpWhisperAppend<cr>", "Whisper Append" },
+		B = { "<cmd>GpWhisperPrepend<cr>", "Whisper Prepend" },
+		E = { "<cmd>GpWhisperEnew<cr>", "Whisper Enew" },
+		P = { "<cmd>GpWhisperPopup<cr>", "Whisper Popup" },
 	},
     -- ...
 }, {
