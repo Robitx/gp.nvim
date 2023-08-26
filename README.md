@@ -328,11 +328,11 @@ require("which-key").register({
 
                 -- optional Whisper commands
 		w = { ":<C-u>'<,'>GpWhisper<cr>", "Whisper" },
-		R = { ":<C-u>'<,'>GpwhisperRewrite<cr>", "Whisper Visual Rewrite" },
-		A = { ":<C-u>'<,'>GpwhisperAppend<cr>", "Whisper Visual Append" },
-		B = { ":<C-u>'<,'>GpwhisperPrepend<cr>", "Whisper Visual Prepend" },
-		E = { ":<C-u>'<,'>GpwhisperEnew<cr>", "Whisper Visual Enew" },
-		P = { ":<C-u>'<,'>GpwhisperPopup<cr>", "Whisper Visual Popup" },
+		R = { ":<C-u>'<,'>GpWhisperRewrite<cr>", "Whisper Visual Rewrite" },
+		A = { ":<C-u>'<,'>GpWhisperAppend<cr>", "Whisper Visual Append" },
+		B = { ":<C-u>'<,'>GpWhisperPrepend<cr>", "Whisper Visual Prepend" },
+		E = { ":<C-u>'<,'>GpWhisperEnew<cr>", "Whisper Visual Enew" },
+		P = { ":<C-u>'<,'>GpWhisperPopup<cr>", "Whisper Visual Popup" },
 	},
     -- ...
 }, {
