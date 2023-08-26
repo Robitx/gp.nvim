@@ -55,6 +55,13 @@ local config = {
 		.. "\n\nRespond just with the snippet of code that should be inserted.",
 	template_command = "{{command}}",
 
+	-- directory for storing whisper files
+	whisper_dir = "/tmp/gp_whisper",
+	-- threshold used by sox to detect silence vs speech
+	whisper_silence = "1.0%",
+	-- whisper max recording time (mm:ss)
+	whisper_max_time = "05:00",
+
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
@@ -732,11 +739,6 @@ end
 M.cmd.Stop = function(signal)
 	if M._handle ~= nil and not M._handle:is_closing() then
 		vim.loop.kill(M._pid, signal or 15)
-	end
-
-	if M._whisper_stop then
-		M._whisper_stop()
-		M._whisper_stop = nil
 	end
 end
 
@@ -1590,10 +1592,16 @@ M.Whisper = function(callback)
 		return
 	end
 
+	-- prepare unique group name and register augroup
+	local gname = "GpWhisper"
+		.. os.date("_%Y_%m_%d_%H_%M_%S_")
+		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+
 	-- create popup
-	local b, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper", function(w, h)
+	local buf, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper", function(w, h)
 		return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
-	end, { on_leave = false, escape = false, persist = false })
+	end, { gid = gid, on_leave = false, escape = false, persist = false })
 
 	-- animated instructions in the popup
 	local counter = 0
@@ -1602,23 +1610,21 @@ M.Whisper = function(callback)
 		0,
 		200,
 		vim.schedule_wrap(function()
-			if vim.api.nvim_buf_is_valid(b) then
-				vim.api.nvim_buf_set_lines(b, 0, -1, false, {
+			if vim.api.nvim_buf_is_valid(buf) then
+				vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
 					"    ",
-					"    Speak 👄 loudly 📣 into microphone 🎤: ",
+					"    Speak 👄 loudly 📣 into the microphone 🎤: ",
 					"    " .. string.rep("👂", counter),
 					"    ",
-					"    Avoid long pauses once you start speaking.",
-					"    Transcription starts automatically when",
-					"    you stop speeking for at least one second.",
+					"    Pressing <Enter> starts the transcription.",
 					"    ",
-					"    Cancel with <esc> or :GpStop.",
+					"    Cancel the recording with <esc> or :GpStop.",
 					"    ",
-					"    Last recording is saved in /tmp/gp_whisper/.",
+					"    The last recording is in /tmp/gp_whisper/.",
 				})
 			end
 			counter = counter + 1
-			if counter % 20 == 0 then
+			if counter % 22 == 0 then
 				counter = 0
 			end
 		end)
@@ -1630,51 +1636,94 @@ M.Whisper = function(callback)
 			timer:close()
 		end
 		close_popup()
+		vim.api.nvim_del_augroup_by_id(gid)
 		M.cmd.Stop()
 	end)
-	M._whisper_stop = close
 
-	_H.set_keymap({ b }, "n", "<esc>", close)
+	_H.set_keymap({ buf }, "n", "<esc>", function()
+		M.cmd.Stop()
+	end)
 
-	--[[ if true then ]]
-	--[[ 	return ]]
-	--[[ end ]]
+	local continue = false
+	_H.set_keymap({ buf }, "n", "<cr>", function()
+		continue = true
+		vim.defer_fn(function()
+			M.cmd.Stop()
+		end, 300)
+	end)
 
-	local cmd =
-		-- create tmp dir and move there
-		"mkdir -p /tmp/gp_whisper && cd /tmp/gp_whisper && "
-		-- record audio
-		.. "sox -q -c 1 -d rec.wav silence 1 0.1 1% 1 1.0 1% &&"
-		-- remove silence, speed up and convert to mp3
-		.. "sox -q rec.wav -C 196.5 rec.mp3 silence -l 1 0.2 1% -1 0.5 1% tempo 1.75 && "
-		-- call openai
-		.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
-		.. '-H "Authorization: Bearer '
-		.. M.config.openai_api_key
-		.. '" -H "Content-Type: multipart/form-data" '
-		.. '-F model="whisper-1" -F language="en" -F file="@rec.mp3" '
-		.. '-F response_format="json"'
+	-- cleanup on buffer exit
+	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
 
-	M._H.process("bash", { "-c", cmd }, function(code, signal, stdout, _)
+	-- transcribe the recording
+	local transcribe = function()
+		local cmd = "cd "
+			.. M.config.whisper_dir
+			.. " && "
+			-- normalize volume
+			.. "sox --norm=-3 rec.wav norm.wav && "
+			-- remove silence, speed up, pad and convert to mp3
+			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.2 "
+			.. M.config.whisper_silence
+			.. " -1 0.5 "
+			.. M.config.whisper_silence
+			.. " pad 0.1 0.1 tempo 1.75 && "
+			-- call openai
+			.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
+			.. '-H "Authorization: Bearer '
+			.. M.config.openai_api_key
+			.. '" -H "Content-Type: multipart/form-data" '
+			.. '-F model="whisper-1" -F language="en" -F file="@final.mp3" '
+			.. '-F response_format="json"'
+
+		M._H.process("bash", { "-c", cmd }, function(code, signal, stdout, _)
+			if code ~= 0 then
+				M.error(string.format("Whisper query exited: %d, %d", code, signal))
+				return
+			end
+
+			local text = vim.json.decode(stdout).text
+			if not text then
+				M.error("Whisper query no text: " .. vim.inspect(stdout))
+				return
+			end
+
+			text = table.concat(vim.split(text, "\n"), " ")
+			text = text:gsub("%s+$", "")
+
+			if callback and stdout then
+				callback(text)
+			end
+		end)
+	end
+
+	M._H.process("sox", {
+		--[[ "-q", ]]
+		-- single channel
+		"-c",
+		"1",
+		-- output file
+		"-d",
+		M.config.whisper_dir .. "/rec.wav",
+		-- max recording time
+		"trim",
+		"0",
+		M.config.whisper_max_time,
+	}, function(code, signal, _, _)
 		close()
 
-		if code ~= 0 then
-			M.error(string.format("Whisper query exited: %d, %d", code, signal))
+		if code and code ~= 0 then
+			M.error("Sox exited with code and signal: " .. code .. " " .. signal)
 			return
 		end
 
-		local text = vim.json.decode(stdout).text
-		if not text then
-			M.error("Whisper query no text: " .. vim.inspect(stdout))
+		if not continue then
 			return
 		end
 
-		text = table.concat(vim.split(text, "\n"), " ")
-		text = text:gsub("%s+$", "")
-
-		if callback and stdout then
-			callback(text)
-		end
+		vim.schedule(function()
+			transcribe()
+		end)
 	end)
 end
 
