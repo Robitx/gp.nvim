@@ -206,51 +206,62 @@ end
 
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
----@param callback function | nil # callback function(code, signal, stdout_data, stderr_data)
-_H.process = function(cmd, args, callback)
+---@param callback function | nil # exit callback function(code, signal, stdout_data, stderr_data)
+---@param out_reader function | nil # stdout reader function(err, data)
+---@param err_reader function | nil # stderr reader function(err, data)
+_H.process = function(cmd, args, callback, out_reader, err_reader)
 	local handle, pid
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 	local stdout_data = ""
 	local stderr_data = ""
 
-	handle, pid = vim.loop.spawn(
-		cmd,
-		{
-			args = args,
-			stdio = { nil, stdout, stderr },
-		},
-		vim.schedule_wrap(function(code, signal)
-			stdout:read_stop()
-			stderr:read_stop()
-			stdout:close()
-			stderr:close()
+	local on_exit = _H.once(vim.schedule_wrap(function(code, signal)
+		stdout:read_stop()
+		stderr:read_stop()
+		stdout:close()
+		stderr:close()
+		if handle and not handle:is_closing() then
 			handle:close()
-			print(stdout_data)
-			if callback then
-				callback(code, signal, stdout_data, stderr_data)
-			end
-		end)
-	)
+		end
+		if callback then
+			callback(code, signal, stdout_data, stderr_data)
+		end
+		M._handle = nil
+		M._pid = nil
+	end))
+
+	handle, pid = vim.loop.spawn(cmd, {
+		args = args,
+		stdio = { nil, stdout, stderr },
+		hide = true,
+		detach = true,
+	}, on_exit)
 
 	M._handle = handle
 	M._pid = pid
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
-			error(vim.inspect(err))
+			M.error("Error reading stdout: " .. vim.inspect(err))
 		end
 		if data then
 			stdout_data = stdout_data .. data
+		end
+		if out_reader then
+			out_reader(err, data)
 		end
 	end)
 
 	vim.loop.read_start(stderr, function(err, data)
 		if err then
-			error(vim.inspect(err))
+			M.error("Error reading stderr: " .. vim.inspect(err))
 		end
 		if data then
 			stderr_data = stderr_data .. data
+		end
+		if err_reader then
+			err_reader(err, data)
 		end
 	end)
 end
@@ -645,110 +656,82 @@ M.query = function(payload, handler, on_exit)
 	M._first_line = -1
 	M._last_line = -1
 
-	-- prepare pipes
-	local stdout = vim.loop.new_pipe(false)
-	local stderr = vim.loop.new_pipe(false)
+	local out_reader = function()
+		local buffer = ""
 
-	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
-
-	-- spawn curl process
-	M._handle, M._pid = vim.loop.spawn("curl", {
-		args = {
-			"--no-buffer",
-			"-s",
-			endpoint,
-			"-H",
-			"Content-Type: application/json",
-			-- api-key is for azure, authorization is for openai
-			"-H",
-			"Authorization: Bearer " .. M.config.openai_api_key,
-			"-H",
-			"api-key: " .. M.config.openai_api_key,
-			"-d",
-			vim.json.encode(payload),
-			--[[ "--doesnt_exist" ]]
-		},
-		stdio = { nil, stdout, stderr },
-	}, function(code, signal)
-		-- process cleanup
-		if code ~= 0 then
-			M.error(string.format("OpenAI query exited: %d, %d", code, signal))
+		---@param lines_chunk string
+		local function process_lines(lines_chunk)
+			local lines = vim.split(lines_chunk, "\n")
+			for _, line in ipairs(lines) do
+				line = line:gsub("^data: ", "")
+				if line:match("chat%.completion%.chunk") then
+					line = vim.json.decode(line)
+					local content = line.choices[1].delta.content
+					if content ~= nil then
+						-- store response for debugging
+						M._response = M._response .. content
+						-- call response handler
+						handler(content)
+					end
+				end
+			end
 		end
-		vim.loop.read_stop(stdout)
-		vim.loop.read_stop(stderr)
-		vim.loop.close(stdout)
-		vim.loop.close(stderr)
-	end)
 
-	local buffer = ""
+		-- closure for vim.loop.read_start(stdout, fn)
+		return function(err, chunk)
+			if err then
+				M.error("OpenAI query stdout error: " .. vim.inspect(err))
+			elseif chunk then
+				-- add the incoming chunk to the buffer
+				buffer = buffer .. chunk
+				local last_newline_pos = buffer:find("\n[^\n]*$")
+				if last_newline_pos then
+					local complete_lines = buffer:sub(1, last_newline_pos - 1)
+					-- save the rest of the buffer for the next chunk
+					buffer = buffer:sub(last_newline_pos + 1)
 
-	---@param lines_chunk string
-	local function process_lines(lines_chunk)
-		local lines = vim.split(lines_chunk, "\n")
-		for _, line in ipairs(lines) do
-			line = line:gsub("^data: ", "")
-			if line:match("chat%.completion%.chunk") then
-				line = vim.json.decode(line)
-				local content = line.choices[1].delta.content
-				if content ~= nil then
-					-- store response for debugging
-					M._response = M._response .. content
-					-- call response handler
-					handler(content)
+					process_lines(complete_lines)
+				end
+			-- chunk is nil when EOF is reached
+			else
+				-- if there's remaining data in the buffer, process it
+				if #buffer > 0 then
+					process_lines(buffer)
+				end
+
+				-- optional on_exit handler
+				if type(on_exit) == "function" then
+					on_exit()
 				end
 			end
 		end
 	end
 
-	-- read stdout
-	vim.loop.read_start(stdout, function(err, chunk)
-		if err then
-			M.error("OpenAI query stdout error: " .. vim.inspect(err))
-		elseif chunk then
-			-- add the incoming chunk to the buffer
-			buffer = buffer .. chunk
-			local last_newline_pos = buffer:find("\n[^\n]*$")
-			if last_newline_pos then
-				local complete_lines = buffer:sub(1, last_newline_pos - 1)
-				-- save the rest of the buffer for the next chunk
-				buffer = buffer:sub(last_newline_pos + 1)
+	-- try to replace model in endpoint (for azure)
+	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
 
-				process_lines(complete_lines)
-			end
-		-- chunk is nil when EOF is reached
-		else
-			-- if there's remaining data in the buffer, process it
-			if #buffer > 0 then
-				process_lines(buffer)
-			end
-
-			-- optional on_exit handler
-			if type(on_exit) == "function" then
-				on_exit()
-			end
-		end
-	end)
-
-	-- read stderr
-	vim.loop.read_start(stderr, function(err, chunk)
-		if err then
-			M.error("OpenAI query stderr error: " .. vim.inspect(err))
-		end
-
-		if chunk then
-			print("stderr data: " .. vim.inspect(chunk))
-		end
-	end)
+	M._H.process("curl", {
+		"--no-buffer",
+		"-s",
+		endpoint,
+		"-H",
+		"Content-Type: application/json",
+		-- api-key is for azure, authorization is for openai
+		"-H",
+		"Authorization: Bearer " .. M.config.openai_api_key,
+		"-H",
+		"api-key: " .. M.config.openai_api_key,
+		"-d",
+		vim.json.encode(payload),
+		--[[ "--doesnt_exist" ]]
+	}, nil, out_reader(), nil)
 end
 
 -- stop recieving gpt response
-M.cmd.Stop = function()
+---@param signal number | nil # signal to send to the process
+M.cmd.Stop = function(signal)
 	if M._handle ~= nil and not M._handle:is_closing() then
-		M._handle:close()
-		vim.loop.kill(M._pid, 15)
-		M._handle = nil
-		M._pid = nil
+		vim.loop.kill(M._pid, signal or 15)
 	end
 
 	if M._whisper_stop then
