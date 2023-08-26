@@ -55,12 +55,18 @@ local config = {
 		.. "\n\nRespond just with the snippet of code that should be inserted.",
 	template_command = "{{command}}",
 
+	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
+	-- Whisper costs $0.006 / minute (rounded to the nearest second)
+	-- by eliminating silence and speeding up the tempo of the recording
+	-- we can reduce the cost by 50% or more and get the results faster
 	-- directory for storing whisper files
 	whisper_dir = "/tmp/gp_whisper",
 	-- threshold used by sox to detect silence vs speech
 	whisper_silence = "1.0%",
 	-- whisper max recording time (mm:ss)
 	whisper_max_time = "05:00",
+	-- whisper tempo (1.0 is normal speed)
+	whisper_tempo = "1.75",
 
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
@@ -1667,7 +1673,9 @@ M.Whisper = function(callback)
 			.. M.config.whisper_silence
 			.. " -1 0.5 "
 			.. M.config.whisper_silence
-			.. " pad 0.1 0.1 tempo 1.75 && "
+			.. " pad 0.1 0.1 tempo "
+			.. M.config.whisper_tempo
+			.. " && "
 			-- call openai
 			.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
 			.. '-H "Authorization: Bearer '
