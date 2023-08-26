@@ -32,7 +32,11 @@ Trying to keep things as native as possible - reusing and integrating well with 
   - multimodal - same command works for normal/insert mode, with selection or a range
   - many possible output targets - rewrite, prepend, append, new buffer, popup
   - non interactive command mode available for common repetitive tasks implementable as simple hooks  
-    (explain something in a popup window, write unit tests for selected code into a new buffer, finish selected code based on comments in it, etc.)
+    (explain something in a popup window, write unit tests for selected code into a new buffer,  
+    finish selected code based on comments in it, etc.)
+- **Speech to text support**
+  - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
+    (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
 ## Changelog
 
@@ -322,7 +326,7 @@ require("which-key").register({
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
 
-        -- optional Whisper commands
+                -- optional Whisper commands
 		w = { ":<C-u>'<,'>GpWhisper<cr>", "Whisper" },
 		R = { ":<C-u>'<,'>GpwhisperRewrite<cr>", "Whisper Visual Rewrite" },
 		A = { ":<C-u>'<,'>GpwhisperAppend<cr>", "Whisper Visual Append" },
@@ -355,7 +359,7 @@ require("which-key").register({
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
-        -- optional Whisper commands
+                -- optional Whisper commands
 		w = { "<cmd>GpWhisper<cr>", "Whisper" },
 		R = { "<cmd>GpWhisperRewrite<cr>", "Whisper Inline Rewrite" },
 		A = { "<cmd>GpWhisperAppend<cr>", "Whisper Append" },
@@ -388,7 +392,7 @@ require("which-key").register({
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
-        -- optional Whisper commands
+                -- optional Whisper commands
 		w = { "<cmd>GpWhisper<cr>", "Whisper" },
 		R = { "<cmd>GpWhisperRewrite<cr>", "Whisper Inline Rewrite" },
 		A = { "<cmd>GpWhisperAppend<cr>", "Whisper Append" },
