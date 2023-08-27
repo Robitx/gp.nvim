@@ -96,9 +96,14 @@ Also consider setting up [usage limits](https://platform.openai.com/account/bill
 
 ### 3. Dependencies
 
-The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux / BSD / Mac OS should be covered.
+The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux, BSD and Mac OS should be covered.
 
-Voice commands depend on `SoX` (Sound eXchange) which handles audio recording and processing.
+Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio recording and processing:
+- Mac OS: `brew install sox`
+- Ubuntu/Debian: `apt-get install sox`
+- Arch Linux: `pacman -S sox`
+- Redhat/CentOS: `yum install sox`
+- NixOS: `nix-env -i curl`
 
 ### 4. Configuration
 
