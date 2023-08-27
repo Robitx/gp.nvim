@@ -61,8 +61,8 @@ local config = {
 	-- we can reduce the cost by 50% or more and get the results faster
 	-- directory for storing whisper files
 	whisper_dir = "/tmp/gp_whisper",
-	-- threshold used by sox to detect silence vs speech
-	whisper_silence = "1.0%",
+	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
+	whisper_silence = "1.5",
 	-- whisper max recording time (mm:ss)
 	whisper_max_time = "05:00",
 	-- whisper tempo (1.0 is normal speed)
@@ -1680,13 +1680,15 @@ M.Whisper = function(callback)
 		local cmd = "cd "
 			.. M.config.whisper_dir
 			.. " && "
-			-- normalize volume
+			-- normalize volume to -3dB
 			.. "sox --norm=-3 rec.wav norm.wav && "
+			-- get RMS level dB * silence threshold
+			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
+			.. " | sed -e 's/.* //' | awk '{print $1*"
+			.. M.config.whisper_silence
+			.. "}') && "
 			-- remove silence, speed up, pad and convert to mp3
-			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.2 "
-			.. M.config.whisper_silence
-			.. " -1 0.5 "
-			.. M.config.whisper_silence
+			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.2 $t'dB' -1 0.5 $t'dB'"
 			.. " pad 0.1 0.1 tempo "
 			.. M.config.whisper_tempo
 			.. " && "

@@ -166,8 +166,8 @@ local conf = {
 	-- we can reduce the cost by 50% or more and get the results faster
 	-- directory for storing whisper files
 	whisper_dir = "/tmp/gp_whisper",
-	-- threshold used by sox to detect silence vs speech
-	whisper_silence = "1.0%",
+	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
+	whisper_silence = "1.5",
 	-- whisper max recording time (mm:ss)
 	whisper_max_time = "05:00",
 	-- whisper tempo (1.0 is normal speed)
