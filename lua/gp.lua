@@ -1660,12 +1660,12 @@ M.Whisper = function(callback)
 		M.cmd.Stop()
 	end)
 
-	_H.set_keymap({ buf }, "n", "<esc>", function()
+	_H.set_keymap({ buf }, {"n", "i", "v"}, "<esc>", function()
 		M.cmd.Stop()
 	end)
 
 	local continue = false
-	_H.set_keymap({ buf }, "n", "<cr>", function()
+	_H.set_keymap({ buf }, {"n", "i", "v"}, "<cr>", function()
 		continue = true
 		vim.defer_fn(function()
 			M.cmd.Stop()
