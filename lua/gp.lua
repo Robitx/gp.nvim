@@ -749,9 +749,13 @@ M.cmd.Stop = function(signal)
 end
 
 -- response handler
-M.create_handler = function(buf, line, first_undojoin)
+---@param buf number | nil # buffer to insert response into
+---@param win number | nil # window to insert response into
+---@param line number | nil # line to insert response into
+---@param first_undojoin boolean | nil # whether to skip first undojoin
+M.create_handler = function(buf, win, line, first_undojoin)
 	buf = buf or vim.api.nvim_get_current_buf()
-	local first_line = line or vim.api.nvim_win_get_cursor(0)[1] - 1
+	local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
 	local skip_first_undojoin = not first_undojoin
 
 	local response = ""
@@ -781,9 +785,13 @@ M.create_handler = function(buf, line, first_undojoin)
 		vim.cmd("undojoin")
 		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, vim.split(response, "\n"))
 
+		-- check if window is still valid
+		if not win or not vim.api.nvim_win_is_valid(win) then
+			return
+		end
 		-- move cursor to end of response
 		local end_line = first_line + #vim.split(response, "\n")
-		vim.api.nvim_win_set_cursor(0, { end_line, 0 })
+		vim.api.nvim_win_set_cursor(win, { end_line, 0 })
 		M._first_line = first_line
 		M._last_line = end_line - 1
 	end)
@@ -1027,6 +1035,7 @@ end
 
 M.cmd.ChatRespond = function()
 	local buf = vim.api.nvim_get_current_buf()
+	local win = vim.api.nvim_get_current_win()
 
 	-- go to normal mode
 	vim.cmd("stopinsert")
@@ -1112,7 +1121,7 @@ M.cmd.ChatRespond = function()
 	-- call the model and write response
 	M.query(
 		M.prepare_payload(headers.model, M.config.chat_model, messages),
-		M.create_handler(buf, M._H.last_content_line(buf), true),
+		M.create_handler(buf, win, M._H.last_content_line(buf), true),
 		vim.schedule_wrap(function()
 			-- write user prompt
 			last_content_line = M._H.last_content_line(buf)
@@ -1143,7 +1152,7 @@ M.cmd.ChatRespond = function()
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
-				local topic_handler = M.create_handler(topic_buf, 0, false)
+				local topic_handler = M.create_handler(topic_buf, nil, 0, false)
 
 				-- call the model
 				M.query(
@@ -1165,18 +1174,22 @@ M.cmd.ChatRespond = function()
 						end
 
 						-- replace topic in current buffer
-						vim.api.nvim_set_current_buf(buf)
 						vim.cmd("undojoin")
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
-
+						-- check if win is valid
+						if not win or not vim.api.nvim_win_is_valid(win) then
+							return
+						end
 						-- move cursor to a new line at the end of the file
-						M._H.feedkeys("G", "x")
+						local line = vim.api.nvim_buf_line_count(buf)
+						vim.api.nvim_win_set_cursor(win, { line, 0 })
 					end)
 				)
 			end
 
 			-- move cursor to a new line at the end of the file
-			M._H.feedkeys("G", "x")
+			local line = vim.api.nvim_buf_line_count(buf)
+			vim.api.nvim_win_set_cursor(win, { line, 0 })
 		end)
 	)
 
@@ -1464,6 +1477,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
+	local win = vim.api.nvim_get_current_win()
 
 	-- defaults to normal mode
 	local selection = nil
@@ -1524,21 +1538,21 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
-			handler = M.create_handler(buf, start_line - 1, true)
+			handler = M.create_handler(buf, win, start_line - 1, true)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "", "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, end_line + 1, true)
+			handler = M.create_handler(buf, win, end_line + 1, true)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "", "" }, "l", false, true)
 			-- prepare handler
-			handler = M.create_handler(buf, start_line - 1, true)
+			handler = M.create_handler(buf, win, start_line - 1, true)
 		elseif target == M.Target.enew then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
@@ -1547,10 +1561,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- set the filetype
 			vim.api.nvim_buf_set_option(buf, "filetype", filetype)
 			-- prepare handler
-			handler = M.create_handler(buf, 0, false)
+			handler = M.create_handler(buf, win, 0, false)
 		elseif target == M.Target.popup then
 			-- create a new buffer
-			buf, _, _, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
+			buf, win, _, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
 				return w / 2, h / 2, h / 4, w / 4
 			end, { on_leave = true, escape = true })
 			-- set the created buffer as the current buffer
@@ -1560,7 +1574,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
-			handler = M.create_handler(buf, 0, false)
+			handler = M.create_handler(buf, win, 0, false)
 		end
 
 		-- call the model and write the response
