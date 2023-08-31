@@ -665,7 +665,7 @@ M.query = function(payload, handler, on_exit)
 
 	-- make sure openai_api_key is set
 	if M.config.openai_api_key == nil then
-		M.error("config.openai_api_key is not set")
+		M.error("config.openai_api_key is not set, run :checkhealth gp")
 		return
 	end
 
@@ -1622,7 +1622,7 @@ M.Whisper = function(callback)
 
 	-- make sure openai_api_key is set
 	if M.config.openai_api_key == nil then
-		M.error("config.openai_api_key is not set")
+		M.error("config.openai_api_key is not set, run :checkhealth gp")
 		return
 	end
 
