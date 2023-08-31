@@ -564,14 +564,12 @@ M.setup = function(opts)
 
 	-- make sure curl is installed
 	if vim.fn.executable("curl") == 0 then
-		M.error("curl is not installed")
-		return
+		M.error("curl is not installed, run :checkhealth gp")
 	end
 
 	-- make sure openai_api_key is set
 	if M.config.openai_api_key == nil then
-		print("gp.nvim config.openai_api_key is not set")
-		return
+		print("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
 end
 
