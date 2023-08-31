@@ -498,7 +498,11 @@ M.error = function(msg)
 end
 
 -- setup function
+M._setup_called = false
+---@param opts table | nil # table with options
 M.setup = function(opts)
+	M._setup_called = true
+
 	-- make sure opts is a table
 	opts = opts or {}
 	if type(opts) ~= "table" then
@@ -560,14 +564,12 @@ M.setup = function(opts)
 
 	-- make sure curl is installed
 	if vim.fn.executable("curl") == 0 then
-		M.error("curl is not installed")
-		return
+		M.error("curl is not installed, run :checkhealth gp")
 	end
 
 	-- make sure openai_api_key is set
 	if M.config.openai_api_key == nil then
-		M.error("openai_api_key is not set")
-		return
+		print("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
 end
 
@@ -658,6 +660,12 @@ M.query = function(payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		M.error(string.format("query() expects handler function, but got %s:\n%s", type(handler), vim.inspect(handler)))
+		return
+	end
+
+	-- make sure openai_api_key is set
+	if M.config.openai_api_key == nil then
+		M.error("config.openai_api_key is not set, run :checkhealth gp")
 		return
 	end
 
@@ -1612,6 +1620,12 @@ M.Whisper = function(callback)
 		return
 	end
 
+	-- make sure openai_api_key is set
+	if M.config.openai_api_key == nil then
+		M.error("config.openai_api_key is not set, run :checkhealth gp")
+		return
+	end
+
 	-- prepare unique group name and register augroup
 	local gname = "GpWhisper"
 		.. os.date("_%Y_%m_%d_%H_%M_%S_")
@@ -1660,12 +1674,12 @@ M.Whisper = function(callback)
 		M.cmd.Stop()
 	end)
 
-	_H.set_keymap({ buf }, {"n", "i", "v"}, "<esc>", function()
+	_H.set_keymap({ buf }, { "n", "i", "v" }, "<esc>", function()
 		M.cmd.Stop()
 	end)
 
 	local continue = false
-	_H.set_keymap({ buf }, {"n", "i", "v"}, "<cr>", function()
+	_H.set_keymap({ buf }, { "n", "i", "v" }, "<cr>", function()
 		continue = true
 		vim.defer_fn(function()
 			M.cmd.Stop()
