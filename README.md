@@ -180,12 +180,12 @@ local conf = {
 			print(string.format("Command params:\n%s", vim.inspect(params)))
 		end,
 
-		-- GpImplement finishes the provided selection/range based on comments in the code
+		-- GpImplement rewrites the provided selection/range based on comments in the code
 		Implement = function(gp, params)
-			local template = "I have the following code from {{filename}}:\n\n"
+			local template = "Having following from {{filename}}:\n\n"
 				.. "```{{filetype}}\n{{selection}}\n```\n\n"
-				.. "Please finish the code above according to comment instructions."
-				.. "\n\nRespond just with the snippet of code that should be inserted."
+				.. "Please rewrite this code according to the comment instructions."
+				.. "\n\nRespond only with the snippet of finalized code:"
 
 			gp.Prompt(
 				params,
