@@ -577,8 +577,9 @@ M.Target = {
 	rewrite = 0, -- for replacing the selection, range or the current line
 	append = 1, -- for appending after the selection, range or the current line
 	prepend = 2, -- for prepending before the selection, range or the current line
-	enew = 3, -- for writing into the new buffer
-	popup = 4, -- for writing into the popup window
+	popup = 3, -- for writing into the popup window
+	-- for writing into the new buffer
+	enew = function(filetype) return {type = 4, filetype = filetype} end,
 }
 
 -- creates prompt commands for each target
@@ -1481,7 +1482,12 @@ end
 --------------------
 
 M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
-	target = target or M.Target.enew
+	-- backwards compatibility for old usage of enew
+	if type(target) == 'function' then
+		target = M.Target.enew()
+	end
+
+	target = target or M.Target.enew()
 
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
@@ -1561,15 +1567,6 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			vim.api.nvim_put({ "", "" }, "l", false, true)
 			-- prepare handler
 			handler = M.create_handler(buf, win, start_line - 1, true)
-		elseif target == M.Target.enew then
-			-- create a new buffer
-			buf = vim.api.nvim_create_buf(true, false)
-			-- set the created buffer as the current buffer
-			vim.api.nvim_set_current_buf(buf)
-			-- set the filetype
-			vim.api.nvim_buf_set_option(buf, "filetype", filetype)
-			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false)
 		elseif target == M.Target.popup then
 			-- create a new buffer
 			buf, win, _, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
@@ -1581,6 +1578,16 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
+			-- prepare handler
+			handler = M.create_handler(buf, win, 0, false)
+		elseif type(target) == "table" and target.type == M.Target.enew().type then
+			local ft = target.filetype or filetype
+			-- create a new buffer
+			buf = vim.api.nvim_create_buf(true, false)
+			-- set the created buffer as the current buffer
+			vim.api.nvim_set_current_buf(buf)
+			-- set the filetype
+			vim.api.nvim_buf_set_option(buf, "filetype", ft)
 			-- prepare handler
 			handler = M.create_handler(buf, win, 0, false)
 		end
