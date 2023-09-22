@@ -135,7 +135,7 @@ local config = {
 --------------------------------------------------------------------------------
 
 local _H = {}
-M = {
+local M = {
 	_Name = "Gp (GPT prompt)", -- plugin name
 	_H = _H, -- helper functions
 	_payload = {}, -- payload for openai api
@@ -549,7 +549,6 @@ M.setup = function(opts)
 	-- register user commands
 	for hook, _ in pairs(M.cmd_hooks) do
 		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
-			M = require("gp")
 			M.call_hook(hook, params)
 		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
 	end
@@ -558,7 +557,6 @@ M.setup = function(opts)
 	for cmd, _ in pairs(M.cmd) do
 		if M.cmd_hooks[cmd] == nil then
 			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
-				M = require("gp")
 				M.cmd[cmd](params)
 			end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
 		end
