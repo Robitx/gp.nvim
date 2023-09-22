@@ -433,7 +433,7 @@ Here are some more examples:
         local template = "I have the following code from {{filename}}:\n\n"
             .. "```{{filetype}}\n{{selection}}\n```\n\n"
             .. "Please respond by writing table driven unit tests for the code above."
-        gp.Prompt(params, gp.Target.enew(), nil, gp.config.command_model,
+        gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
             template, gp.config.command_system_prompt)
     end,
     ````
@@ -453,7 +453,8 @@ Here are some more examples:
 
 -   `:GpCodeReview`
 
-    ```lua
+    ````lua
+    -- example of usig enew as a function specifying type for the new buffer
     CodeReview = function(gp, params)
         local template = "I have the following code from {{filename}}:\n\n"
             .. "```{{filetype}}\n{{selection}}\n```\n\n"
@@ -461,7 +462,7 @@ Here are some more examples:
             gp.Prompt(params, gp.Target.enew("markdown"), nil, gp.config.command_model,
                 template, gp.config.command_system_prompt)
         end
-    ```
+    ````
 
 -   `:GpBufferChatNew`
 
@@ -525,16 +526,26 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     }
     ```
 -   `target` specifying where to direct GPT response
+
+    -   enew can be used as a function so you can pass in a filetype
+        for the new buffer (`enew/enew()/enew("markdown")/..`)
+
     ```lua
     M.Target = {
-	rewrite = 0, -- for replacing the selection, range or the current line
-	append = 1, -- for appending after the selection, range or the current line
-	prepend = 2, -- for prepending before the selection, range or the current line
-	popup = 3, -- for writing into the popup window
-	-- for writing into the new buffer
-	enew = function(filetype) return {type = 4, filetype = filetype} end,
+        rewrite = 0, -- for replacing the selection, range or the current line
+        append = 1, -- for appending after the selection, range or the current line
+        prepend = 2, -- for prepending before the selection, range or the current line
+        popup = 3, -- for writing into the popup window
+
+        -- for writing into a new buffer
+        ---@param filetype nil | string # nil = same as the original buffer
+        ---@return table # a table with type=4 and filetype=filetype
+        enew = function(filetype)
+            return { type = 4, filetype = filetype }
+        end,
     }
     ```
+
 -   `prompt`
     -   string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
     -   if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
