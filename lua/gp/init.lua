@@ -578,8 +578,13 @@ M.Target = {
 	append = 1, -- for appending after the selection, range or the current line
 	prepend = 2, -- for prepending before the selection, range or the current line
 	popup = 3, -- for writing into the popup window
-	-- for writing into the new buffer
-	enew = function(filetype) return {type = 4, filetype = filetype} end,
+
+	-- for writing into a new buffer
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=4 and filetype=filetype
+	enew = function(filetype)
+		return { type = 4, filetype = filetype }
+	end,
 }
 
 -- creates prompt commands for each target
@@ -1483,7 +1488,7 @@ end
 
 M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
 	-- backwards compatibility for old usage of enew
-	if type(target) == 'function' then
+	if type(target) == "function" then
 		target = M.Target.enew()
 	end
 
@@ -1581,12 +1586,12 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- prepare handler
 			handler = M.create_handler(buf, win, 0, false)
 		elseif type(target) == "table" and target.type == M.Target.enew().type then
-			local ft = target.filetype or filetype
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype
+			local ft = target.filetype or filetype
 			vim.api.nvim_buf_set_option(buf, "filetype", ft)
 			-- prepare handler
 			handler = M.create_handler(buf, win, 0, false)
