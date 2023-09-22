@@ -433,7 +433,7 @@ Here are some more examples:
         local template = "I have the following code from {{filename}}:\n\n"
             .. "```{{filetype}}\n{{selection}}\n```\n\n"
             .. "Please respond by writing table driven unit tests for the code above."
-        gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
+        gp.Prompt(params, gp.Target.enew(), nil, gp.config.command_model,
             template, gp.config.command_system_prompt)
     end,
     ````
@@ -451,6 +451,18 @@ Here are some more examples:
     end,
     ````
 
+-   `:GpCodeReview`
+
+    ```lua
+    CodeReview = function(gp, params)
+        local template = "I have the following code from {{filename}}:\n\n"
+            .. "```{{filetype}}\n{{selection}}\n```\n\n"
+            .. "Please analyze for code smells and suggest improvements."
+            gp.Prompt(params, gp.Target.enew("markdown"), nil, gp.config.command_model,
+                template, gp.config.command_system_prompt)
+        end
+    ```
+
 -   `:GpBufferChatNew`
 
     ```lua
@@ -463,6 +475,7 @@ Here are some more examples:
     ```
 
 -   `:GpBetterChatNew`
+
     ```lua
     -- example of adding a custom chat command with non-default parameters
     -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
@@ -513,12 +526,13 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     ```
 -   `target` specifying where to direct GPT response
     ```lua
-    M.target = {
-        replace = 0, -- for replacing the selection or the current line
-        append = 1, -- for appending after the selection or the current line
-        prepend = 2, -- for prepending before the selection or the current line
-        enew = 3, -- for writing into the new buffer
-        popup = 4, -- for writing into the popup window
+    M.Target = {
+	rewrite = 0, -- for replacing the selection, range or the current line
+	append = 1, -- for appending after the selection, range or the current line
+	prepend = 2, -- for prepending before the selection, range or the current line
+	popup = 3, -- for writing into the popup window
+	-- for writing into the new buffer
+	enew = function(filetype) return {type = 4, filetype = filetype} end,
     }
     ```
 -   `prompt`
