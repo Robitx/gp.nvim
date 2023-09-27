@@ -17,9 +17,18 @@ local config = {
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat model (string with model name or table with model name and parameters)
-	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
-	-- chat model system prompt
+	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 1.1, top_p = 1 },
+	-- chat model system prompt (use this to specify the persona/role of the AI)
 	chat_system_prompt = "You are a general AI assistant.",
+	-- chat custom instructions (not visible in the chat but prepended to model prompt)
+	chat_custom_instructions = "The user provided the additional info about how they would like you to respond:\n\n"
+		.. "- If you're unsure don't guess and say you don't know instead.\n"
+		.. "- Ask question if you need clarification to provide better answer.\n"
+		.. "- Think deeply and carefully from first principles step by step.\n"
+		.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+		.. "- Use Socratic method to improve your thinking and coding skills.\n"
+		.. "- Don't elide any code from your output if the answer requires coding.\n"
+		.. "- Take a deep breath; You've got this!\n",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
 	-- chat assistant prompt prefix
@@ -43,7 +52,7 @@ local config = {
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
 	-- command model (string with model name or table with model name and parameters)
-	command_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
+	command_model = { model = "gpt-3.5-turbo-16k", temperature = 1.1, top_p = 1 },
 	-- command system prompt
 	command_system_prompt = "You are an AI that strictly generates just the formated final code.",
 
@@ -945,6 +954,8 @@ M.open_chat = function(file_name, popup)
 	vim.opt_local.concealcursor = ""
 	vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
 	vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
+	vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
+	vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 
 	-- move cursor to a new line at the end of the file
 	M._H.feedkeys("G", "x")
@@ -958,7 +969,7 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	end
 
 	-- prepare filename
-	local time = os.date("%Y-%m-%d_%H-%M-%S")
+	local time = os.date("%Y-%m-%d.%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
 	-- make sure stamp is 3 digits
 	while #stamp < 3 do
@@ -973,11 +984,15 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 		model = vim.json.encode(model)
 	end
 
+	-- display system prompt as single line with escaped newlines
+	local system_prompt = system_prompt or M.config.chat_system_prompt
+	system_prompt = system_prompt:gsub("\n", "\\n")
+
 	local template = string.format(
 		M.chat_template,
 		model,
 		string.match(filename, "([^/]+)$"),
-		system_prompt or M.config.chat_system_prompt,
+		system_prompt,
 		M.config.chat_user_prefix,
 		M.config.chat_shortcut_respond.shortcut,
 		M.config.cmd_prefix,
@@ -987,6 +1002,8 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 		M.config.cmd_prefix,
 		M.config.chat_user_prefix
 	)
+	-- escape underscores (for markdown)
+	template = template:gsub("_", "\\_")
 
 	if params.range == 2 then
 		-- get current buffer
@@ -1129,7 +1146,14 @@ M.cmd.ChatRespond = function()
 		content = M.config.chat_system_prompt
 	end
 	if content:match("%S") then
+		-- make it multiline again if it contains escaped newlines
+		content = content:gsub("\\n", "\n")
 		messages[1] = { role = "system", content = content }
+	end
+
+	-- add custom instructions if they exist and contains some text
+	if M.config.chat_custom_instructions and M.config.chat_custom_instructions:match("%S") then
+		table.insert(messages, 2, { role = "system", content = M.config.chat_custom_instructions })
 	end
 
 	-- strip whitespace from ends of content
@@ -1149,6 +1173,8 @@ M.cmd.ChatRespond = function()
 
 	-- if model contains { } then it is a json string otherwise it is a model name
 	if headers.model and headers.model:match("{.*}") then
+		-- unescape underscores before decoding json
+		headers.model = headers.model:gsub("\\_", "_")
 		headers.model = vim.json.decode(headers.model)
 	end
 
@@ -1180,6 +1206,11 @@ M.cmd.ChatRespond = function()
 			if headers.topic == "?" then
 				-- insert last model response
 				table.insert(messages, { role = "assistant", content = M._response })
+
+				-- ignore custom instructions for topic generation
+				if M.config.chat_custom_instructions and M.config.chat_custom_instructions:match("%S") then
+					table.remove(messages, 2)
+				end
 
 				-- ask model to generate topic/title for the chat
 				table.insert(messages, { role = "user", content = M.config.chat_topic_gen_prompt })

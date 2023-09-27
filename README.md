@@ -123,9 +123,18 @@ local conf = {
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat model (string with model name or table with model name and parameters)
-	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
-	-- chat model system prompt
+	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 1.1, top_p = 1 },
+	-- chat model system prompt (use this to specify the persona/role of the AI)
 	chat_system_prompt = "You are a general AI assistant.",
+	-- chat custom instructions (not visible in the chat but prepended to model prompt)
+	chat_custom_instructions = "The user provided the additional info about how they would like you to respond:\n\n"
+		.. "- If you're unsure don't guess and say you don't know instead.\n"
+		.. "- Ask question if you need clarification to provide better answer.\n"
+		.. "- Think deeply and carefully from first principles step by step.\n"
+		.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+		.. "- Use Socratic method to improve your thinking and coding skills.\n"
+		.. "- Don't elide any code from your output if the answer requires coding.\n"
+		.. "- Take a deep breath; You've got this!\n",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
 	-- chat assistant prompt prefix
@@ -149,7 +158,7 @@ local conf = {
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
 	-- command model (string with model name or table with model name and parameters)
-	command_model = { model = "gpt-3.5-turbo-16k", temperature = 0.7, top_p = 1 },
+	command_model = { model = "gpt-3.5-turbo-16k", temperature = 1.1, top_p = 1 },
 	-- command system prompt
 	command_system_prompt = "You are an AI that strictly generates just the formated final code.",
 
@@ -168,7 +177,7 @@ local conf = {
 	-- directory for storing whisper files
 	whisper_dir = "/tmp/gp_whisper",
 	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
-	whisper_silence = "1.5",
+	whisper_silence = "1.75",
 	-- whisper max recording time (mm:ss)
 	whisper_max_time = "05:00",
 	-- whisper tempo (1.0 is normal speed)
