@@ -217,6 +217,18 @@ _H.delete_buffer = function(file_name)
 	end
 end
 
+---@param file_name string # name of the file for which to get buffer
+---@return number | nil # buffer number
+_H.get_buffer = function(file_name)
+	-- iterate over buffer list and return first buffer with the same name
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file_name then
+			return b
+		end
+	end
+	return nil
+end
+
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
 ---@param callback function | nil # exit callback function(code, signal, stdout_data, stderr_data)
@@ -319,15 +331,16 @@ _H.grep_directory = function(directory, pattern, callback)
 	end)
 end
 
+---@param buf number | nil # buffer number
 ---@param title string # title of the popup
 ---@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
----@param opts table # options - gid=nul, on_leave=false
+---@param opts table # options - gid=nul, on_leave=false, keep_buf=false
 ---returns table with buffer, window, close function, resize function
-_H.create_popup = function(title, size_func, opts)
+_H.create_popup = function(buf, title, size_func, opts)
 	opts = opts or {}
 
 	-- create buffer
-	local buf = vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
+	buf = buf or vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
 
 	-- setting to the middle of the editor
 	local options = {
@@ -382,8 +395,11 @@ _H.create_popup = function(title, size_func, opts)
 			if not opts.gid then
 				vim.api.nvim_del_augroup_by_id(pgid)
 			end
-			if vim.api.nvim_win_is_valid(win) then
+			if win and vim.api.nvim_win_is_valid(win) then
 				vim.api.nvim_win_close(win, true)
+			end
+			if opts.keep_buf then
+				return
 			end
 			if vim.api.nvim_buf_is_valid(buf) then
 				vim.api.nvim_buf_delete(buf, { force = true })
@@ -846,23 +862,27 @@ end
 ---@param popup boolean
 M.open_chat = function(file_name, popup)
 	if popup ~= nil then
-		-- delete buffer with same file name if it exists
-		M._H.delete_buffer(file_name)
+		local old_buf = M._H.get_buffer(file_name)
 
 		-- close previous popup if it exists
 		M._chat_popup_close()
 
 		-- create popup
-		local b, win, close, _ = M._H.create_popup(M._Name .. " Chat Popup", function(w, h)
+		local b, win, close, _ = M._H.create_popup(old_buf, M._Name .. " Chat Popup", function(w, h)
 			return w * 0.8, h * 0.8, h * 0.1, w * 0.1
-		end, { on_leave = false, escape = false, persist = true })
+		end, { on_leave = false, escape = false, persist = true, keep_buf = true })
 
 		M._chat_popup = { win = win, buf = b, close = close }
 
-		-- read file into buffer and force write it
-		vim.api.nvim_command("silent 0read " .. file_name)
-		vim.api.nvim_command("silent file " .. file_name)
-		vim.api.nvim_command("silent write! " .. file_name)
+		if old_buf == nil then
+			-- read file into buffer and force write it
+			vim.api.nvim_command("silent 0read " .. file_name)
+			vim.api.nvim_command("silent file " .. file_name)
+			vim.api.nvim_command("silent write! " .. file_name)
+		else
+			-- move cursor to the beginning of the file and scroll to the end
+			M._H.feedkeys("ggG", "x")
+		end
 
 		-- delete whitespace lines at the end of the file
 		local last_content_line = M._H.last_content_line(b)
@@ -1203,7 +1223,11 @@ M.cmd.ChatRespond = function()
 
 			-- move cursor to a new line at the end of the file
 			local line = vim.api.nvim_buf_line_count(buf)
-			vim.api.nvim_win_set_cursor(win, { line, 0 })
+
+			-- check if win is valid
+			if win and vim.api.nvim_win_is_valid(win) then
+				vim.api.nvim_win_set_cursor(win, { line, 0 })
+			end
 		end)
 	)
 
@@ -1225,6 +1249,7 @@ M.cmd.ChatFinder = function()
 	local hfactor = 0.7
 	local preview_ratio = 0.6
 	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
+		nil,
 		"Picker: j/k <Esc> <Enter> <Alt+Enter>|Pop dd|Del i|Srch",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
@@ -1239,6 +1264,7 @@ M.cmd.ChatFinder = function()
 	vim.api.nvim_win_set_option(picker_win, "cursorline", true)
 
 	local preview_buf, preview_win, preview_close, preview_resize = M._H.create_popup(
+		nil,
 		"Preview (edits are ephemeral)",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
@@ -1253,6 +1279,7 @@ M.cmd.ChatFinder = function()
 	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
 
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
+		nil,
 		"Search: <Tab>/<Shift+Tab>|Navigate <Esc>/<Enter>|Picker 2x<Esc>|Exit 2x<Enter>|Open 2x<Alt+Enter>|Popup",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
@@ -1574,7 +1601,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			handler = M.create_handler(buf, win, start_line - 1, true)
 		elseif target == M.Target.popup then
 			-- create a new buffer
-			buf, win, _, _ = M._H.create_popup(M._Name .. " popup (close with <esc>)", function(w, h)
+			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>)", function(w, h)
 				return w / 2, h / 2, h / 4, w / 4
 			end, { on_leave = true, escape = true })
 			-- set the created buffer as the current buffer
@@ -1645,7 +1672,7 @@ M.Whisper = function(callback)
 	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
 
 	-- create popup
-	local buf, _, close_popup, _ = M._H.create_popup(M._Name .. " Whisper", function(w, h)
+	local buf, _, close_popup, _ = M._H.create_popup(nil, M._Name .. " Whisper", function(w, h)
 		return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
 	end, { gid = gid, on_leave = false, escape = false, persist = false })
 
