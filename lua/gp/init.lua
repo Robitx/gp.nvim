@@ -503,6 +503,24 @@ _H.template_render = function(template, key_value_pairs)
 	return template
 end
 
+---@param line number # line number
+---@param buf number # buffer number
+---@param win number | nil # window number
+_H.cursor_to_line = function(line, buf, win)
+	-- don't manipulate cursor if user is elsewhere
+	if buf ~= vim.api.nvim_get_current_buf() then
+		return
+	end
+
+	-- check if win is valid
+	if not win or not vim.api.nvim_win_is_valid(win) then
+		return
+	end
+
+	-- move cursor to the line
+	vim.api.nvim_win_set_cursor(win, { line, 0 })
+end
+
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
@@ -824,13 +842,10 @@ M.create_handler = function(buf, win, line, first_undojoin)
 		vim.cmd("undojoin")
 		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, vim.split(response, "\n"))
 
-		-- check if window is still valid
-		if not win or not vim.api.nvim_win_is_valid(win) then
-			return
-		end
-		-- move cursor to end of response
+		-- move cursor to the end of the response
 		local end_line = first_line + #vim.split(response, "\n")
-		vim.api.nvim_win_set_cursor(win, { end_line, 0 })
+		M._H.cursor_to_line(end_line, buf, win)
+
 		M._first_line = first_line
 		M._last_line = end_line - 1
 	end)
@@ -985,7 +1000,7 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	end
 
 	-- display system prompt as single line with escaped newlines
-	local system_prompt = system_prompt or M.config.chat_system_prompt
+	system_prompt = system_prompt or M.config.chat_system_prompt
 	system_prompt = system_prompt:gsub("\n", "\\n")
 
 	local template = string.format(
@@ -1241,24 +1256,17 @@ M.cmd.ChatRespond = function()
 						-- replace topic in current buffer
 						vim.cmd("undojoin")
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
-						-- check if win is valid
-						if not win or not vim.api.nvim_win_is_valid(win) then
-							return
-						end
+
 						-- move cursor to a new line at the end of the file
 						local line = vim.api.nvim_buf_line_count(buf)
-						vim.api.nvim_win_set_cursor(win, { line, 0 })
+						M._H.cursor_to_line(line, buf, win)
 					end)
 				)
 			end
 
 			-- move cursor to a new line at the end of the file
 			local line = vim.api.nvim_buf_line_count(buf)
-
-			-- check if win is valid
-			if win and vim.api.nvim_win_is_valid(win) then
-				vim.api.nvim_win_set_cursor(win, { line, 0 })
-			end
+			M._H.cursor_to_line(line, buf, win)
 		end)
 	)
 
