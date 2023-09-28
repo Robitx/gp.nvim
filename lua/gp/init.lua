@@ -525,6 +525,28 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
+-- tries to find an .gp.md file in the root of current git repo
+---@return string # returns instructions from the .gp.md file
+M.repo_instructions = function()
+	-- folder of the current buffer
+	local cwd = vim.fn.expand("%:p:h")
+
+	local git_dir = vim.fn.finddir(".git", cwd .. ";")
+
+	if git_dir == "" then
+		return ""
+	end
+
+	local instruct_file = git_dir:gsub(".git$", ".gp.md")
+
+	if vim.fn.filereadable(instruct_file) == 0 then
+		return ""
+	end
+
+	local lines = vim.fn.readfile(instruct_file)
+	return table.concat(lines, "\n")
+end
+
 M.template_render = function(template, command, selection, filetype, filename)
 	local key_value_pairs = {
 		["{{command}}"] = command,
@@ -1610,8 +1632,15 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		local messages = {}
 		local filetype = M._H.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
+
 		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
 		table.insert(messages, { role = "system", content = sys_prompt })
+
+		local repo_instructions = M.repo_instructions()
+		if repo_instructions ~= "" then
+			table.insert(messages, { role = "system", content = repo_instructions })
+		end
+
 		local user_prompt = M.template_render(template, command, selection, filetype, filename)
 		table.insert(messages, { role = "user", content = user_prompt })
 
