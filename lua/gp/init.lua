@@ -795,7 +795,7 @@ M.query = function(payload, handler, on_exit)
 					process_lines(buffer)
 				end
 
-				if M._response == ""  then
+				if M._response == "" then
 					M.error("OpenAI query response is empty: \n" .. vim.inspect(M._raw_response))
 				end
 
@@ -974,22 +974,38 @@ M.open_chat = function(file_name, popup)
 	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
 	-- register shortcuts local to this buffer
 	local buf = vim.api.nvim_get_current_buf()
-	-- respond shortcut
-	local rs = M.config.chat_shortcut_respond
-	_H.set_keymap({ buf }, rs.modes, rs.shortcut, M.cmd.ChatRespond, "GPT prompt Chat Respond")
+
+	-- range commands
+	local range_commands = {
+		-- respond shortcut
+		{
+			command = "ChatRespond",
+			modes = M.config.chat_shortcut_respond.modes,
+			shortcut = M.config.chat_shortcut_respond.shortcut,
+			comment = "GPT prompt Chat Respond",
+		},
+		-- new shortcut
+		{
+			command = "ChatNew",
+			modes = M.config.chat_shortcut_new.modes,
+			shortcut = M.config.chat_shortcut_new.shortcut,
+			comment = "GPT prompt Chat New",
+		},
+	}
+	for _, rc in ipairs(range_commands) do
+		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
+		for _, mode in ipairs(rc.modes) do
+			if mode == "n" or mode == "i" then
+				_H.set_keymap({ buf }, mode, rc.shortcut, ":" .. cmd, rc.comment)
+			else
+				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
+			end
+		end
+	end
+
 	-- delete shortcut
 	local ds = M.config.chat_shortcut_delete
 	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
-	-- new shortcut
-	local ns = M.config.chat_shortcut_new
-	local cmd = M.config.cmd_prefix .. "ChatNew<cr>"
-	for _, mode in ipairs(ns.modes) do
-		if mode == "n" or mode == "i" then
-			_H.set_keymap({ buf }, mode, ns.shortcut, ":" .. cmd, "GPT prompt Chat New")
-		else
-			_H.set_keymap({ buf }, mode, ns.shortcut, ":<C-u>'<,'>" .. cmd, "GPT prompt Chat New")
-		end
-	end
 
 	-- conceal parameters in model header so it's not distracting
 	if not M.config.chat_conceal_model_params then
@@ -1129,7 +1145,7 @@ M.cmd.ChatDelete = function()
 	end)
 end
 
-M.cmd.ChatRespond = function(params)
+M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
@@ -1170,6 +1186,7 @@ M.cmd.ChatRespond = function(params)
 		print("Error while parsing headers: --- not found. Check your chat template.")
 		return
 	end
+
 	-- message needs role and content
 	local messages = {}
 	local role = ""
@@ -1321,21 +1338,19 @@ M.cmd.ChatRespond = function(params)
 	--[[ print("messages:\n" .. vim.inspect(messages)) ]]
 end
 
-M.cmd.ChatLimitedRespond = function(params)
-	local n_requests = nil
+M.cmd.ChatRespond = function(params)
 	if params.args == "" then
-		n_requests = 1
-	else
-		n_requests = tonumber(params.args)
-	end
-	if n_requests == nil then
-		print("args for ChatLimitedRespond should be a single positive number" .. params.args)
+		M.chat_respond(params)
 		return
 	end
-	if n_requests == 0 then
-		print("args for ChatLimitedRespond should be a positive number")
+
+	-- ensure args is a single positive number
+	local n_requests = tonumber(params.args)
+	if n_requests == nil or math.floor(n_requests) ~= n_requests or n_requests <= 0 then
+		M.error("args for ChatRespond should be a single positive number, not: " .. params.args)
 		return
 	end
+
 	local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 	local cur_index = #lines
 	while cur_index > 0 and n_requests > 0 do
@@ -1348,7 +1363,7 @@ M.cmd.ChatLimitedRespond = function(params)
 	params.range = 2
 	params.line1 = cur_index + 1
 	params.line2 = #lines
-	M.cmd.ChatRespond(params)
+	M.chat_respond(params)
 end
 
 M.cmd.ChatFinder = function()
