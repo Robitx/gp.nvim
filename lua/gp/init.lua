@@ -744,6 +744,7 @@ M.query = function(payload, handler, on_exit)
 	M._payload = payload
 
 	-- clear response
+	M._raw_response = ""
 	M._response = ""
 	M._first_line = -1
 	M._last_line = -1
@@ -755,6 +756,9 @@ M.query = function(payload, handler, on_exit)
 		local function process_lines(lines_chunk)
 			local lines = vim.split(lines_chunk, "\n")
 			for _, line in ipairs(lines) do
+				if line ~= "" and line ~= nil then
+					M._raw_response = M._raw_response .. line .. "\n"
+				end
 				line = line:gsub("^data: ", "")
 				if line:match("chat%.completion%.chunk") then
 					line = vim.json.decode(line)
@@ -789,6 +793,10 @@ M.query = function(payload, handler, on_exit)
 				-- if there's remaining data in the buffer, process it
 				if #buffer > 0 then
 					process_lines(buffer)
+				end
+
+				if M._response == ""  then
+					M.error("OpenAI query response is empty: \n" .. vim.inspect(M._raw_response))
 				end
 
 				-- optional on_exit handler
