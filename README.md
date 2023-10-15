@@ -233,6 +233,7 @@ require("gp").setup(conf)
     -   `:GpChatFinder` - open a dialog to search through chats
     -   `:GpChatRespond` - request new gpt response for the current chat
         -   `:GpChatDelete` - delete the current chat
+	-   `:GpChatLimitedRespond N` - limit the history size for :GpChatRespond to a last N messages (1 by default)
 -   Ask GPT and get response to the specified output:
 
     -   `:GpRewrite` - answer replaces the current line, visual selection or range
