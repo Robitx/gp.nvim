@@ -232,7 +232,10 @@ require("gp").setup(conf)
         (the last active chat or a fresh one with selection or a range as a context)
     -   `:GpChatFinder` - open a dialog to search through chats
     -   `:GpChatRespond` - request new gpt response for the current chat
-        -   `:GpChatDelete` - delete the current chat
+    -   `:GpChatRespond N` - request new gpt response with only last N messages as a context  
+	(using everything from the end up to Nth instance of `🗨:..` => `N=1` is like asking a question in a new chat)
+	
+    -   `:GpChatDelete` - delete the current chat
 -   Ask GPT and get response to the specified output:
 
     -   `:GpRewrite` - answer replaces the current line, visual selection or range
