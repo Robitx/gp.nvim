@@ -1121,7 +1121,7 @@ M.cmd.ChatDelete = function()
 	end)
 end
 
-M.cmd.ChatRespond = function()
+M.cmd.ChatRespond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
@@ -1140,36 +1140,53 @@ M.cmd.ChatRespond = function()
 
 	-- headers are fields before first ---
 	local headers = {}
-	local headers_done = false
+	local header_end = nil
+	local line_idx = 0
+	---parse headers
+	for _, line in ipairs(lines) do
+		-- first line starts with ---
+		if line:sub(1, 3) == "---" then
+			header_end = line_idx
+			break
+		end
+		-- parse header fields
+		local key, value = line:match("^[-#] (%w+): (.*)")
+		if key ~= nil then
+			headers[key] = value
+		end
+
+		line_idx = line_idx + 1
+	end
+
+	if header_end == nil then
+		print("Error while parsing headers: --- not found. Check your chat template.")
+		return
+	end
 	-- message needs role and content
 	local messages = {}
 	local role = ""
 	local content = ""
 
-	for _, line in ipairs(lines) do
-		if headers_done then
-			if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
-				table.insert(messages, { role = role, content = content })
-				role = "user"
-				content = line:sub(#M.config.chat_user_prefix + 1)
-			elseif line:sub(1, #M.config.chat_assistant_prefix) == M.config.chat_assistant_prefix then
-				table.insert(messages, { role = role, content = content })
-				role = "assistant"
-				content = line:sub(#M.config.chat_assistant_prefix + 1)
-			elseif role ~= "" then
-				content = content .. "\n" .. line
-			end
-		else
-			-- first line starts with ---
-			if line:sub(1, 3) == "---" then
-				headers_done = true
-			else
-				-- parse header fields
-				local key, value = line:match("^[-#] (%w+): (.*)")
-				if key ~= nil then
-					headers[key] = value
-				end
-			end
+	-- iterate over lines
+	local start_index = header_end + 1
+	local end_index = #lines
+	if params.range == 2 then
+		start_index = math.max(start_index, params.line1)
+		end_index = math.min(end_index, params.line2)
+	end
+
+	for index = start_index, end_index do
+		local line = lines[index]
+		if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
+			table.insert(messages, { role = role, content = content })
+			role = "user"
+			content = line:sub(#M.config.chat_user_prefix + 1)
+		elseif line:sub(1, #M.config.chat_assistant_prefix) == M.config.chat_assistant_prefix then
+			table.insert(messages, { role = role, content = content })
+			role = "assistant"
+			content = line:sub(#M.config.chat_assistant_prefix + 1)
+		elseif role ~= "" then
+			content = content .. "\n" .. line
 		end
 	end
 	-- insert last message not handled in loop
@@ -1294,6 +1311,36 @@ M.cmd.ChatRespond = function()
 
 	--[[ print("headers:\n" .. vim.inspect(headers)) ]]
 	--[[ print("messages:\n" .. vim.inspect(messages)) ]]
+end
+
+M.cmd.ChatLimitedRespond = function(params)
+	local n_requests = nil
+	if params.args == "" then
+		n_requests = 1
+	else
+		n_requests = tonumber(params.args)
+	end
+	if n_requests == nil then
+		print("args for ChatLimitedRespond should be a single positive number" .. params.args)
+		return
+	end
+	if n_requests == 0 then
+		print("args for ChatLimitedRespond should be a positive number")
+		return
+	end
+	local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+	local cur_index = #lines
+	while cur_index > 0 and n_requests > 0 do
+		if lines[cur_index]:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
+			n_requests = n_requests - 1
+		end
+		cur_index = cur_index - 1
+	end
+
+	params.range = 2
+	params.line1 = cur_index + 1
+	params.line2 = #lines
+	M.cmd.ChatRespond(params)
 end
 
 M.cmd.ChatFinder = function()
