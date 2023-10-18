@@ -34,6 +34,8 @@ Trying to keep things as native as possible - reusing and integrating well with 
     -   non interactive command mode available for common repetitive tasks implementable as simple hooks  
         (explain something in a popup window, write unit tests for selected code into a new buffer,  
         finish selected code based on comments in it, etc.)
+    -   custom instructions per repository with `.gp.md` file  
+        (instruct gpt to generate code using certain libs, packages, conventions and so on)
 -   **Speech to text support**
     -   a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
         (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
@@ -262,6 +264,15 @@ require("gp").setup(conf)
 -   To stop the stream of currently running gpt response you can use `:GpStop`
 -   Run your own custom hook commands:
     -   `:GpInspectPlugin` - inspect GPT prompt plugin object
+
+### Custom instructions per repository
+You can make `.gp.md` (markdown) file in a root of a repository and commands such as `:GpRewrite`, `:GpAppend` will respect instructions provided in this file (works better with gpt4, gpt 3.5 doesn't always listen to system commands). For example:
+``` md
+Use ‎C++17.
+Use Testify library when writing Go tests.
+Use Early return/Guard Clauses pattern to avoid excessive nesting.
+...
+```
 
 ### Shortcuts
 
