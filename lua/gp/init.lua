@@ -840,8 +840,10 @@ end
 ---@param win number | nil # window to insert response into
 ---@param line number | nil # line to insert response into
 ---@param first_undojoin boolean | nil # whether to skip first undojoin
-M.create_handler = function(buf, win, line, first_undojoin)
+---@param prefix string | nil # prefix to insert before each response line
+M.create_handler = function(buf, win, line, first_undojoin, prefix)
 	buf = buf or vim.api.nvim_get_current_buf()
+	prefix = prefix or ""
 	local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
 	local skip_first_undojoin = not first_undojoin
 
@@ -870,7 +872,14 @@ M.create_handler = function(buf, win, line, first_undojoin)
 		-- append new response
 		response = response .. chunk
 		vim.cmd("undojoin")
-		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, vim.split(response, "\n"))
+
+		-- prepend prefix to each line
+		local lines = vim.split(response, "\n")
+		for i, l in ipairs(lines) do
+			lines[i] = prefix .. l
+		end
+
+		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, lines)
 
 		-- move cursor to the end of the response
 		local end_line = first_line + #vim.split(response, "\n")
@@ -1260,7 +1269,7 @@ M.chat_respond = function(params)
 	-- call the model and write response
 	M.query(
 		M.prepare_payload(headers.model, M.config.chat_model, messages),
-		M.create_handler(buf, win, M._H.last_content_line(buf), true),
+		M.create_handler(buf, win, M._H.last_content_line(buf), true, ""),
 		vim.schedule_wrap(function()
 			-- write user prompt
 			last_content_line = M._H.last_content_line(buf)
@@ -1296,7 +1305,7 @@ M.chat_respond = function(params)
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
-				local topic_handler = M.create_handler(topic_buf, nil, 0, false)
+				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "")
 
 				-- call the model
 				M.query(
@@ -1658,6 +1667,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 
 	-- defaults to normal mode
 	local selection = nil
+	local prefix = ""
 	local start_line = vim.api.nvim_win_get_cursor(0)[1]
 	local end_line = start_line
 
@@ -1666,6 +1676,33 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		start_line = params.line1
 		end_line = params.line2
 		local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
+
+		local min_indent = nil
+		local use_tabs = false
+		-- measure minimal common indentation for lines with content
+		for i, line in ipairs(lines) do
+			lines[i] = line
+			-- skip whitespace only lines
+			if not line:match("^%s*$") then
+				local indent = line:match("^%s*")
+				-- contains tabs
+				if indent:match("\t") then
+					use_tabs = true
+				end
+				if min_indent == nil or #indent < min_indent then
+					min_indent = #indent
+				end
+			end
+		end
+		if min_indent == nil then
+			min_indent = 0
+		end
+		prefix = string.rep(use_tabs and "\t" or " ", min_indent)
+
+		for i, line in ipairs(lines) do
+			lines[i] = line:sub(min_indent + 1)
+		end
+
 		selection = table.concat(lines, "\n")
 
 		if selection == "" then
@@ -1688,7 +1725,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			local fl = vim.api.nvim_buf_get_lines(buf, M._first_line, M._first_line + 1, false)[1]
 			local ll = vim.api.nvim_buf_get_lines(buf, M._last_line, M._last_line + 1, false)[1]
 			-- if fl and ll starts with triple backticks, remove these lines
-			if fl and ll and fl:match("^```") and ll:match("^```") then
+			if fl and ll and fl:match("^%s*```") and ll:match("^%s*```") then
 				-- remove first line with undojoin
 				vim.cmd("undojoin")
 				vim.api.nvim_buf_set_lines(buf, M._first_line, M._first_line + 1, false, {})
@@ -1722,21 +1759,21 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true)
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "", "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, end_line + 1, true)
+			handler = M.create_handler(buf, win, end_line + 1, true, prefix)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "", "" }, "l", false, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true)
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix)
 		elseif target == M.Target.popup then
 			-- create a new buffer
 			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>)", function(w, h)
@@ -1749,7 +1786,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false)
+			handler = M.create_handler(buf, win, 0, false, "")
 		elseif type(target) == "table" and target.type == M.Target.enew().type then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
@@ -1759,7 +1796,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			local ft = target.filetype or filetype
 			vim.api.nvim_buf_set_option(buf, "filetype", ft)
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false)
+			handler = M.create_handler(buf, win, 0, false, "")
 		end
 
 		-- call the model and write the response
@@ -1965,7 +2002,7 @@ M.cmd.Whisper = function(params)
 	end)
 end
 
---[[ M.setup() ]]
---[[ print("gp.lua loaded\n\n") ]]
+-- M.setup()
+-- print("gp.lua loaded\n\n")
 
 return M
