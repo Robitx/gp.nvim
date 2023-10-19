@@ -170,6 +170,12 @@ local conf = {
 	template_rewrite = "I have the following code from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond just with the snippet of code that should be inserted.",
+	template_append = "I have the following code from {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+		.. "\n\nRespond just with the snippet of code that should be appended after the code above.",
+	template_prepend = "I have the following code from {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+		.. "\n\nRespond just with the snippet of code that should be prepended before the code above.",
 	template_command = "{{command}}",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
