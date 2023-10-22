@@ -77,6 +77,8 @@ local config = {
 	-- directory for storing whisper files
 	whisper_dir = "/tmp/gp_whisper",
 	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
+	-- decibels are negative so increase this number to make it more sensitive
+	-- (you can disable silence trimming by setting this a very high number - like 1000.0)
 	whisper_silence = "1.75",
 	-- whisper max recording time (mm:ss)
 	whisper_max_time = "05:00",
