@@ -969,7 +969,12 @@ M.prep_chat = function(buf)
 		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
 		for _, mode in ipairs(rc.modes) do
 			if mode == "n" or mode == "i" then
-				_H.set_keymap({ buf }, mode, rc.shortcut, ":" .. cmd, rc.comment)
+				_H.set_keymap({ buf }, mode, rc.shortcut, function()
+					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
+					-- go to normal mode
+					vim.api.nvim_command("stopinsert")
+					M._H.feedkeys("<esc>", "x")
+				end, rc.comment)
 			else
 				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
 			end
@@ -992,6 +997,10 @@ M.prep_chat = function(buf)
 
 	-- move cursor to a new line at the end of the file
 	M._H.feedkeys("G", "x")
+
+	-- ensure normal mode
+	vim.api.nvim_command("stopinsert")
+	M._H.feedkeys("<esc>", "x")
 end
 
 M.chat_handler = function()
