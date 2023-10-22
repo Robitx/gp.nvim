@@ -236,6 +236,8 @@ require("gp").setup(conf)
 -   Have ChatGPT experience directly in neovim:
     -   `:GpChatNew` - open fresh chat in the current window  
         (either empty or with the visual selection or specified range as a context)
+    -   `:GpChatPaste` - paste the selection or specified range to the latest chat
+        (simplifies adding code from multiple files into a single chat buffer)
     -   `:GpChatToggle` - open chat in toggleable popup window  
         (the last active chat or a fresh one with selection or a range as a context)
     -   `:GpChatFinder` - open a dialog to search through chats
@@ -305,6 +307,7 @@ vim.keymap.set({"n", "i"}, "<C-g>t", "<cmd>GpChatToggle<cr>", keymapOptions("Tog
 vim.keymap.set({"n", "i"}, "<C-g>f", "<cmd>GpChatFinder<cr>", keymapOptions("Chat Finder"))
 
 vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
+vim.keymap.set("v", "<C-g>v", ":<C-u>'<,'>GpChatPaste<cr>", keymapOptions("Visual Chat Paste"))
 vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
 
 -- Prompt commands
@@ -351,6 +354,7 @@ require("which-key").register({
     -- ...
 	["<C-g>"] = {
 		c = { ":<C-u>'<,'>GpChatNew<cr>", "Visual Chat New" },
+		v = { ":<C-u>'<,'>GpChatPaste<cr>", "Visual Chat Paste" },
 		t = { ":<C-u>'<,'>GpChatToggle<cr>", "Visual Popup Chat" },
 
 		r = { ":<C-u>'<,'>GpRewrite<cr>", "Visual Rewrite" },

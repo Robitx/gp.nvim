@@ -935,8 +935,10 @@ end
 
 ---@param file_name string
 ---@param popup boolean
+---@return number # buffer number
 M.open_chat = function(file_name, popup)
-	if popup ~= nil then
+	popup = popup or false
+	if popup then
 		local old_buf = M._H.get_buffer(file_name)
 
 		-- close previous popup if it exists
@@ -971,7 +973,7 @@ M.open_chat = function(file_name, popup)
 				for _, win in ipairs(vim.api.nvim_list_wins()) do
 					if vim.api.nvim_win_get_buf(win) == buf then
 						vim.api.nvim_set_current_win(win)
-						return
+						return buf
 					end
 				end
 			end
@@ -1030,7 +1032,7 @@ M.open_chat = function(file_name, popup)
 
 	-- conceal parameters in model header so it's not distracting
 	if not M.config.chat_conceal_model_params then
-		return
+		return buf
 	end
 	vim.opt_local.conceallevel = 2
 	vim.opt_local.concealcursor = ""
@@ -1041,13 +1043,14 @@ M.open_chat = function(file_name, popup)
 
 	-- move cursor to a new line at the end of the file
 	M._H.feedkeys("G", "x")
+	return buf
 end
 
+---@return number # buffer number
 M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	-- if popup chat is open, close it and start a new one
 	if M._chat_popup_close() then
-		M.cmd.ChatNew(params, model, system_prompt, true)
-		return
+		return M.cmd.ChatNew(params, model, system_prompt, true)
 	end
 
 	-- prepare filename
@@ -1110,7 +1113,7 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	vim.fn.writefile(vim.split(template, "\n"), filename)
 
 	-- open and configure chat file
-	M.open_chat(filename, popup)
+	return M.open_chat(filename, popup)
 end
 
 M.cmd.ChatToggle = function(params, model, system_prompt)
@@ -1133,6 +1136,53 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 
 	-- create new chat file otherwise
 	M.cmd.ChatNew(params, model, system_prompt, true)
+end
+
+M.cmd.ChatPaste = function(params)
+	-- if there is no selection, do nothing
+	if params.range ~= 2 then
+		print("Please select some text to paste into the chat.")
+		return
+	end
+
+	-- get current buffer
+	local obuf = vim.api.nvim_get_current_buf()
+
+	local last = M.config.chat_dir .. "/last.md"
+
+	-- make new chat if last doesn't exist
+	if vim.fn.filereadable(last) ~= 1 then
+		-- skip rest since new chat will handle snippet on it's own
+		M.cmd.ChatNew(params, nil, nil, false)
+		return
+	end
+
+	-- get last chat
+	last = vim.fn.resolve(last)
+	local buf = M.open_chat(last, false)
+
+	-- prepare selection
+	local lines = vim.api.nvim_buf_get_lines(obuf, params.line1 - 1, params.line2, false)
+	local selection = table.concat(lines, "\n")
+	if selection ~= "" then
+		local filetype = M._H.get_filetype(obuf)
+		local fname = vim.api.nvim_buf_get_name(obuf)
+		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
+		if rendered then
+			selection = rendered
+		end
+	end
+
+	-- delete whitespace lines at the end of the file
+	local last_content_line = M._H.last_content_line(buf)
+	vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
+
+	-- insert selection lines
+	lines = vim.split("\n" .. selection, "\n")
+	vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, lines)
+
+	-- move cursor to a new line at the end of the file
+	M._H.feedkeys("G", "x")
 end
 
 M.delete_chat = function(file)
