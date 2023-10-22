@@ -642,6 +642,9 @@ M.setup = function(opts)
 	if M.config.openai_api_key == nil then
 		print("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
+
+	-- init chat handler
+	M.chat_handler()
 end
 
 M.Target = {
@@ -933,6 +936,97 @@ M._chat_popup_close = function()
 	return false
 end
 
+---@param buf number | nil # buffer number
+M.prep_chat = function(buf)
+	-- disable swapping for this buffer and set filetype to markdown
+	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
+	-- better text wrapping
+	vim.api.nvim_command("setlocal wrap linebreak")
+	-- auto save on TextChanged, TextChangedI
+	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
+
+	-- register shortcuts local to this buffer
+	buf = buf or vim.api.nvim_get_current_buf()
+
+	-- range commands
+	local range_commands = {
+		-- respond shortcut
+		{
+			command = "ChatRespond",
+			modes = M.config.chat_shortcut_respond.modes,
+			shortcut = M.config.chat_shortcut_respond.shortcut,
+			comment = "GPT prompt Chat Respond",
+		},
+		-- new shortcut
+		{
+			command = "ChatNew",
+			modes = M.config.chat_shortcut_new.modes,
+			shortcut = M.config.chat_shortcut_new.shortcut,
+			comment = "GPT prompt Chat New",
+		},
+	}
+	for _, rc in ipairs(range_commands) do
+		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
+		for _, mode in ipairs(rc.modes) do
+			if mode == "n" or mode == "i" then
+				_H.set_keymap({ buf }, mode, rc.shortcut, ":" .. cmd, rc.comment)
+			else
+				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
+			end
+		end
+	end
+
+	-- delete shortcut
+	local ds = M.config.chat_shortcut_delete
+	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+
+	-- conceal parameters in model header so it's not distracting
+	if M.config.chat_conceal_model_params then
+		vim.opt_local.conceallevel = 2
+		vim.opt_local.concealcursor = ""
+		vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
+		vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
+		vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
+		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
+	end
+
+	-- move cursor to a new line at the end of the file
+	M._H.feedkeys("G", "x")
+end
+
+M.chat_handler = function()
+	-- prepare unique group name and register augroup
+	local gname = "GpChatHandler"
+		.. os.date("_%Y_%m_%d_%H_%M_%S_")
+		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+
+	_H.autocmd({ "BufEnter" }, nil, function(event)
+		local buf = event.buf
+
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
+
+		local file_name = vim.api.nvim_buf_get_name(buf)
+
+		-- check if file is in the chat dir
+		if not string.match(file_name, M.config.chat_dir) then
+			return
+		end
+
+		-- get all lines
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+		-- check if file looks like a chat file
+		if not (lines[1]:match("^# topic: ") and lines[3]:match("^- model: ")) then
+			return
+		end
+
+		M.prep_chat(buf)
+	end, gid)
+end
+
 ---@param file_name string
 ---@param popup boolean
 ---@return number # buffer number
@@ -989,61 +1083,7 @@ M.open_chat = function(file_name, popup)
 		os.execute("ln -sf " .. file_name .. " " .. last)
 	end
 
-	-- disable swapping for this buffer and set filetype to markdown
-	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
-	-- better text wrapping
-	vim.api.nvim_command("setlocal wrap linebreak")
-	-- auto save on TextChanged, TextChangedI
-	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
-	-- register shortcuts local to this buffer
-	local buf = vim.api.nvim_get_current_buf()
-
-	-- range commands
-	local range_commands = {
-		-- respond shortcut
-		{
-			command = "ChatRespond",
-			modes = M.config.chat_shortcut_respond.modes,
-			shortcut = M.config.chat_shortcut_respond.shortcut,
-			comment = "GPT prompt Chat Respond",
-		},
-		-- new shortcut
-		{
-			command = "ChatNew",
-			modes = M.config.chat_shortcut_new.modes,
-			shortcut = M.config.chat_shortcut_new.shortcut,
-			comment = "GPT prompt Chat New",
-		},
-	}
-	for _, rc in ipairs(range_commands) do
-		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
-		for _, mode in ipairs(rc.modes) do
-			if mode == "n" or mode == "i" then
-				_H.set_keymap({ buf }, mode, rc.shortcut, ":" .. cmd, rc.comment)
-			else
-				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
-			end
-		end
-	end
-
-	-- delete shortcut
-	local ds = M.config.chat_shortcut_delete
-	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
-
-	-- conceal parameters in model header so it's not distracting
-	if not M.config.chat_conceal_model_params then
-		return buf
-	end
-	vim.opt_local.conceallevel = 2
-	vim.opt_local.concealcursor = ""
-	vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
-	vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
-	vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
-	vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
-
-	-- move cursor to a new line at the end of the file
-	M._H.feedkeys("G", "x")
-	return buf
+	return vim.api.nvim_get_current_buf()
 end
 
 ---@return number # buffer number
