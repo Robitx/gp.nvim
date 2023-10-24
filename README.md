@@ -1,4 +1,11 @@
 # Gp (GPT prompt) plugin for Neovim
+![GitHub](https://img.shields.io/github/license/robitx/gp.nvim)
+![GitHub Repo stars](https://img.shields.io/github/stars/Robitx/gp.nvim)
+![GitHub closed issues](https://img.shields.io/github/issues-closed/Robitx/gp.nvim)
+![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/Robitx/gp.nvim)
+![GitHub contributors](https://img.shields.io/github/contributors-anon/Robitx/gp.nvim)
+
+
 
 Gp.nvim provides you ChatGPT like sessions and instructable text/code operations in your favorite editor.
 
@@ -622,3 +629,6 @@ There is already a bunch of similar plugins which served as sources of inspirati
 -   [jackMort/ChatGPT.nvim](https://github.com/jackMort/ChatGPT.nvim)
     -   most popular at the moment but overcomplicated for my taste  
         (its like a GUI over the vim itself and I'd like to stay inside vim 🙂)
+
+---
+[![Star History Chart](https://api.star-history.com/svg?repos=Robitx/gp.nvim&type=Date)](https://star-history.com/#Robitx/gp.nvim&Date)
