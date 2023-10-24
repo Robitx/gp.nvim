@@ -7,7 +7,7 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 <img src="https://github.com/Robitx/gp.nvim/assets/8431097/c538f0a2-4667-444e-8671-13f8ea261be1" width="49%">
 </p>
 
-### [Here is the full 5 minute example of using the plugin](https://youtu.be/UBc5dL1qBrc)
+### [Here is an older 5 minute example of using the plugin (needs update)]( https://www.youtube.com/watch?v=wPDcBnQgNCc )
 
 ## Goals and Features
 
