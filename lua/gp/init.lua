@@ -1986,6 +1986,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			handler,
 			vim.schedule_wrap(function()
 				on_exit()
+				vim.cmd("doautocmd User GpDone")
 			end)
 		)
 	end
