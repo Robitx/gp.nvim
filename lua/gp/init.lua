@@ -55,7 +55,10 @@ local config = {
 	command_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 	-- command system prompt
 	command_system_prompt = "You are an AI working as code editor.\n\n"
-		.. "Please avoid commentary outside of snippet responses.",
+		.. "Please AVOID COMMENTARY OUTSIDE OF SNIPPET RESPONSE.\n"
+		.. "Start and end your answer with:\n\n```",
+	-- auto select command response (easier chaining of commands)
+	command_auto_select_response = true,
 
 	-- templates
 	template_selection = "I have the following code from {{filename}}:"
@@ -1827,6 +1830,9 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		end
 	end
 
+	M._selection_first_line = start_line
+	M._selection_last_line = end_line
+
 	local callback = function(command)
 		-- dummy handler
 		local handler = function() end
@@ -1837,18 +1843,77 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 				return
 			end
 
-			-- get content of M._first_line and M._last_line
-			local fl = vim.api.nvim_buf_get_lines(buf, M._first_line, M._first_line + 1, false)[1]
-			local ll = vim.api.nvim_buf_get_lines(buf, M._last_line, M._last_line + 1, false)[1]
+			local flc, llc
+			local fl = M._first_line
+			local ll = M._last_line
+			-- remove empty lines from the start and end of the response
+			while true do
+				-- get content of first_line and last_line
+				flc = vim.api.nvim_buf_get_lines(buf, fl, fl + 1, false)[1]
+				llc = vim.api.nvim_buf_get_lines(buf, ll, ll + 1, false)[1]
+
+				local flm = flc:match("%S")
+				local llm = llc:match("%S")
+
+				-- break loop if both lines contain non-whitespace characters
+				if flm and llm then
+					break
+				end
+
+				-- break loop lines are equal
+				if fl >= ll then
+					break
+				end
+
+				if not flm then
+					vim.cmd("undojoin")
+					vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
+				else
+					vim.cmd("undojoin")
+					vim.api.nvim_buf_set_lines(buf, ll, ll + 1, false, {})
+				end
+				ll = ll - 1
+			end
+
 			-- if fl and ll starts with triple backticks, remove these lines
-			if fl and ll and fl:match("^%s*```") and ll:match("^%s*```") then
+			if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
 				-- remove first line with undojoin
 				vim.cmd("undojoin")
-				vim.api.nvim_buf_set_lines(buf, M._first_line, M._first_line + 1, false, {})
+				vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				-- remove last line
 				vim.cmd("undojoin")
-				vim.api.nvim_buf_set_lines(buf, M._last_line - 1, M._last_line, false, {})
+				vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
+				ll = ll - 2
 			end
+			M._first_line = fl
+			M._last_line = ll
+
+			-- option to not select response automatically
+			if not M.config.command_auto_select_response then
+				return
+			end
+
+			-- don't select popup response
+			if target == M.Target.popup then
+				return
+			end
+
+			-- default works for rewrite and enew
+			local start = fl
+			local finish = ll
+
+			if target == M.Target.append then
+				start = M._selection_first_line - 1
+			end
+
+			if target == M.Target.prepend then
+				finish = M._selection_last_line + ll - fl
+			end
+
+			-- select from first_line to last_line
+			vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
+			vim.api.nvim_command("normal! V")
+			vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
 		end
 
 		-- prepare messages
@@ -1880,14 +1945,14 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
-			vim.api.nvim_put({ "", "" }, "l", true, true)
+			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, end_line + 1, true, prefix)
+			handler = M.create_handler(buf, win, end_line, true, prefix)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
-			vim.api.nvim_put({ "", "" }, "l", false, true)
+			vim.api.nvim_put({ "" }, "l", false, true)
 			-- prepare handler
 			handler = M.create_handler(buf, win, start_line - 1, true, prefix)
 		elseif target == M.Target.popup then
