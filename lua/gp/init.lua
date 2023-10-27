@@ -1991,6 +1991,12 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 	end
 
 	vim.schedule(function()
+		local args = params.args or ""
+		if args:match("%S") then
+			callback(args)
+			return
+		end
+
 		-- if prompt is not provided, run the command directly
 		if not prompt or prompt == "" then
 			callback(nil)
