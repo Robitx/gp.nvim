@@ -518,7 +518,10 @@ Here are some more examples:
 
 The raw plugin text editing method `Prompt` has seven aprameters:
 
--   `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
+-   `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses:
+	-   `range, line1, line2` to work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3)
+ 	-   `args` so instructions can be passed directly after command (`:GpRewrite something something`)
+ 
     ```lua
     params = {
           args = "",
