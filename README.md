@@ -47,21 +47,6 @@ Trying to keep things as native as possible - reusing and integrating well with 
     -   a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
         (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
-## Changelog
-
-### !! Version 1.x.x brings a breaking change !!
-
-The commands now work with [ranges](https://neovim.io/doc/user/usr_10.html#10.3) and the commands with `Visual` prefix were dropped.
-
-Specifically the commands`:GpChatNew`, `:GpRewrite`, `:GpAppend`, `:GpPrepend`, `:GpEnew`, `:GpPopup` and  
-their shortcuts now work across modes, either:
-
--   as pure user commands without context in normal/insert mode
--   with current selection (using whole lines) as a context in visual/Visual mode
--   with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
-
-Please update your shortcuts if you use them.
-
 ## Install
 
 ### 1. Install the plugin with your preferred package manager:
@@ -612,23 +597,3 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     -   See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
 -   `whisper`
     -   optional string serving as a default for input prompt (for example generated from speech by Whisper)
-
-## Attribution/Alternatives
-
-There is already a bunch of similar plugins which served as sources of inspiration
-
--   [thmsmlr/gpt.nvim](https://github.com/thmsmlr/gpt.nvim)
-    -   \+ nicely implemented streaming response from OpenAI API
-    -   \+ later added chat sessions
-    -   \- a lots of things are hard coded
-    -   \- undo isn't handled properly
-    -   \- originally considered forking it, but it has no licence so far
--   [dpayne/CodeGPT.nvim](https://github.com/dpayne/CodeGPT.nvim)
-    -   \+ templating mechanism to combine user input selection and so on for gpt query
-    -   \- doesn't use streaming (one has to wait for the whole answer to show up)
--   [jackMort/ChatGPT.nvim](https://github.com/jackMort/ChatGPT.nvim)
-    -   most popular at the moment but overcomplicated for my taste  
-        (its like a GUI over the vim itself and I'd like to stay inside vim 🙂)
-
----
-[![Star History Chart](https://api.star-history.com/svg?repos=Robitx/gp.nvim&type=Date)](https://star-history.com/#Robitx/gp.nvim&Date)
