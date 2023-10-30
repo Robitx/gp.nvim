@@ -1,9 +1,11 @@
 # Gp (GPT prompt) plugin for Neovim
-![GitHub](https://img.shields.io/github/license/robitx/gp.nvim)
-![GitHub Repo stars](https://img.shields.io/github/stars/Robitx/gp.nvim)
-![GitHub closed issues](https://img.shields.io/github/issues-closed/Robitx/gp.nvim)
-![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/Robitx/gp.nvim)
-![GitHub contributors](https://img.shields.io/github/contributors-anon/Robitx/gp.nvim)
+<a href="https://github.com/Robitx/gp.nvim/blob/main/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/robitx/gp.nvim"></a>
+<a href="https://github.com/Robitx/gp.nvim/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Robitx/gp.nvim"></a>
+<a href="https://github.com/Robitx/gp.nvim/issues"><img alt="GitHub closed issues" src="https://img.shields.io/github/issues-closed/Robitx/gp.nvim"></a>
+<a href="https://github.com/Robitx/gp.nvim/pulls"><img alt="GitHub closed pull requests" src="https://img.shields.io/github/issues-pr-closed/Robitx/gp.nvim"></a>
+<a href="https://github.com/Robitx/gp.nvim/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors-anon/Robitx/gp.nvim"></a>
+<a href="https://github.com/search?q=%2Frequire%5C%28%5B%27%22%5Dgp%5B%27%22%5D%5C%29%5C.setup%2F+language%3ALua&type=code&p=2"><img alt="Static Badge" src="https://img.shields.io/badge/Use%20in%20the%20Wild-8A2BE2"></a>
+
 
 
 
