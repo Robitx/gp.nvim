@@ -13,6 +13,9 @@ local config = {
 	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
 	-- prefix for all commands
 	cmd_prefix = "Gp",
+	-- optional curl parameters (for proxy, etc.)
+	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
+	curl_params = {},
 
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
@@ -833,7 +836,8 @@ M.query = function(payload, handler, on_exit)
 	-- try to replace model in endpoint (for azure)
 	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
 
-	M._H.process("curl", {
+	local curl_params = vim.deepcopy(M.config.curl_params or {})
+	local args = {
 		"--no-buffer",
 		"-s",
 		endpoint,
@@ -847,7 +851,13 @@ M.query = function(payload, handler, on_exit)
 		"-d",
 		vim.json.encode(payload),
 		--[[ "--doesnt_exist" ]]
-	}, nil, out_reader(), nil)
+	}
+
+	for _, arg in ipairs(args) do
+		table.insert(curl_params, arg)
+	end
+
+	M._H.process("curl", curl_params, nil, out_reader(), nil)
 end
 
 -- stop recieving gpt response
@@ -2091,6 +2101,9 @@ M.Whisper = function(callback)
 	-- cleanup on buffer exit
 	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
 
+	local curl_params = M.config.curl_params or {}
+	local curl = "curl" .. " " .. table.concat(curl_params, " ")
+
 	-- transcribe the recording
 	local transcribe = function()
 		local cmd = "cd "
@@ -2109,7 +2122,8 @@ M.Whisper = function(callback)
 			.. M.config.whisper_tempo
 			.. " && "
 			-- call openai
-			.. "curl --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
+			.. curl
+			.. " --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
 			.. '-H "Authorization: Bearer '
 			.. M.config.openai_api_key
 			.. '" -H "Content-Type: multipart/form-data" '
