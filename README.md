@@ -113,6 +113,9 @@ local conf = {
 	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
 	-- prefix for all commands
 	cmd_prefix = "Gp",
+	-- optional curl parameters (for proxy, etc.)
+	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
+	curl_params = {},
 
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
