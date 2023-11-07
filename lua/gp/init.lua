@@ -647,7 +647,23 @@ M.setup = function(opts)
 		if M.cmd_hooks[cmd] == nil then
 			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
 				M.cmd[cmd](params)
-			end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
+			end, {
+				nargs = "?",
+				range = true,
+				desc = "GPT Prompt plugin",
+				complete = function()
+					local actions = {}
+					if cmd == "ChatNew" or cmd == "ChatPaste" then
+						actions = {
+							"popup",
+							"split",
+							"vsplit",
+							"tabnew",
+						}
+					end
+					return actions
+				end,
+			})
 		end
 	end
 
@@ -1052,6 +1068,11 @@ M.chat_handler = function()
 		-- get all lines
 		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 
+		-- check length
+		if #lines < 4 then
+			return
+		end
+
 		-- check if file looks like a chat file
 		if not (lines[1]:match("^# topic: ") and lines[3]:match("^- model: ")) then
 			return
@@ -1061,12 +1082,36 @@ M.chat_handler = function()
 	end, gid)
 end
 
+M.ChatTarget = {
+	current = 0, -- current window
+	popup = 1, -- popup window
+	split = 2, -- split window
+	vsplit = 3, -- vsplit window
+	tabnew = 4, -- new tab
+}
+
+M.resolve_chat_target = function(params)
+	local args = params.args or ""
+	if args == "popup" then
+		return M.ChatTarget.popup
+	elseif args == "split" then
+		return M.ChatTarget.split
+	elseif args == "vsplit" then
+		return M.ChatTarget.vsplit
+	elseif args == "tabnew" then
+		return M.ChatTarget.tabnew
+	else
+		return M.ChatTarget.current
+	end
+end
+
 ---@param file_name string
----@param popup boolean
+---@param target number | nil # chat target
 ---@return number # buffer number
-M.open_chat = function(file_name, popup)
-	popup = popup or false
-	if popup then
+M.open_chat = function(file_name, target)
+	print("open_chat target:", target)
+	target = target or M.ChatTarget.current
+	if target == M.ChatTarget.popup then
 		local old_buf = M._H.get_buffer(file_name)
 
 		-- close previous popup if it exists
@@ -1094,6 +1139,13 @@ M.open_chat = function(file_name, popup)
 		vim.api.nvim_buf_set_lines(b, last_content_line, -1, false, {})
 		-- insert a new line at the end of the file
 		vim.api.nvim_buf_set_lines(b, -1, -1, false, { "" })
+	elseif target == M.ChatTarget.split then
+		vim.api.nvim_command("split " .. file_name)
+	elseif target == M.ChatTarget.vsplit then
+		vim.api.nvim_command("vsplit " .. file_name)
+	elseif target == M.ChatTarget.tabnew then
+		vim.api.nvim_command("tabnew")
+		vim.api.nvim_command("edit " .. file_name)
 	else
 		-- is it already open in a buffer?
 		for _, buf in ipairs(vim.api.nvim_list_bufs()) do
@@ -1121,10 +1173,14 @@ M.open_chat = function(file_name, popup)
 end
 
 ---@return number # buffer number
-M.cmd.ChatNew = function(params, model, system_prompt, popup)
+M.cmd.ChatNew = function(params, model, system_prompt)
 	-- if popup chat is open, close it and start a new one
 	if M._chat_popup_close() then
-		return M.cmd.ChatNew(params, model, system_prompt, true)
+		params.args = params.args or ""
+		if params.args == "" then
+			params.args = "popup"
+		end
+		return M.cmd.ChatNew(params, model, system_prompt)
 	end
 
 	-- prepare filename
@@ -1186,8 +1242,9 @@ M.cmd.ChatNew = function(params, model, system_prompt, popup)
 	-- create chat file
 	vim.fn.writefile(vim.split(template, "\n"), filename)
 
+	local target = M.resolve_chat_target(params)
 	-- open and configure chat file
-	return M.open_chat(filename, popup)
+	return M.open_chat(filename, target)
 end
 
 M.cmd.ChatToggle = function(params, model, system_prompt)
@@ -1203,13 +1260,14 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 		if vim.fn.filereadable(last) == 1 then
 			-- resolve symlink
 			last = vim.fn.resolve(last)
-			M.open_chat(last, true)
+			M.open_chat(last, M.ChatTarget.popup)
 			return
 		end
 	end
 
 	-- create new chat file otherwise
-	M.cmd.ChatNew(params, model, system_prompt, true)
+	params.args = "popup"
+	M.cmd.ChatNew(params, model, system_prompt)
 end
 
 M.cmd.ChatPaste = function(params)
@@ -1227,13 +1285,14 @@ M.cmd.ChatPaste = function(params)
 	-- make new chat if last doesn't exist
 	if vim.fn.filereadable(last) ~= 1 then
 		-- skip rest since new chat will handle snippet on it's own
-		M.cmd.ChatNew(params, nil, nil, false)
+		M.cmd.ChatNew(params, nil, nil)
 		return
 	end
 
 	-- get last chat
 	last = vim.fn.resolve(last)
-	local buf = M.open_chat(last, false)
+	local target = M.resolve_chat_target(params)
+	local buf = M.open_chat(last, target)
 
 	-- prepare selection
 	local lines = vim.api.nvim_buf_get_lines(obuf, params.line1 - 1, params.line2, false)
@@ -1526,7 +1585,7 @@ M.cmd.ChatFinder = function()
 	local preview_ratio = 0.6
 	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
 		nil,
-		"Picker: j/k <Esc> <Enter> <Alt+Enter>|Pop dd|Del i|Srch",
+		"Picker: j/k <Esc>|exit <Enter>|open dd|del i|srch",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
 			local ww = math.ceil(w * wfactor)
@@ -1556,7 +1615,7 @@ M.cmd.ChatFinder = function()
 
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
 		nil,
-		"Search: <Tab>/<Shift+Tab>|Navigate <Esc>/<Enter>|Picker 2x<Esc>/<C-c>|Exit 2x<Enter>|Open 2x<Alt+Enter>|Popup",
+		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit <Enter>/<C-p>/<C-x>/<C-v>/<C-t>|open/popup/split/vsplit/tab",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
 			local ww = math.ceil(w * wfactor)
@@ -1717,7 +1776,7 @@ M.cmd.ChatFinder = function()
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
 
-	local open_chat = function(popup)
+	local open_chat = function(target)
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local file = picker_files[index]
 		close()
@@ -1726,21 +1785,30 @@ M.cmd.ChatFinder = function()
 			if not file then
 				return
 			end
-			M.open_chat(file, popup)
+			M.open_chat(file, target)
 		end, 200)
 	end
 
 	-- enter on picker window will open file
-	_H.set_keymap({ picker_buf }, "n", "<cr>", open_chat)
-	_H.set_keymap({ picker_buf }, "n", "<a-cr>", function()
-		open_chat(true)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-p>", function()
+		open_chat(M.ChatTarget.popup)
+	end)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
+		open_chat(M.ChatTarget.split)
+	end)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
+		open_chat(M.ChatTarget.vsplit)
+	end)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
+		open_chat(M.ChatTarget.tabnew)
 	end)
 
-	-- enter on preview window will go to picker window
-	_H.set_keymap({ command_buf }, "i", "<cr>", function()
-		vim.api.nvim_set_current_win(picker_win)
-		vim.api.nvim_command("stopinsert")
-	end)
+	-- -- enter on preview window will go to picker window
+	-- _H.set_keymap({ command_buf }, "i", "<cr>", function()
+	-- 	vim.api.nvim_set_current_win(picker_win)
+	-- 	vim.api.nvim_command("stopinsert")
+	-- end)
 
 	-- tab in command window will cycle through lines in picker window
 	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
