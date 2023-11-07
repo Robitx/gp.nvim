@@ -274,6 +274,21 @@ require("gp").setup(conf)
 -   Run your own custom hook commands:
     -   `:GpInspectPlugin` - inspect GPT prompt plugin object
 
+### GpDone autocommand to run consequent actions
+Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event `GpDone`, so you can define autocmd (like auto formating) to run when gp finishes:
+
+``` lua
+        vim.api.nvim_create_autocmd({"GpDone"}, {
+          -- pattern = {"*.c", "*.h"},
+          callback = function(event)
+            print(string.format('event fired: s', vim.inspect(event)))
+            -- local b = event.buf
+            -- DO something
+          end
+        })
+
+```
+
 ### Custom instructions per repository
 You can make `.gp.md` (markdown) file in a root of a repository and commands such as `:GpRewrite`, `:GpAppend` will respect instructions provided in this file (works better with gpt4, gpt 3.5 doesn't always listen to system commands). For example:
 ``` md
@@ -281,6 +296,46 @@ Use ‎C++17.
 Use Testify library when writing Go tests.
 Use Early return/Guard Clauses pattern to avoid excessive nesting.
 ...
+```
+
+### Scripting and multifile edits
+`GpDone` event + `.gp.md` custom instructions provide a possibility to run gp.nvim using headless (neo)vim from terminal or shell script. So you can let gp run edits accross many files if you put it in a loop.
+
+`test` file:
+```
+1
+2
+3
+4
+5
+```
+`.gp.md` file:
+````
+If user says hello, please respond with:
+
+```
+Ahoy there!
+```
+````
+
+
+calling gp.nvim from terminal/script:
+- register autocommand to save and quit nvim when Gp is done
+- second jumps to occurrence of something I want to rewrite/append/prepend to (in this case number `3`)
+- selecting the line
+- calling gp.nvim acction
+```
+$ nvim --headless -c "autocmd User GpDone wq" -c "/3" -c "normal V" -c "GpAppend hello there"  test
+```
+
+resulting `test` file:
+```
+1
+2
+3
+Ahoy there!
+4
+5
 ```
 
 ### Shortcuts
