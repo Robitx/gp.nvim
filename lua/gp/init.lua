@@ -1556,7 +1556,7 @@ M.cmd.ChatFinder = function()
 
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
 		nil,
-		"Search: <Tab>/<Shift+Tab>|Navigate <Esc>/<Enter>|Picker 2x<Esc>|Exit 2x<Enter>|Open 2x<Alt+Enter>|Popup",
+		"Search: <Tab>/<Shift+Tab>|Navigate <Esc>/<Enter>|Picker 2x<Esc>/<C-c>|Exit 2x<Enter>|Open 2x<Alt+Enter>|Popup",
 		function(w, h)
 			local wh = math.ceil(h * hfactor - 5)
 			local ww = math.ceil(w * wfactor)
@@ -1715,6 +1715,7 @@ M.cmd.ChatFinder = function()
 
 	-- close by escape key on any window
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
 
 	local open_chat = function(popup)
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
