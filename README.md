@@ -122,7 +122,7 @@ local conf = {
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat model (string with model name or table with model name and parameters)
-	chat_model = { model = "gpt-3.5-turbo-16k", temperature = 1.1, top_p = 1 },
+	chat_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 	-- chat model system prompt (use this to specify the persona/role of the AI)
 	chat_system_prompt = "You are a general AI assistant.",
 	-- chat custom instructions (not visible in the chat but prepended to model prompt)
@@ -152,27 +152,33 @@ local conf = {
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
+	-- default search term when using :GpChatFinder
+	chat_finder_pattern = "topic ",
 
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
 	-- command model (string with model name or table with model name and parameters)
-	command_model = { model = "gpt-3.5-turbo-16k", temperature = 1.1, top_p = 1 },
+	command_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 	-- command system prompt
-	command_system_prompt = "You are an AI that strictly generates just the formated final code.",
+	command_system_prompt = "You are an AI working as code editor.\n\n"
+		.. "Please AVOID COMMENTARY OUTSIDE OF SNIPPET RESPONSE.\n"
+		.. "Start and end your answer with:\n\n```",
+	-- auto select command response (easier chaining of commands)
+	command_auto_select_response = true,
 
 	-- templates
 	template_selection = "I have the following code from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following code from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond just with the snippet of code that should be inserted.",
+		.. "\n\nRespond exclusively with the snippet that should replace the code above.",
 	template_append = "I have the following code from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond just with the snippet of code that should be appended after the code above.",
+		.. "\n\nRespond exclusively with the snippet that should be appended after the code above.",
 	template_prepend = "I have the following code from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond just with the snippet of code that should be prepended before the code above.",
+		.. "\n\nRespond exclusively with the snippet that should be prepended before the code above.",
 	template_command = "{{command}}",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
