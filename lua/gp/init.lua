@@ -1598,8 +1598,6 @@ M.cmd.ChatFinder = function()
 		end,
 		{ gid = gid }
 	)
-	--[[ vim.api.nvim_buf_set_option(picker_buf, "filetype", "bash") ]]
-	vim.api.nvim_win_set_option(picker_win, "cursorline", true)
 
 	local preview_buf, preview_win, preview_close, preview_resize = M._H.create_popup(
 		nil,
@@ -1631,9 +1629,12 @@ M.cmd.ChatFinder = function()
 	-- set initial content of command buffer
 	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { M.config.chat_finder_pattern })
 
-	-- make highlight group for search by linking to existing Search group
-	local hl_group = "GpExplorerSearch"
-	vim.cmd("highlight default link " .. hl_group .. " Search")
+	local hl_search_group = "GpExplorerSearch"
+	vim.cmd("highlight default link " .. hl_search_group .. " Search ")
+	local hl_cursorline_group = "GpExplorerCursorLine"
+	vim.cmd("highlight default " .. hl_cursorline_group .. " gui=standout cterm=standout")
+
+	local picker_pos_id = 0
 	local picker_match_id = 0
 	local preview_match_id = 0
 	local regex = ""
@@ -1650,14 +1651,13 @@ M.cmd.ChatFinder = function()
 		picker_resize()
 		preview_resize()
 		command_resize()
-		vim.api.nvim_win_set_option(picker_win, "cursorline", true)
 	end
 
 	-- logic for updating picker and preview
 	local picker_files = {}
 	local preview_lines = {}
 
-	local refresh_preview = function()
+	local refresh = function()
 		if not vim.api.nvim_buf_is_valid(picker_buf) then
 			return
 		end
@@ -1683,15 +1683,27 @@ M.cmd.ChatFinder = function()
 			vim.api.nvim_win_set_cursor(preview_win, { preview_line, 0 })
 		end
 
-		-- highlight preview
+		-- highlight grep results and current line
+		if picker_pos_id ~= 0 then
+			vim.fn.matchdelete(picker_pos_id, picker_win)
+		end
+		if picker_match_id ~= 0 then
+			vim.fn.matchdelete(picker_match_id, picker_win)
+		end
 		if preview_match_id ~= 0 then
 			vim.fn.matchdelete(preview_match_id, preview_win)
 		end
+
 		if regex == "" then
+			picker_pos_id = 0
+			picker_match_id = 0
 			preview_match_id = 0
 			return
 		end
-		preview_match_id = vim.fn.matchadd(hl_group, regex, 0, -1, { window = preview_win })
+
+		picker_match_id = vim.fn.matchadd(hl_search_group, regex, 0, -1, { window = picker_win })
+		preview_match_id = vim.fn.matchadd(hl_search_group, regex, 0, -1, { window = preview_win })
+		picker_pos_id = vim.fn.matchaddpos(hl_cursorline_group, { { index } }, 0, -1, { window = picker_win })
 	end
 
 	local refresh_picker = function()
@@ -1721,18 +1733,7 @@ M.cmd.ChatFinder = function()
 				regex = "\\c" .. regex
 			end
 
-			refresh_preview()
-
-			-- highlight picker
-			if picker_match_id ~= 0 then
-				vim.fn.matchdelete(picker_match_id, picker_win)
-			end
-
-			picker_match_id = 0
-			if regex == "" then
-				return
-			end
-			picker_match_id = vim.fn.matchadd(hl_group, regex, 0, -1, { window = picker_win })
+			refresh()
 		end)
 	end
 
@@ -1746,7 +1747,7 @@ M.cmd.ChatFinder = function()
 	-- moving cursor on picker window will update preview window
 	_H.autocmd({ "CursorMoved", "CursorMovedI" }, { picker_buf }, function()
 		vim.api.nvim_command("stopinsert")
-		refresh_preview()
+		refresh()
 	end, gid)
 
 	-- InsertEnter on picker or preview window will go to command window
@@ -1769,6 +1770,7 @@ M.cmd.ChatFinder = function()
 
 	-- when command buffer is written, execute it
 	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+		vim.api.nvim_win_set_cursor(picker_win, { 1, 0 })
 		refresh_picker()
 	end, gid)
 
@@ -1821,7 +1823,7 @@ M.cmd.ChatFinder = function()
 			next_index = 1
 		end
 		vim.api.nvim_win_set_cursor(picker_win, { next_index, 0 })
-		refresh_preview()
+		refresh()
 	end)
 
 	-- shift-tab in command window will cycle through lines in picker window
@@ -1832,7 +1834,7 @@ M.cmd.ChatFinder = function()
 			next_index = #picker_files
 		end
 		vim.api.nvim_win_set_cursor(picker_win, { next_index, 0 })
-		refresh_preview()
+		refresh()
 	end)
 
 	-- dd on picker or preview window will delete file
