@@ -50,6 +50,8 @@ local config = {
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
+	-- default search term when using :GpChatFinder
+	chat_finder_pattern = "topic ",
 
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input
@@ -1074,7 +1076,7 @@ M.chat_handler = function()
 		end
 
 		-- check if file looks like a chat file
-		if not (lines[1]:match("^# topic: ") and lines[3]:match("^- model: ")) then
+		if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
 			return
 		end
 
@@ -1361,7 +1363,7 @@ M.chat_respond = function(params)
 
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	if not (lines[1]:match("^# topic: ") and lines[3]:match("^- model: ")) then
+	if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
 		print("File " .. file_name .. " does not look like a chat file")
 		return
 	end
@@ -1535,6 +1537,7 @@ M.chat_respond = function(params)
 			-- move cursor to a new line at the end of the file
 			local line = vim.api.nvim_buf_line_count(buf)
 			M._H.cursor_to_line(line, buf, win)
+			vim.cmd("doautocmd User GpDone")
 		end)
 	)
 
@@ -1626,7 +1629,7 @@ M.cmd.ChatFinder = function()
 		{ gid = gid }
 	)
 	-- set initial content of command buffer
-	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { "topic " })
+	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { M.config.chat_finder_pattern })
 
 	-- make highlight group for search by linking to existing Search group
 	local hl_group = "GpExplorerSearch"
