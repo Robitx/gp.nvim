@@ -253,6 +253,10 @@ require("gp").setup(conf)
 	(using everything from the end up to Nth instance of `🗨:..` => `N=1` is like asking a question in a new chat)
 	
     -   `:GpChatDelete` - delete the current chat
+
+    when calling `:GpChatNew` or `:GpChatPaste` you can also specify where to display chat using subcommands:
+    ![image](https://github.com/Robitx/gp.nvim/assets/8431097/350b38ce-52fb-4df7-b2a5-d6e51581f0c3)
+
 -   Ask GPT and get response to the specified output:
 
     -   `:GpRewrite` - answer replaces the current line, visual selection or range
@@ -371,6 +375,14 @@ vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual 
 vim.keymap.set("v", "<C-g>v", ":<C-u>'<,'>GpChatPaste<cr>", keymapOptions("Visual Chat Paste"))
 vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
 
+vim.keymap.set({ "n", "i" }, "<C-g><C-x>", "<cmd>GpChatNew split<cr>", keymapOptions("New Chat split"))
+vim.keymap.set({ "n", "i" }, "<C-g><C-v>", "<cmd>GpChatNew vsplit<cr>", keymapOptions("New Chat vsplit"))
+vim.keymap.set({ "n", "i" }, "<C-g><C-t>", "<cmd>GpChatNew tabnew<cr>", keymapOptions("New Chat tabnew"))
+
+vim.keymap.set("v", "<C-g><C-t>", ":<C-u>'<,'>GpChatNew tabnew<cr>", keymapOptions("Visual Chat New tabnew"))
+vim.keymap.set("v", "<C-g><C-x>", ":<C-u>'<,'>GpChatNew split<cr>", keymapOptions("Visual Chat New split"))
+vim.keymap.set("v", "<C-g><C-v>", ":<C-u>'<,'>GpChatNew vsplit<cr>", keymapOptions("Visual Chat New vsplit"))
+
 -- Prompt commands
 vim.keymap.set({"n", "i"}, "<C-g>r", "<cmd>GpRewrite<cr>", keymapOptions("Inline Rewrite"))
 vim.keymap.set({"n", "i"}, "<C-g>a", "<cmd>GpAppend<cr>", keymapOptions("Append"))
@@ -418,6 +430,10 @@ require("which-key").register({
 		v = { ":<C-u>'<,'>GpChatPaste<cr>", "Visual Chat Paste" },
 		t = { ":<C-u>'<,'>GpChatToggle<cr>", "Visual Popup Chat" },
 
+		["<C-x>"] = { ":'<,'>GpChatNew split<CR>", "Visual Chat New split" },
+		["<C-v>"] = { ":'<,'>GpChatNew vsplit<CR>", "Visual Chat New vsplit" },
+		["<C-t>"] = { ":'<,'>GpChatNew tabnew<CR>", "Visual Chat New tabnew" },
+
 		r = { ":<C-u>'<,'>GpRewrite<cr>", "Visual Rewrite" },
 		a = { ":<C-u>'<,'>GpAppend<cr>", "Visual Append" },
 		b = { ":<C-u>'<,'>GpPrepend<cr>", "Visual Prepend" },
@@ -452,6 +468,10 @@ require("which-key").register({
 		t = { "<cmd>GpChatToggle<cr>", "Toggle Popup Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
 
+		["<C-x>"] = { "<cmd>GpChatNew split<cr>", "New Chat split" },
+		["<C-v>"] = { "<cmd>GpChatNew vsplit<cr>", "New Chat vsplit" },
+		["<C-t>"] = { "<cmd>GpChatNew tabnew<cr>", "New Chat tabnew" },
+
 		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
@@ -484,6 +504,10 @@ require("which-key").register({
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
 		t = { "<cmd>GpChatToggle<cr>", "Toggle Popup Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
+
+		["<C-x>"] = { "<cmd>GpChatNew split<cr>", "New Chat split" },
+		["<C-v>"] = { "<cmd>GpChatNew vsplit<cr>", "New Chat vsplit" },
+		["<C-t>"] = { "<cmd>GpChatNew tabnew<cr>", "New Chat tabnew" },
 
 		r = { "<cmd>GpRewrite<cr>", "Inline Rewrite" },
 		a = { "<cmd>GpAppend<cr>", "Append" },
