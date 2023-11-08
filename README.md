@@ -278,15 +278,14 @@ require("gp").setup(conf)
 Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event `GpDone`, so you can define autocmd (like auto formating) to run when gp finishes:
 
 ``` lua
-        vim.api.nvim_create_autocmd({"GpDone"}, {
-          -- pattern = {"*.c", "*.h"},
-          callback = function(event)
-            print(string.format('event fired: s', vim.inspect(event)))
+    vim.api.nvim_create_autocmd({ "User" }, {
+        pattern = {"GpDone"},
+        callback = function(event)
+            print("event fired:\n", vim.inspect(event))
             -- local b = event.buf
             -- DO something
-          end
-        })
-
+        end,
+    })
 ```
 
 ### Custom instructions per repository
