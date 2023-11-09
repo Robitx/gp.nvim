@@ -344,7 +344,7 @@ _H.grep_directory = function(directory, pattern, callback)
 				-- extract file path (until zero byte)
 				local file = line:match("^(.-)%z")
 				-- substract dir from file
-				local filename = file:gsub(directory .. "/", "")
+				local filename = vim.fn.fnamemodify(file, ":t")
 				local line_number = line:match("%z(%d+):")
 				local line_text = line:match("%z%d+:(.*)")
 				table.insert(results, {
@@ -545,6 +545,12 @@ _H.cursor_to_line = function(line, buf, win)
 
 	-- move cursor to the line
 	vim.api.nvim_win_set_cursor(win, { line, 0 })
+end
+
+---@param str string # string to check
+---@param start string # string to check for
+_H.starts_with = function(str, start)
+	return str:sub(1, #start) == start
 end
 
 --------------------------------------------------------------------------------
@@ -1073,7 +1079,7 @@ M.chat_handler = function()
 		local file_name = vim.api.nvim_buf_get_name(buf)
 
 		-- check if file is in the chat dir
-		if not string.match(file_name, M.config.chat_dir) then
+		if not _H.starts_with(file_name, M.config.chat_dir) then
 			return
 		end
 
@@ -1341,7 +1347,7 @@ M.cmd.ChatDelete = function()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 
 	-- check if file is in the chat dir
-	if not string.match(file_name, M.config.chat_dir) then
+	if not _H.starts_with(file_name, M.config.chat_dir) then
 		print("File " .. file_name .. " is not in chat dir")
 		return
 	end
