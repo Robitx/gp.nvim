@@ -1111,7 +1111,6 @@ end
 ---@param target number | nil # chat target
 ---@return number # buffer number
 M.open_chat = function(file_name, target)
-	print("open_chat target:", target)
 	target = target or M.ChatTarget.current
 	if target == M.ChatTarget.popup then
 		local old_buf = M._H.get_buffer(file_name)
