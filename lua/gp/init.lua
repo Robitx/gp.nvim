@@ -554,10 +554,20 @@ end
 -- tries to find an .gp.md file in the root of current git repo
 ---@return string # returns instructions from the .gp.md file
 M.repo_instructions = function()
-	-- folder of the current buffer
 	local cwd = vim.fn.expand("%:p:h")
 
-	local git_dir = vim.fn.finddir(".git", cwd .. ";")
+	local git_dir = ""
+
+	while cwd ~= "/" do
+		local files = vim.fn.readdir(cwd)
+
+		if vim.tbl_contains(files, ".git") then
+			git_dir = cwd .. "/.git"
+			break
+		end
+
+		cwd = vim.fn.fnamemodify(cwd, ":h")
+	end
 
 	if git_dir == "" then
 		return ""
