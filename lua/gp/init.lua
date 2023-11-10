@@ -95,7 +95,8 @@ local config = {
 	whisper_max_time = "05:00",
 	-- whisper tempo (1.0 is normal speed)
 	whisper_tempo = "1.75",
-	whisper_language = "en"
+	-- The language of the input audio, in ISO-639-1 format.
+	whisper_language = "en",
 
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
