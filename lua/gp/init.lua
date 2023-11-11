@@ -171,6 +171,7 @@ local M = {
 	config = {}, -- config variables
 	cmd = {}, -- default command functions
 	cmd_hooks = {}, -- user defined command functions
+	_handles = {}, -- handles for running processes
 }
 
 --------------------------------------------------------------------------------
@@ -257,17 +258,73 @@ _H.get_buffer = function(file_name)
 	return nil
 end
 
+-- stop receiving gpt responses for all processes and clean the handles
+---@param signal number | nil # signal to send to the process
+M.cmd.Stop = function(signal)
+	if M._handles == {} then
+		return
+	end
+
+	for _, handle_info in ipairs(M._handles) do
+		if handle_info.handle ~= nil and not handle_info.handle:is_closing() then
+			vim.loop.kill(handle_info.pid, signal or 15)
+		end
+	end
+
+	M._handles = {} -- resetting handles table to empty instead of nil
+end
+
+-- add a process handle and its corresponding pid to the _handles table
+---@param handle userdata # the Lua uv handle
+---@param pid number # the process id
+---@param buf number | nil # buffer number
+M.add_handle = function(handle, pid, buf)
+	table.insert(M._handles, { handle = handle, pid = pid, buf = buf })
+end
+
+--- Check if there is no other pid running for the given buffer
+---@param buf number | nil # buffer number
+---@return boolean
+M.can_handle = function(buf)
+	if buf == nil then
+		return true
+	end
+	for _, handle_info in ipairs(M._handles) do
+		if handle_info.buf == buf then
+			return false
+		end
+	end
+	return true
+end
+
+-- remove a process handle from the _handles table using its pid
+---@param pid number # the process id to find the corresponding handle
+M.remove_handle = function(pid)
+	for i, handle_info in ipairs(M._handles) do
+		if handle_info.pid == pid then
+			table.remove(M._handles, i)
+			return
+		end
+	end
+end
+
+---@param buf number | nil # buffer number
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
 ---@param callback function | nil # exit callback function(code, signal, stdout_data, stderr_data)
 ---@param out_reader function | nil # stdout reader function(err, data)
 ---@param err_reader function | nil # stderr reader function(err, data)
-_H.process = function(cmd, args, callback, out_reader, err_reader)
+_H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local handle, pid
 	local stdout = vim.loop.new_pipe(false)
 	local stderr = vim.loop.new_pipe(false)
 	local stdout_data = ""
 	local stderr_data = ""
+
+	if not M.can_handle(buf) then
+		print("Another Gp process is already running for this buffer.")
+		return
+	end
 
 	local on_exit = _H.once(vim.schedule_wrap(function(code, signal)
 		stdout:read_stop()
@@ -280,8 +337,7 @@ _H.process = function(cmd, args, callback, out_reader, err_reader)
 		if callback then
 			callback(code, signal, stdout_data, stderr_data)
 		end
-		M._handle = nil
-		M._pid = nil
+		M.remove_handle(pid)
 	end))
 
 	handle, pid = vim.loop.spawn(cmd, {
@@ -291,8 +347,7 @@ _H.process = function(cmd, args, callback, out_reader, err_reader)
 		detach = true,
 	}, on_exit)
 
-	M._handle = handle
-	M._pid = pid
+	M.add_handle(handle, pid, buf)
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
@@ -319,19 +374,20 @@ _H.process = function(cmd, args, callback, out_reader, err_reader)
 	end)
 end
 
+---@param buf number | nil # buffer number
 ---@param directory string # directory to search in
 ---@param pattern string # pattern to search for
 ---@param callback function # callback function(results, regex)
 -- results: table of elements with file, lnum and line
 -- regex: string - final regex used for search
-_H.grep_directory = function(directory, pattern, callback)
+_H.grep_directory = function(buf, directory, pattern, callback)
 	pattern = pattern or ""
 	-- replace spaces with wildcards
 	pattern = pattern:gsub("%s+", ".*")
 	-- strip leading and trailing non alphanumeric characters
 	local re = pattern:gsub("^%W*(.-)%W*$", "%1")
 
-	_H.process("grep", { "-irEn", "--null", pattern, directory }, function(c, _, stdout, _)
+	_H.process(buf, "grep", { "-irEn", "--null", pattern, directory }, function(c, _, stdout, _)
 		local results = {}
 		if c ~= 0 then
 			callback(results, re)
@@ -794,7 +850,11 @@ M.prepare_payload = function(model, default_model, messages)
 end
 
 -- gpt query
-M.query = function(payload, handler, on_exit)
+---@param buf number | nil # buffer number
+---@param payload table # payload for openai api
+---@param handler function # response handler
+---@param on_exit function | nil # optional on_exit handler
+M.query = function(buf, payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		M.error(string.format("query() expects handler function, but got %s:\n%s", type(handler), vim.inspect(handler)))
@@ -898,15 +958,7 @@ M.query = function(payload, handler, on_exit)
 		table.insert(curl_params, arg)
 	end
 
-	M._H.process("curl", curl_params, nil, out_reader(), nil)
-end
-
--- stop recieving gpt response
----@param signal number | nil # signal to send to the process
-M.cmd.Stop = function(signal)
-	if M._handle ~= nil and not M._handle:is_closing() then
-		vim.loop.kill(M._pid, signal or 15)
-	end
+	M._H.process(buf, "curl", curl_params, nil, out_reader(), nil)
 end
 
 -- response handler
@@ -1370,6 +1422,11 @@ M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
+	if not M.can_handle(buf) then
+		print("Another Gp process is already running for this buffer.")
+		return
+	end
+
 	-- go to normal mode
 	vim.cmd("stopinsert")
 
@@ -1480,6 +1537,7 @@ M.chat_respond = function(params)
 
 	-- call the model and write response
 	M.query(
+		buf,
 		M.prepare_payload(headers.model, M.config.chat_model, messages),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, ""),
 		vim.schedule_wrap(function()
@@ -1521,6 +1579,7 @@ M.chat_respond = function(params)
 
 				-- call the model
 				M.query(
+					nil,
 					M.prepare_payload(nil, M.config.chat_topic_gen_model, messages),
 					topic_handler,
 					vim.schedule_wrap(function()
@@ -1725,7 +1784,7 @@ M.cmd.ChatFinder = function()
 		-- get last line of command buffer
 		local cmd = vim.api.nvim_buf_get_lines(command_buf, -2, -1, false)[1]
 
-		_H.grep_directory(dir, cmd, function(results, re)
+		_H.grep_directory(nil, dir, cmd, function(results, re)
 			if not vim.api.nvim_buf_is_valid(picker_buf) then
 				return
 			end
@@ -1889,6 +1948,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
+
+	if not M.can_handle(buf) then
+		print("Another Gp process is already running for this buffer.")
+		return
+	end
 
 	-- defaults to normal mode
 	local selection = nil
@@ -2088,6 +2152,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 
 		-- call the model and write the response
 		M.query(
+			buf,
 			M.prepare_payload(model, M.config.command_model, messages),
 			handler,
 			vim.schedule_wrap(function()
@@ -2226,7 +2291,7 @@ M.Whisper = function(callback)
 			.. '-F model="whisper-1" -F language="en" -F file="@final.mp3" '
 			.. '-F response_format="json"'
 
-		M._H.process("bash", { "-c", cmd }, function(code, signal, stdout, _)
+		M._H.process(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
 			if code ~= 0 then
 				M.error(string.format("Whisper query exited: %d, %d", code, signal))
 				return
@@ -2247,7 +2312,7 @@ M.Whisper = function(callback)
 		end)
 	end
 
-	M._H.process("sox", {
+	M._H.process(nil, "sox", {
 		--[[ "-q", ]]
 		-- single channel
 		"-c",
