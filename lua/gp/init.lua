@@ -301,7 +301,7 @@ M.cmd.Stop = function(signal)
 		end
 	end
 
-	M._handles = {} -- resetting handles table to empty instead of nil
+	M._handles = {}
 end
 
 -- add a process handle and its corresponding pid to the _handles table
@@ -352,7 +352,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local stderr_data = ""
 
 	if not M.can_handle(buf) then
-		print("Another Gp process is already running for this buffer.")
+		M.warning("Another Gp process is already running for this buffer.")
 		return
 	end
 
@@ -646,6 +646,30 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
+-- nicer error messages using nvim_echo
+---@param msg string # error message
+M.error = function(msg)
+	vim.api.nvim_echo({
+		{ M._Name .. ": " .. msg .. "\n", "ErrorMsg" },
+	}, true, {})
+end
+
+-- nicer warning messages using nvim_echo
+---@param msg string # warning message
+M.warning = function(msg)
+	vim.api.nvim_echo({
+		{ M._Name .. ": " .. msg .. "\n", "WarningMsg" },
+	}, true, {})
+end
+
+-- nicer plain messages using nvim_echo
+---@param msg string # plain message
+M.info = function(msg)
+	vim.api.nvim_echo({
+		{ M._Name .. ": " .. msg .. "\n", "Normal" },
+	}, true, {})
+end
+
 -- tries to find an .gp.md file in the root of current git repo
 ---@return string # returns instructions from the .gp.md file
 M.repo_instructions = function()
@@ -686,11 +710,6 @@ M.template_render = function(template, command, selection, filetype, filename)
 		["{{filename}}"] = filename,
 	}
 	return _H.template_render(template, key_value_pairs)
-end
-
--- nicer error messages
-M.error = function(msg)
-	error(string.format("\n\n%s error:\n%s\n", M._Name, msg))
 end
 
 -- setup function
@@ -735,7 +754,7 @@ M.setup = function(opts)
 			M.config[k] = v:gsub("/$", "")
 		end
 		if k:match("_dir$") and vim.fn.isdirectory(v) == 0 then
-			print(M._Name .. ": creating directory " .. v)
+			M.info("creating directory " .. v)
 			vim.fn.mkdir(v, "p")
 		end
 	end
@@ -774,14 +793,12 @@ M.setup = function(opts)
 		end
 	end
 
-	-- make sure curl is installed
 	if vim.fn.executable("curl") == 0 then
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	-- make sure openai_api_key is set
 	if M.config.openai_api_key == nil then
-		print("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
+		M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
 
 	-- init chat handler
@@ -890,7 +907,10 @@ end
 M.query = function(buf, payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
-		M.error(string.format("query() expects handler function, but got %s:\n%s", type(handler), vim.inspect(handler)))
+		M._H.error(
+			M._Name,
+			string.format("query() expects handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
+		)
 		return
 	end
 
@@ -1388,7 +1408,7 @@ end
 M.cmd.ChatPaste = function(params)
 	-- if there is no selection, do nothing
 	if params.range ~= 2 then
-		print("Please select some text to paste into the chat.")
+		M.warning("Please select some text to paste into the chat.")
 		return
 	end
 
@@ -1440,7 +1460,7 @@ M.cmd.ChatDelete = function()
 
 	-- check if file is in the chat dir
 	if not _H.starts_with(file_name, M.config.chat_dir) then
-		print("File " .. file_name .. " is not in chat dir")
+		M.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
 
@@ -1463,7 +1483,7 @@ M.chat_respond = function(params)
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		print("Another Gp process is already running for this buffer.")
+		M.warning("Another Gp process is already running for this buffer.")
 		return
 	end
 
@@ -1476,7 +1496,7 @@ M.chat_respond = function(params)
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
-		print("File " .. file_name .. " does not look like a chat file")
+		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
 		return
 	end
 
@@ -1501,7 +1521,7 @@ M.chat_respond = function(params)
 	end
 
 	if header_end == nil then
-		print("Error while parsing headers: --- not found. Check your chat template.")
+		M.error("Error while parsing headers: --- not found. Check your chat template.")
 		return
 	end
 
@@ -1654,9 +1674,6 @@ M.chat_respond = function(params)
 			vim.cmd("doautocmd User GpDone")
 		end)
 	)
-
-	--[[ print("headers:\n" .. vim.inspect(headers)) ]]
-	--[[ print("messages:\n" .. vim.inspect(messages)) ]]
 end
 
 M.cmd.ChatRespond = function(params)
@@ -1668,7 +1685,7 @@ M.cmd.ChatRespond = function(params)
 	-- ensure args is a single positive number
 	local n_requests = tonumber(params.args)
 	if n_requests == nil or math.floor(n_requests) ~= n_requests or n_requests <= 0 then
-		M.error("args for ChatRespond should be a single positive number, not: " .. params.args)
+		M.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
 		return
 	end
 
@@ -1989,7 +2006,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		print("Another Gp process is already running for this buffer.")
+		M.warning("Another Gp process is already running for this buffer.")
 		return
 	end
 
@@ -2034,7 +2051,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		selection = table.concat(lines, "\n")
 
 		if selection == "" then
-			print("Please select some text to rewrite")
+			M.warning("Please select some text to rewrite")
 			return
 		end
 	end
@@ -2399,14 +2416,12 @@ M.cmd.Whisper = function(params)
 	local start_line = vim.api.nvim_win_get_cursor(0)[1]
 	local end_line = start_line
 
-	-- handle range
 	if params.range == 2 then
 		start_line = params.line1
 		end_line = params.line2
 	end
 
 	M.Whisper(function(text)
-		-- if buf is not valid, stop
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
 		end
@@ -2416,8 +2431,5 @@ M.cmd.Whisper = function(params)
 		end
 	end)
 end
-
--- M.setup()
--- print("gp.lua loaded\n\n")
 
 return M
