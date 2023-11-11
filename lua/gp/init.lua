@@ -246,6 +246,15 @@ _H.delete_buffer = function(file_name)
 	end
 end
 
+---@param file string | nil # name of the file to delete
+_H.delete_file = function(file)
+	if file == nil then
+		return
+	end
+	M._H.delete_buffer(file)
+	os.remove(file)
+end
+
 ---@param file_name string # name of the file for which to get buffer
 ---@return number | nil # buffer number
 _H.get_buffer = function(file_name)
@@ -1387,12 +1396,6 @@ M.cmd.ChatPaste = function(params)
 	M._H.feedkeys("G", "x")
 end
 
-M.delete_chat = function(file)
-	-- iterate over buffer list and close all buffers with the same name
-	M._H.delete_buffer(file)
-	os.remove(file)
-end
-
 M.cmd.ChatDelete = function()
 	-- get buffer and file
 	local buf = vim.api.nvim_get_current_buf()
@@ -1406,14 +1409,14 @@ M.cmd.ChatDelete = function()
 
 	-- delete without confirmation
 	if not M.config.chat_confirm_delete then
-		M.delete_chat(file_name)
+		M._H.delete_file(file_name)
 		return
 	end
 
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
-			M.delete_chat(file_name)
+			M._H.delete_file(file_name)
 		end
 	end)
 end
@@ -1918,7 +1921,7 @@ M.cmd.ChatFinder = function()
 
 		-- delete without confirmation
 		if not M.config.chat_confirm_delete then
-			M.delete_chat(file)
+			M._H.delete_file(file)
 			refresh_picker()
 			return
 		end
@@ -1926,7 +1929,7 @@ M.cmd.ChatFinder = function()
 		-- ask for confirmation
 		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
 			if input and input:lower() == "y" then
-				M.delete_chat(file)
+				M._H.delete_file(file)
 				refresh_picker()
 			end
 		end)
