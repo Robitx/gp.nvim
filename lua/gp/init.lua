@@ -53,6 +53,27 @@ local config = {
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
 
+	-- styling for chatfinder
+	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
+	style_chat_finder_border = "single",
+	-- margins are number of characters or lines
+	style_chat_finder_margin_bottom = 8,
+	style_chat_finder_margin_left = 1,
+	style_chat_finder_margin_right = 2,
+	style_chat_finder_margin_top = 2,
+	-- how wide should the preview be, number between 0.0 and 1.0
+	style_chat_finder_preview_ratio = 0.5,
+
+	-- styling for popup
+	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
+	style_popup_border = "single",
+	-- margins are number of characters or lines
+	style_popup_margin_bottom = 8,
+	style_popup_margin_left = 1,
+	style_popup_margin_right = 2,
+	style_popup_margin_top = 2,
+	style_popup_max_width = 160,
+
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input
 	command_prompt_prefix = "🤖 ~ ",
@@ -435,9 +456,12 @@ end
 ---@param title string # title of the popup
 ---@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
 ---@param opts table # options - gid=nul, on_leave=false, keep_buf=false
+---@param style table # style - border="single"
 ---returns table with buffer, window, close function, resize function
-_H.create_popup = function(buf, title, size_func, opts)
+_H.create_popup = function(buf, title, size_func, opts, style)
 	opts = opts or {}
+	style = style or {}
+	local border = style.border or "single"
 
 	-- create buffer
 	buf = buf or vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
@@ -451,7 +475,7 @@ _H.create_popup = function(buf, title, size_func, opts)
 		row = 10,
 		col = 10,
 		style = "minimal",
-		border = "single",
+		border = border,
 		title = title,
 		title_pos = "center",
 	}
@@ -1196,9 +1220,22 @@ M.open_chat = function(file_name, target)
 		M._chat_popup_close()
 
 		-- create popup
-		local b, win, close, _ = M._H.create_popup(old_buf, M._Name .. " Chat Popup", function(w, h)
-			return w * 0.8, h * 0.8, h * 0.1, w * 0.1
-		end, { on_leave = false, escape = false, persist = true, keep_buf = true })
+		local b, win, close, _ = M._H.create_popup(
+			old_buf,
+			M._Name .. " Chat Popup",
+			function(w, h)
+				local top = M.config.style_popup_margin_top or 2
+				local bottom = M.config.style_popup_margin_bottom or 8
+				local left = M.config.style_popup_margin_left or 1
+				local right = M.config.style_popup_margin_right or 1
+				local max_width = M.config.style_popup_max_width or 160
+				local ww = math.min(w - (left + right), max_width)
+				local wh = h - (top + bottom)
+				return ww, wh, top, (w - ww) / 2
+			end,
+			{ on_leave = false, escape = false, persist = true, keep_buf = true },
+			{ border = M.config.style_popup_border or "single" }
+		)
 
 		M._chat_popup = { win = win, buf = b, close = close }
 
@@ -1660,48 +1697,46 @@ M.cmd.ChatFinder = function()
 	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
 
 	-- prepare three popup buffers and windows
-	local wfactor = 0.9
-	local hfactor = 0.7
-	local preview_ratio = 0.6
+	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
+	local top = M.config.style_chat_finder_margin_top or 2
+	local bottom = M.config.style_chat_finder_margin_bottom or 8
+	local left = M.config.style_chat_finder_margin_left or 1
+	local right = M.config.style_chat_finder_margin_right or 2
 	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
 		nil,
 		"Picker: j/k <Esc>|exit <Enter>|open dd|del i|srch",
 		function(w, h)
-			local wh = math.ceil(h * hfactor - 5)
-			local ww = math.ceil(w * wfactor)
-			local r = math.ceil((h - wh) / 4 - 1)
-			local c = math.ceil((w - ww) / 2)
-			return ww * (1 - preview_ratio), wh, r, c
+			local wh = h - top - bottom - 2
+			local ww = w - left - right - 2
+			return math.floor(ww * (1 - ratio)), wh, top, left
 		end,
-		{ gid = gid }
+		{ gid = gid },
+		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
 	local preview_buf, preview_win, preview_close, preview_resize = M._H.create_popup(
 		nil,
 		"Preview (edits are ephemeral)",
 		function(w, h)
-			local wh = math.ceil(h * hfactor - 5)
-			local ww = math.ceil(w * wfactor)
-			local r = math.ceil((h - wh) / 4 - 1)
-			local c = math.ceil((w - ww) / 2)
-			return ww * preview_ratio, wh, r, c + math.ceil(ww * (1 - preview_ratio)) + 2
+			local wh = h - top - bottom - 2
+			local ww = w - left - right - 1
+			return ww * ratio, wh, top, left + math.ceil(ww * (1 - ratio)) + 2
 		end,
-		{ gid = gid }
+		{ gid = gid },
+		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
 	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
 
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
 		nil,
-		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit <Enter>/<C-p>/<C-x>/<C-v>/<C-t>|open/popup/split/vsplit/tab",
+		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
+			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>|open/float/split/vsplit/tab",
 		function(w, h)
-			local wh = math.ceil(h * hfactor - 5)
-			local ww = math.ceil(w * wfactor)
-			local r = math.ceil((h - wh) / 4 - 1)
-			local c = math.ceil((w - ww) / 2)
-			return ww + 2, 1, r + wh + 2, c
+			return w - left - right, 1, h - bottom, left
 		end,
-		{ gid = gid }
+		{ gid = gid },
+		{ border = M.config.style_chat_finder_border or "single" }
 	)
 	-- set initial content of command buffer
 	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { M.config.chat_finder_pattern })
@@ -1797,7 +1832,8 @@ M.cmd.ChatFinder = function()
 			local picker_lines = {}
 			for _, f in ipairs(results) do
 				table.insert(picker_files, dir .. "/" .. f.file)
-				table.insert(picker_lines, string.format("%s:%s %s", f.file, f.lnum, f.line))
+				local fline = string.format("%s:%s %s", f.file:sub(3, -11), f.lnum, f.line)
+				table.insert(picker_lines, fline)
 				table.insert(preview_lines, tonumber(f.lnum))
 			end
 
@@ -1873,7 +1909,7 @@ M.cmd.ChatFinder = function()
 
 	-- enter on picker window will open file
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-p>", function()
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
 		open_chat(M.ChatTarget.popup)
 	end)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
@@ -2131,8 +2167,15 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		elseif target == M.Target.popup then
 			-- create a new buffer
 			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>)", function(w, h)
-				return w / 2, h / 2, h / 4, w / 4
-			end, { on_leave = true, escape = true })
+				local top = M.config.style_popup_margin_top or 2
+				local bottom = M.config.style_popup_margin_bottom or 8
+				local left = M.config.style_popup_margin_left or 1
+				local right = M.config.style_popup_margin_right or 1
+				local max_width = M.config.style_popup_max_width or 160
+				local ww = math.min(w - (left + right), max_width)
+				local wh = h - (top + bottom)
+				return ww, wh, top, (w - ww) / 2
+			end, { on_leave = true, escape = true }, { border = M.config.style_popup_border or "single" })
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
