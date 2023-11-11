@@ -2252,9 +2252,15 @@ M.Whisper = function(callback)
 	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
 
 	-- create popup
-	local buf, _, close_popup, _ = M._H.create_popup(nil, M._Name .. " Whisper", function(w, h)
-		return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
-	end, { gid = gid, on_leave = false, escape = false, persist = false })
+	local buf, _, close_popup, _ = M._H.create_popup(
+		nil,
+		M._Name .. " Whisper",
+		function(w, h)
+			return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
+		end,
+		{ gid = gid, on_leave = false, escape = false, persist = false },
+		{ border = M.config.style_popup_border or "single" }
+	)
 
 	-- animated instructions in the popup
 	local counter = 0
