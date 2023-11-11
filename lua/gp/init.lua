@@ -907,9 +907,8 @@ end
 M.query = function(buf, payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
-		M._H.error(
-			M._Name,
-			string.format("query() expects handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
+		M.error(
+			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
 		)
 		return
 	end
