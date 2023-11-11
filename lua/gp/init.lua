@@ -1197,7 +1197,6 @@ M.open_chat = function(file_name, target)
 			-- read file into buffer and force write it
 			vim.api.nvim_command("silent 0read " .. file_name)
 			vim.api.nvim_command("silent file " .. file_name)
-			vim.api.nvim_command("silent write! " .. file_name)
 		else
 			-- move cursor to the beginning of the file and scroll to the end
 			M._H.feedkeys("ggG", "x")
@@ -1208,6 +1207,7 @@ M.open_chat = function(file_name, target)
 		vim.api.nvim_buf_set_lines(b, last_content_line, -1, false, {})
 		-- insert a new line at the end of the file
 		vim.api.nvim_buf_set_lines(b, -1, -1, false, { "" })
+		vim.api.nvim_command("silent write! " .. file_name)
 	elseif target == M.ChatTarget.split then
 		vim.api.nvim_command("split " .. file_name)
 	elseif target == M.ChatTarget.vsplit then
