@@ -59,9 +59,9 @@ local config = {
 	-- command model (string with model name or table with model name and parameters)
 	command_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 	-- command system prompt
-	command_system_prompt = "You are an AI working as code editor.\n\n"
-		.. "Please AVOID COMMENTARY OUTSIDE OF SNIPPET RESPONSE.\n"
-		.. "Start and end your answer with:\n\n```",
+	command_system_prompt = "You are an AI working as a code editor.\n\n"
+		.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+		.. "START AND END YOUR ANSWER WITH:\n\n```",
 	-- auto select command response (easier chaining of commands)
 	command_auto_select_response = true,
 
