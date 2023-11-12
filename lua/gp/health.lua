@@ -20,7 +20,7 @@ function M.check()
 		local api_key = gp.config.openai_api_key
 
 		if api_key == nil or api_key == "" then
-			vim.health.error("require('gp').setup({openai_api_key: ???}) is not set")
+			vim.health.error("require('gp').setup({openai_api_key: ???}) is not set: " .. vim.inspect(api_key))
 		else
 			vim.health.ok("config.openai_api_key is set")
 		end

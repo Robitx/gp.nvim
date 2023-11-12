@@ -649,25 +649,31 @@ end
 -- nicer error messages using nvim_echo
 ---@param msg string # error message
 M.error = function(msg)
-	vim.api.nvim_echo({
-		{ M._Name .. ": " .. msg .. "\n", "ErrorMsg" },
-	}, true, {})
+	vim.schedule(function()
+		vim.api.nvim_echo({
+			{ M._Name .. ": " .. msg .. "\n", "ErrorMsg" },
+		}, true, {})
+	end)
 end
 
 -- nicer warning messages using nvim_echo
 ---@param msg string # warning message
 M.warning = function(msg)
-	vim.api.nvim_echo({
-		{ M._Name .. ": " .. msg .. "\n", "WarningMsg" },
-	}, true, {})
+	vim.schedule(function()
+		vim.api.nvim_echo({
+			{ M._Name .. ": " .. msg .. "\n", "WarningMsg" },
+		}, true, {})
+	end)
 end
 
 -- nicer plain messages using nvim_echo
 ---@param msg string # plain message
 M.info = function(msg)
-	vim.api.nvim_echo({
-		{ M._Name .. ": " .. msg .. "\n", "Normal" },
-	}, true, {})
+	vim.schedule(function()
+		vim.api.nvim_echo({
+			{ M._Name .. ": " .. msg .. "\n", "Normal" },
+		}, true, {})
+	end)
 end
 
 -- tries to find an .gp.md file in the root of current git repo
@@ -797,7 +803,7 @@ M.setup = function(opts)
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	if M.config.openai_api_key == nil then
+	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
 		M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
 
@@ -914,7 +920,7 @@ M.query = function(buf, payload, handler, on_exit)
 	end
 
 	-- make sure openai_api_key is set
-	if M.config.openai_api_key == nil then
+	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
 		M.error("config.openai_api_key is not set, run :checkhealth gp")
 		return
 	end
@@ -1480,6 +1486,12 @@ end
 M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
+
+	-- make sure openai_api_key is set
+	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
+		M.error("config.openai_api_key is not set, run :checkhealth gp")
+		return
+	end
 
 	if not M.can_handle(buf) then
 		M.warning("Another Gp process is already running for this buffer.")
@@ -2256,7 +2268,7 @@ M.Whisper = function(callback)
 	end
 
 	-- make sure openai_api_key is set
-	if M.config.openai_api_key == nil then
+	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
 		M.error("config.openai_api_key is not set, run :checkhealth gp")
 		return
 	end
