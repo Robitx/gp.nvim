@@ -1025,10 +1025,12 @@ end
 ---@param line number | nil # line to insert response into
 ---@param first_undojoin boolean | nil # whether to skip first undojoin
 ---@param prefix string | nil # prefix to insert before each response line
-M.create_handler = function(buf, win, line, first_undojoin, prefix)
+---@param cursor boolean # whether to move cursor to the end of the response
+M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	buf = buf or vim.api.nvim_get_current_buf()
 	prefix = prefix or ""
 	local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
+	local finished_lines = 0
 	local skip_first_undojoin = not first_undojoin
 
 	local response = ""
@@ -1051,7 +1053,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix)
 
 		-- clean previous response
 		local line_count = #vim.split(response, "\n")
-		vim.api.nvim_buf_set_lines(buf, first_line, first_line + line_count, false, {})
+		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + line_count, false, {})
 
 		-- append new response
 		response = response .. chunk
@@ -1063,14 +1065,29 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix)
 			lines[i] = prefix .. l
 		end
 
-		vim.api.nvim_buf_set_lines(buf, first_line, first_line, false, lines)
+		local unfinished_lines = {}
+		for i = finished_lines + 1, #lines do
+			table.insert(unfinished_lines, lines[i])
+		end
 
-		-- move cursor to the end of the response
+		vim.api.nvim_buf_set_lines(
+			buf,
+			first_line + finished_lines,
+			first_line + finished_lines,
+			false,
+			unfinished_lines
+		)
+
+		finished_lines = math.max(0, #lines - 1)
+
 		local end_line = first_line + #vim.split(response, "\n")
-		M._H.cursor_to_line(end_line, buf, win)
-
 		M._first_line = first_line
 		M._last_line = end_line - 1
+
+		-- move cursor to the end of the response
+		if cursor then
+			M._H.cursor_to_line(end_line, buf, win)
+		end
 	end)
 end
 
@@ -1610,7 +1627,7 @@ M.chat_respond = function(params)
 	M.query(
 		buf,
 		M.prepare_payload(headers.model, M.config.chat_model, messages),
-		M.create_handler(buf, win, M._H.last_content_line(buf), true, ""),
+		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", false),
 		vim.schedule_wrap(function()
 			-- write user prompt
 			last_content_line = M._H.last_content_line(buf)
@@ -1646,7 +1663,7 @@ M.chat_respond = function(params)
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
-				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "")
+				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
 
 				-- call the model
 				M.query(
@@ -2177,21 +2194,21 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix)
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix, true)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, end_line, true, prefix)
+			handler = M.create_handler(buf, win, end_line, true, prefix, true)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "" }, "l", false, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix)
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix, true)
 		elseif target == M.Target.popup then
 			-- create a new buffer
 			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>)", function(w, h)
@@ -2211,7 +2228,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false, "")
+			handler = M.create_handler(buf, win, 0, false, "", true)
 		elseif type(target) == "table" and target.type == M.Target.enew().type then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
@@ -2221,7 +2238,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			local ft = target.filetype or filetype
 			vim.api.nvim_buf_set_option(buf, "filetype", ft)
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false, "")
+			handler = M.create_handler(buf, win, 0, false, "", true)
 		end
 
 		-- call the model and write the response
