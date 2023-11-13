@@ -557,6 +557,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 	-- cleanup on escape exit
 	if opts.escape then
 		_H.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
+		_H.set_keymap({ buf }, { "n", "v", "i" }, "<C-c>", close, title .. " close on escape")
 	end
 
 	resize()
@@ -2210,7 +2211,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			handler = M.create_handler(buf, win, start_line - 1, true, prefix, true)
 		elseif target == M.Target.popup then
 			-- create a new buffer
-			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>)", function(w, h)
+			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
 				local top = M.config.style_popup_margin_top or 2
 				local bottom = M.config.style_popup_margin_bottom or 8
 				local left = M.config.style_popup_margin_left or 1
@@ -2321,7 +2322,7 @@ M.Whisper = function(callback)
 					"    ",
 					"    Pressing <Enter> starts the transcription.",
 					"    ",
-					"    Cancel the recording with <esc> or :GpStop.",
+					"    Cancel the recording with <esc>/<C-c> or :GpStop.",
 					"    ",
 					"    The last recording is in /tmp/gp_whisper/.",
 				})
@@ -2344,6 +2345,10 @@ M.Whisper = function(callback)
 	end)
 
 	_H.set_keymap({ buf }, { "n", "i", "v" }, "<esc>", function()
+		M.cmd.Stop()
+	end)
+
+	_H.set_keymap({ buf }, { "n", "i", "v" }, "<C-c>", function()
 		M.cmd.Stop()
 	end)
 
