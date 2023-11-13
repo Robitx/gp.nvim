@@ -2406,9 +2406,13 @@ M.Whisper = function(callback)
 				return
 			end
 
+			if not stdout or stdout == "" or #stdout < 11 then
+				M.error("Whisper query, no stdout: " .. vim.inspect(stdout))
+				return
+			end
 			local text = vim.json.decode(stdout).text
 			if not text then
-				M.error("Whisper query no text: " .. vim.inspect(stdout))
+				M.error("Whisper query, no text: " .. vim.inspect(stdout))
 				return
 			end
 
