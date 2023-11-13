@@ -52,6 +52,8 @@ local config = {
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
+	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
+	chat_free_cursor = false,
 
 	-- styling for chatfinder
 	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
@@ -1691,10 +1693,11 @@ M.chat_respond = function(params)
 					end)
 				)
 			end
-
+			if not M.config.chat_free_cursor then
+				local line = vim.api.nvim_buf_line_count(buf)
+				M._H.cursor_to_line(line, buf, win)
+			end
 			-- move cursor to a new line at the end of the file
-			local line = vim.api.nvim_buf_line_count(buf)
-			M._H.cursor_to_line(line, buf, win)
 			vim.cmd("doautocmd User GpDone")
 		end)
 	)
