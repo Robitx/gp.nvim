@@ -1732,7 +1732,14 @@ M.cmd.ChatRespond = function(params)
 	M.chat_respond(params)
 end
 
+M._chat_finder_opened = false
 M.cmd.ChatFinder = function()
+	if M._chat_finder_opened then
+        M.warning("Chat finder is already open")
+		return
+	end
+	M._chat_finder_opened = true
+
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
@@ -1802,6 +1809,7 @@ M.cmd.ChatFinder = function()
 		picker_close()
 		preview_close()
 		command_close()
+		M._chat_finder_opened = false
 	end)
 
 	local resize = function()
