@@ -302,6 +302,7 @@ end
 
 ---@param name string # name of the augroup
 ---@param opts table | nil # options for the augroup
+---@return number # returns augroup id
 _H.create_augroup = function(name, opts)
 	return vim.api.nvim_create_augroup(name .. "_" .. _H.uuid(), opts or { clear = true })
 end
@@ -1281,7 +1282,7 @@ M.prep_chat = function(buf)
 end
 
 M.chat_handler = function()
-    local gid = M._H.create_augroup("GpChatHandler", { clear = true })
+	local gid = M._H.create_augroup("GpChatHandler", { clear = true })
 
 	_H.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
@@ -1824,7 +1825,7 @@ end
 M._chat_finder_opened = false
 M.cmd.ChatFinder = function()
 	if M._chat_finder_opened then
-        M.warning("Chat finder is already open")
+		M.warning("Chat finder is already open")
 		return
 	end
 	M._chat_finder_opened = true
@@ -1832,7 +1833,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-    local gid = M._H.create_augroup("GpChatFinder", { clear = true })
+	local gid = M._H.create_augroup("GpChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
@@ -2388,7 +2389,7 @@ M.Whisper = function(callback)
 		return
 	end
 
-    local gid = M._H.create_augroup("GpWhisper", { clear = true })
+	local gid = M._H.create_augroup("GpWhisper", { clear = true })
 
 	-- create popup
 	local buf, _, close_popup, _ = M._H.create_popup(
