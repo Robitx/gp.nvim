@@ -49,6 +49,7 @@ local config = {
 	-- (be careful to choose something which will work across specified modes)
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
+	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
@@ -1196,6 +1197,7 @@ M.chat_template = [[
 - role: %s
 
 Write your queries after %s. Use `%s` or :%sChatRespond to generate a response.
+Response generation can be terminated by using `%s` or :%sChatStop command.
 Chats are saved automatically. To delete this chat, use `%s` or :%sChatDelete.
 Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
 
@@ -1263,6 +1265,10 @@ M.prep_chat = function(buf)
 	-- delete shortcut
 	local ds = M.config.chat_shortcut_delete
 	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+
+	-- stop shortcut
+	local ss = M.config.chat_shortcut_stop
+	_H.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
 
 	-- conceal parameters in model header so it's not distracting
 	if M.config.chat_conceal_model_params then
@@ -1456,6 +1462,8 @@ M.cmd.ChatNew = function(params, model, system_prompt)
 		system_prompt,
 		M.config.chat_user_prefix,
 		M.config.chat_shortcut_respond.shortcut,
+		M.config.cmd_prefix,
+		M.config.chat_shortcut_stop.shortcut,
 		M.config.cmd_prefix,
 		M.config.chat_shortcut_delete.shortcut,
 		M.config.cmd_prefix,
