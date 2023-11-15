@@ -293,12 +293,18 @@ end
 ---@return string # returns unique uuid
 _H.uuid = function()
 	local random = math.random
-	local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+	local template = "xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx"
 	local result = string.gsub(template, "[xy]", function(c)
 		local v = (c == "x") and random(0, 0xf) or random(8, 0xb)
 		return string.format("%x", v)
 	end)
 	return result
+end
+
+---@param name string # name of the augroup
+---@param opts table | nil # options for the augroup
+_H.create_augroup = function(name, opts)
+	return vim.api.nvim_create_augroup(name .. "_" .. _H.uuid(), opts or { clear = true })
 end
 
 -- stop receiving gpt responses for all processes and clean the handles
@@ -518,10 +524,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 		vim.api.nvim_win_set_config(win, o)
 	end
 
-	-- prepare unique group name and register augroup
-	local gname = "GpPopup_" .. M._H.uuid()
-	-- use user defined group id or create new one
-	local pgid = opts.gid or vim.api.nvim_create_augroup(gname, { clear = true })
+	local pgid = opts.gid or M._H.create_augroup("GpPopup", { clear = true })
 
 	-- cleanup on exit
 	local close = _H.once(function()
@@ -1204,9 +1207,7 @@ M.prep_chat = function(buf)
 end
 
 M.chat_handler = function()
-	-- prepare unique group name and register augroup
-	local gname = "GpChatHandler_" .. M._H.uuid()
-	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+    local gid = M._H.create_augroup("GpChatHandler", { clear = true })
 
 	_H.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
@@ -1752,8 +1753,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-	local gname = "GpChatFinder_" .. M._H.uuid()
-	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+    local gid = M._H.create_augroup("GpChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
@@ -2305,11 +2305,7 @@ M.Whisper = function(callback)
 		return
 	end
 
-	-- prepare unique group name and register augroup
-	local gname = "GpWhisper"
-		.. os.date("_%Y_%m_%d_%H_%M_%S_")
-		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
-	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
+    local gid = M._H.create_augroup("GpWhisper", { clear = true })
 
 	-- create popup
 	local buf, _, close_popup, _ = M._H.create_popup(
