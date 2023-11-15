@@ -189,8 +189,7 @@ local _H = {}
 local M = {
 	_Name = "Gp (GPT prompt)", -- plugin name
 	_H = _H, -- helper functions
-	_payload = {}, -- payload for openai api
-	_response = "", -- response from openai api
+	_queries = {}, -- table of latest queries
 	config = {}, -- config variables
 	cmd = {}, -- default command functions
 	cmd_hooks = {}, -- user defined command functions
@@ -922,6 +921,37 @@ M.prepare_payload = function(model, default_model, messages)
 	}
 end
 
+---@param N number # number of queries to keep
+---@param age number # age of queries to keep in seconds
+function M.cleanup_old_queries(N, age)
+	local current_time = os.time()
+
+	local query_count = 0
+	for _ in pairs(M._queries) do
+		query_count = query_count + 1
+	end
+
+	if query_count <= N then
+		return
+	end
+
+	for qid, query_data in pairs(M._queries) do
+		if current_time - query_data.timestamp > age then
+			M._queries[qid] = nil
+		end
+	end
+end
+
+---@param qid string # query id
+---@return table | nil # query data
+function M.get_query(qid)
+	if not M._queries[qid] then
+		M.error("Query with ID " .. tostring(qid) .. " not found.")
+		return nil
+	end
+	return M._queries[qid]
+end
+
 -- gpt query
 ---@param buf number | nil # buffer number
 ---@param payload table # payload for openai api
@@ -942,34 +972,45 @@ M.query = function(buf, payload, handler, on_exit)
 		return
 	end
 
-	-- store payload for debugging
-	M._payload = payload
+	local qid = M._H.uuid()
+	M._queries[qid] = {
+		timestamp = os.time(),
+		buf = buf,
+		payload = payload,
+		handler = handler,
+		on_exit = on_exit,
+		raw_response = "",
+		response = "",
+		first_line = -1,
+		last_line = -1,
+		ns_id = nil,
+		ex_id = nil,
+	}
 
-	-- clear response
-	M._raw_response = ""
-	M._response = ""
-	M._first_line = -1
-	M._last_line = -1
+	M.cleanup_old_queries(8, 60)
 
 	local out_reader = function()
 		local buffer = ""
 
 		---@param lines_chunk string
 		local function process_lines(lines_chunk)
+			local qt = M.get_query(qid)
+			if not qt then
+				return
+			end
+
 			local lines = vim.split(lines_chunk, "\n")
 			for _, line in ipairs(lines) do
 				if line ~= "" and line ~= nil then
-					M._raw_response = M._raw_response .. line .. "\n"
+					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
 				if line:match("chat%.completion%.chunk") then
 					line = vim.json.decode(line)
 					local content = line.choices[1].delta.content
 					if content ~= nil then
-						-- store response for debugging
-						M._response = M._response .. content
-						-- call response handler
-						handler(content)
+						qt.response = qt.response .. content
+						handler(qid, content)
 					end
 				end
 			end
@@ -977,6 +1018,11 @@ M.query = function(buf, payload, handler, on_exit)
 
 		-- closure for vim.loop.read_start(stdout, fn)
 		return function(err, chunk)
+			local qt = M.get_query(qid)
+			if not qt then
+				return
+			end
+
 			if err then
 				M.error("OpenAI query stdout error: " .. vim.inspect(err))
 			elseif chunk then
@@ -997,13 +1043,18 @@ M.query = function(buf, payload, handler, on_exit)
 					process_lines(buffer)
 				end
 
-				if M._response == "" then
-					M.error("OpenAI query response is empty: \n" .. vim.inspect(M._raw_response))
+				if qt.response == "" then
+					M.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
 				if type(on_exit) == "function" then
-					on_exit()
+					on_exit(qid)
+					if qt.ns_id and qt.buf then
+						vim.schedule(function()
+							vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
+						end)
+					end
 				end
 			end
 		end
@@ -1050,8 +1101,22 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local finished_lines = 0
 	local skip_first_undojoin = not first_undojoin
 
+	local hl_handler_group = "GpHandlerStandout"
+	vim.cmd("highlight default " .. hl_handler_group .. " gui=standout cterm=standout")
+
+	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M._H.uuid())
+
+	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
+		strict = false,
+		right_gravity = false,
+	})
+
 	local response = ""
-	return vim.schedule_wrap(function(chunk)
+	return vim.schedule_wrap(function(qid, chunk)
+		local qt = M.get_query(qid)
+		if not qt then
+			return
+		end
 		-- if buf is not valid, stop
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
@@ -1063,10 +1128,15 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 			vim.cmd("undojoin")
 		end
 
-		-- make sure buffer still exists
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
+		if not qt.ns_id then
+			qt.ns_id = ns_id
 		end
+
+		if not qt.ex_id then
+			qt.ex_id = ex_id
+		end
+
+		first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
 
 		-- clean previous response
 		local line_count = #vim.split(response, "\n")
@@ -1095,11 +1165,15 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 			unfinished_lines
 		)
 
-		finished_lines = math.max(0, #lines - 1)
+		local new_finished_lines = math.max(0, #lines - 1)
+		for i = finished_lines, new_finished_lines do
+			vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
+		end
+		finished_lines = new_finished_lines
 
 		local end_line = first_line + #vim.split(response, "\n")
-		M._first_line = first_line
-		M._last_line = end_line - 1
+		qt.first_line = first_line
+		qt.last_line = end_line - 1
 
 		-- move cursor to the end of the response
 		if cursor then
@@ -1641,7 +1715,12 @@ M.chat_respond = function(params)
 		buf,
 		M.prepare_payload(headers.model, M.config.chat_model, messages),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", false),
-		vim.schedule_wrap(function()
+		vim.schedule_wrap(function(qid)
+			local qt = M.get_query(qid)
+			if not qt then
+				return
+			end
+
 			-- write user prompt
 			last_content_line = M._H.last_content_line(buf)
 			vim.cmd("undojoin")
@@ -1664,7 +1743,7 @@ M.chat_respond = function(params)
 			-- if topic is ?, then generate it
 			if headers.topic == "?" then
 				-- insert last model response
-				table.insert(messages, { role = "assistant", content = M._response })
+				table.insert(messages, { role = "assistant", content = qt.response })
 
 				-- ignore custom instructions for topic generation
 				if M.config.chat_custom_instructions and M.config.chat_custom_instructions:match("%S") then
@@ -2106,15 +2185,19 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		-- dummy handler
 		local handler = function() end
 		-- default on_exit strips trailing backticks if response was markdown snippet
-		local on_exit = function()
+		local on_exit = function(qid)
+			local qt = M.get_query(qid)
+			if not qt then
+				return
+			end
 			-- if buf is not valid, return
 			if not vim.api.nvim_buf_is_valid(buf) then
 				return
 			end
 
 			local flc, llc
-			local fl = M._first_line
-			local ll = M._last_line
+			local fl = qt.first_line
+			local ll = qt.last_line
 			-- remove empty lines from the start and end of the response
 			while true do
 				-- get content of first_line and last_line
@@ -2154,8 +2237,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 				vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
 				ll = ll - 2
 			end
-			M._first_line = fl
-			M._last_line = ll
+			qt.first_line = fl
+			qt.last_line = ll
 
 			-- option to not select response automatically
 			if not M.config.command_auto_select_response then
@@ -2261,8 +2344,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			buf,
 			M.prepare_payload(model, M.config.command_model, messages),
 			handler,
-			vim.schedule_wrap(function()
-				on_exit()
+			vim.schedule_wrap(function(qid)
+				on_exit(qid)
 				vim.cmd("doautocmd User GpDone")
 			end)
 		)
