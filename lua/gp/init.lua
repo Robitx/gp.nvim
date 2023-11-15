@@ -290,6 +290,17 @@ _H.get_buffer = function(file_name)
 	return nil
 end
 
+---@return string # returns unique uuid
+_H.uuid = function()
+	local random = math.random
+	local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+	local result = string.gsub(template, "[xy]", function(c)
+		local v = (c == "x") and random(0, 0xf) or random(8, 0xb)
+		return string.format("%x", v)
+	end)
+	return result
+end
+
 -- stop receiving gpt responses for all processes and clean the handles
 ---@param signal number | nil # signal to send to the process
 M.cmd.Stop = function(signal)
@@ -508,9 +519,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 	end
 
 	-- prepare unique group name and register augroup
-	local gname = title:gsub("[^%w]", "_")
-		.. os.date("_%Y_%m_%d_%H_%M_%S_")
-		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gname = "GpPopup_" .. M._H.uuid()
 	-- use user defined group id or create new one
 	local pgid = opts.gid or vim.api.nvim_create_augroup(gname, { clear = true })
 
@@ -726,6 +735,8 @@ M._setup_called = false
 ---@param opts table | nil # table with options
 M.setup = function(opts)
 	M._setup_called = true
+
+	math.randomseed(os.time())
 
 	-- make sure opts is a table
 	opts = opts or {}
@@ -1194,9 +1205,7 @@ end
 
 M.chat_handler = function()
 	-- prepare unique group name and register augroup
-	local gname = "GpChatHandler"
-		.. os.date("_%Y_%m_%d_%H_%M_%S_")
-		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gname = "GpChatHandler_" .. M._H.uuid()
 	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
 
 	_H.autocmd({ "BufEnter" }, nil, function(event)
@@ -1743,9 +1752,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-	local gname = "GpExplorer"
-		.. os.date("_%Y_%m_%d_%H_%M_%S_")
-		.. tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local gname = "GpChatFinder_" .. M._H.uuid()
 	local gid = vim.api.nvim_create_augroup(gname, { clear = true })
 
 	-- prepare three popup buffers and windows
