@@ -86,6 +86,7 @@ local config = {
 		.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
 		.. "START AND END YOUR ANSWER WITH:\n\n```",
 	-- auto select command response (easier chaining of commands)
+	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
 
 	-- templates
@@ -1788,7 +1789,6 @@ M.chat_respond = function(params)
 				local line = vim.api.nvim_buf_line_count(buf)
 				M._H.cursor_to_line(line, buf, win)
 			end
-			-- move cursor to a new line at the end of the file
 			vim.cmd("doautocmd User GpDone")
 		end)
 	)
@@ -2288,26 +2288,31 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		-- cancel possible visual mode before calling the model
 		M._H.feedkeys("<esc>", "x")
 
+		local cursor = true
+		if not M.config.command_auto_select_response then
+			cursor = false
+		end
+
 		-- mode specific logic
 		if target == M.Target.rewrite then
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix, true)
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, end_line, true, prefix, true)
+			handler = M.create_handler(buf, win, end_line, true, prefix, cursor)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "" }, "l", false, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix, true)
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.popup then
 			-- create a new buffer
 			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
@@ -2327,7 +2332,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false, "", true)
+			handler = M.create_handler(buf, win, 0, false, "", false)
 		elseif type(target) == "table" and target.type == M.Target.enew().type then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
@@ -2337,7 +2342,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			local ft = target.filetype or filetype
 			vim.api.nvim_buf_set_option(buf, "filetype", ft)
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false, "", true)
+			handler = M.create_handler(buf, win, 0, false, "", cursor)
 		end
 
 		-- call the model and write the response
