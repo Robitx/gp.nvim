@@ -109,7 +109,7 @@ local config = {
 	-- by eliminating silence and speeding up the tempo of the recording
 	-- we can reduce the cost by 50% or more and get the results faster
 	-- directory for storing whisper files
-	whisper_dir = "/tmp/gp_whisper",
+	whisper_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
 	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
 	-- decibels are negative, the recording is normalized to -3dB =>
 	-- increase this number to pick up more (weaker) sounds as possible speech
