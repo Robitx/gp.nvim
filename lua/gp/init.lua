@@ -120,6 +120,8 @@ local config = {
 	whisper_max_time = "05:00",
 	-- whisper tempo (1.0 is normal speed)
 	whisper_tempo = "1.75",
+	-- The language of the input audio, in ISO-639-1 format.
+	whisper_language = "en",
 
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
@@ -2497,7 +2499,9 @@ M.Whisper = function(callback)
 			.. '-H "Authorization: Bearer '
 			.. M.config.openai_api_key
 			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="en" -F file="@final.mp3" '
+			.. '-F model="whisper-1" -F language="'
+			.. M.config.whisper_language
+			.. '" -F file="@final.mp3" '
 			.. '-F response_format="json"'
 
 		M._H.process(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
