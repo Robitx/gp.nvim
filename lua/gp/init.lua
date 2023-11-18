@@ -55,6 +55,8 @@ local config = {
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
+	-- how to display ChatToggle: popup / split / vsplit / tabnew
+	chat_toggle_target = "vsplit",
 
 	-- styling for chatfinder
 	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
@@ -795,6 +797,11 @@ M.setup = function(opts)
 		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
 	end
 
+	local completions = {
+		ChatNew = { "popup", "split", "vsplit", "tabnew" },
+		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
+		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
+	}
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.cmd_hooks[cmd] == nil then
@@ -805,16 +812,10 @@ M.setup = function(opts)
 				range = true,
 				desc = "GPT Prompt plugin",
 				complete = function()
-					local actions = {}
-					if cmd == "ChatNew" or cmd == "ChatPaste" then
-						actions = {
-							"popup",
-							"split",
-							"vsplit",
-							"tabnew",
-						}
+					if completions[cmd] then
+						return completions[cmd]
 					end
-					return actions
+					return {}
 				end,
 			})
 		end
@@ -1207,13 +1208,13 @@ Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
 
 %s]]
 
-M._chat_popup = { win = nil, buf = nil, close = nil }
+M._chat_toggle = { win = nil, buf = nil, close = nil }
 
 ---@return boolean # true if popup was closed
-M._chat_popup_close = function()
-	if M._chat_popup and M._chat_popup.win and vim.api.nvim_win_is_valid(M._chat_popup.win) then
-		M._chat_popup.close()
-		M._chat_popup = nil
+M._chat_toggle_close = function()
+	if M._chat_toggle and M._chat_toggle.win and vim.api.nvim_win_is_valid(M._chat_toggle.win) then
+		M._chat_toggle.close()
+		M._chat_toggle = nil
 		return true
 	end
 	return false
@@ -1332,8 +1333,15 @@ M.ChatTarget = {
 	tabnew = 4, -- new tab
 }
 
+---@param params table | string # table with args or string args
+---@return number # chat target
 M.resolve_chat_target = function(params)
-	local args = params.args or ""
+	local args = ""
+	if type(params) == "table" then
+		args = params.args or ""
+	else
+		args = params
+	end
 	if args == "popup" then
 		return M.ChatTarget.popup
 	elseif args == "split" then
@@ -1349,17 +1357,20 @@ end
 
 ---@param file_name string
 ---@param target number | nil # chat target
+---@param toggle boolean # whether chat is toggled
 ---@return number # buffer number
-M.open_chat = function(file_name, target)
+M.open_chat = function(file_name, target, toggle)
 	target = target or M.ChatTarget.current
+
+	-- close previous popup if it exists
+	M._chat_toggle_close()
+	local close, buf, win
+
 	if target == M.ChatTarget.popup then
 		local old_buf = M._H.get_buffer(file_name)
 
-		-- close previous popup if it exists
-		M._chat_popup_close()
-
 		-- create popup
-		local b, win, close, _ = M._H.create_popup(
+		buf, win, close, _ = M._H.create_popup(
 			old_buf,
 			M._Name .. " Chat Popup",
 			function(w, h)
@@ -1376,8 +1387,6 @@ M.open_chat = function(file_name, target)
 			{ border = M.config.style_popup_border or "single" }
 		)
 
-		M._chat_popup = { win = win, buf = b, close = close }
-
 		if old_buf == nil then
 			-- read file into buffer and force write it
 			vim.api.nvim_command("silent 0read " .. file_name)
@@ -1388,26 +1397,25 @@ M.open_chat = function(file_name, target)
 		end
 
 		-- delete whitespace lines at the end of the file
-		local last_content_line = M._H.last_content_line(b)
-		vim.api.nvim_buf_set_lines(b, last_content_line, -1, false, {})
+		local last_content_line = M._H.last_content_line(buf)
+		vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 		-- insert a new line at the end of the file
-		vim.api.nvim_buf_set_lines(b, -1, -1, false, { "" })
+		vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 		vim.api.nvim_command("silent write! " .. file_name)
 	elseif target == M.ChatTarget.split then
 		vim.api.nvim_command("split " .. file_name)
 	elseif target == M.ChatTarget.vsplit then
 		vim.api.nvim_command("vsplit " .. file_name)
 	elseif target == M.ChatTarget.tabnew then
-		vim.api.nvim_command("tabnew")
-		vim.api.nvim_command("edit " .. file_name)
+		vim.api.nvim_command("tabnew " .. file_name)
 	else
 		-- is it already open in a buffer?
-		for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-			if vim.api.nvim_buf_get_name(buf) == file_name then
-				for _, win in ipairs(vim.api.nvim_list_wins()) do
-					if vim.api.nvim_win_get_buf(win) == buf then
-						vim.api.nvim_set_current_win(win)
-						return buf
+		for _, b in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_get_name(b) == file_name then
+				for _, w in ipairs(vim.api.nvim_list_wins()) do
+					if vim.api.nvim_win_get_buf(w) == b then
+						vim.api.nvim_set_current_win(w)
+						return b
 					end
 				end
 			end
@@ -1423,20 +1431,40 @@ M.open_chat = function(file_name, target)
 		os.execute("ln -sf " .. file_name .. " " .. last)
 	end
 
-	return vim.api.nvim_get_current_buf()
-end
+	buf = vim.api.nvim_get_current_buf()
+	win = vim.api.nvim_get_current_win()
 
----@return number # buffer number
-M.cmd.ChatNew = function(params, model, system_prompt)
-	-- if popup chat is open, close it and start a new one
-	if M._chat_popup_close() then
-		params.args = params.args or ""
-		if params.args == "" then
-			params.args = "popup"
-		end
-		return M.cmd.ChatNew(params, model, system_prompt)
+	if not toggle then
+		return buf
 	end
 
+	if target == M.ChatTarget.split or target == M.ChatTarget.vsplit then
+		close = function()
+			if vim.api.nvim_win_is_valid(win) then
+				vim.api.nvim_win_close(win, true)
+			end
+		end
+	end
+	if target == M.ChatTarget.tabnew then
+		close = function()
+			if vim.api.nvim_win_is_valid(win) then
+				local tab = vim.api.nvim_win_get_tabpage(win)
+				vim.api.nvim_set_current_tabpage(tab)
+				vim.api.nvim_command("tabclose")
+			end
+		end
+	end
+	M._chat_toggle = { win = win, buf = buf, close = close }
+
+	return buf
+end
+
+---@param params table # table with args
+---@param model string | table | nil # model to use
+---@param system_prompt string | nil # system prompt to use
+---@param toggle boolean # whether chat is toggled
+---@return number # buffer number
+M.new_chat = function(params, model, system_prompt, toggle)
 	-- prepare filename
 	local time = os.date("%Y-%m-%d.%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
@@ -1500,13 +1528,32 @@ M.cmd.ChatNew = function(params, model, system_prompt)
 
 	local target = M.resolve_chat_target(params)
 	-- open and configure chat file
-	return M.open_chat(filename, target)
+	return M.open_chat(filename, target, toggle)
+end
+
+---@return number # buffer number
+M.cmd.ChatNew = function(params, model, system_prompt)
+	-- if chat toggle is open, close it and start a new one
+	if M._chat_toggle_close() then
+		params.args = params.args or ""
+		if params.args == "" then
+			params.args = M.config.chat_toggle_target
+		end
+		return M.new_chat(params, model, system_prompt, true)
+	end
+
+	return M.new_chat(params, model, system_prompt, false)
 end
 
 M.cmd.ChatToggle = function(params, model, system_prompt)
-	-- close popup if it's open
-	if M._chat_popup_close() then
+	if M._chat_toggle_close() then
 		return
+	end
+
+	-- create new chat file otherwise
+	params.args = params.args or ""
+	if params.args == "" then
+		params.args = M.config.chat_toggle_target
 	end
 
 	-- if the range is 2, we want to create a new chat file with the selection
@@ -1516,14 +1563,12 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 		if vim.fn.filereadable(last) == 1 then
 			-- resolve symlink
 			last = vim.fn.resolve(last)
-			M.open_chat(last, M.ChatTarget.popup)
+			M.open_chat(last, M.resolve_chat_target(params), true)
 			return
 		end
 	end
 
-	-- create new chat file otherwise
-	params.args = "popup"
-	M.cmd.ChatNew(params, model, system_prompt)
+	M.new_chat(params, model, system_prompt, true)
 end
 
 M.cmd.ChatPaste = function(params)
@@ -1548,7 +1593,7 @@ M.cmd.ChatPaste = function(params)
 	-- get last chat
 	last = vim.fn.resolve(last)
 	local target = M.resolve_chat_target(params)
-	local buf = M.open_chat(last, target)
+	local buf = M.open_chat(last, target, false)
 
 	-- prepare selection
 	local lines = vim.api.nvim_buf_get_lines(obuf, params.line1 - 1, params.line2, false)
@@ -2053,7 +2098,7 @@ M.cmd.ChatFinder = function()
 			if not file then
 				return
 			end
-			M.open_chat(file, target)
+			M.open_chat(file, target, false)
 		end, 200)
 	end
 
