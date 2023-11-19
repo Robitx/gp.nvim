@@ -1367,6 +1367,8 @@ M.open_chat = function(file_name, target, toggle)
 	local close, buf, win
 
 	if target == M.ChatTarget.popup then
+		toggle = true
+
 		local old_buf = M._H.get_buffer(file_name)
 
 		-- create popup
