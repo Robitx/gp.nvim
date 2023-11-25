@@ -863,8 +863,7 @@ M.setup = function(opts)
 		M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
 
-	-- init chat handler
-	M.chat_handler()
+	M.buf_handler()
 end
 
 M.Target = {
@@ -1289,7 +1288,7 @@ M._toggle_resolve = function(kind)
 end
 
 ---@param buf number | nil # buffer number
-M.prep_chat = function(buf)
+M.prep_md = function(buf)
 	-- disable swapping for this buffer and set filetype to markdown
 	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
 	-- better text wrapping
@@ -1300,16 +1299,38 @@ M.prep_chat = function(buf)
 	-- register shortcuts local to this buffer
 	buf = buf or vim.api.nvim_get_current_buf()
 
-	-- range commands
+	-- move cursor to a new line at the end of the file
+	M._H.feedkeys("G", "x")
+
+	-- ensure normal mode
+	vim.api.nvim_command("stopinsert")
+	M._H.feedkeys("<esc>", "x")
+end
+
+M.prep_chat = function(buf, file_name)
+	if not _H.starts_with(file_name, M.config.chat_dir) then
+		return
+	end
+
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	if #lines < 4 then
+		return
+	end
+
+	if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
+		return
+	end
+
+	M.prep_md(buf)
+
+	-- setup chat specific commands
 	local range_commands = {
-		-- respond shortcut
 		{
 			command = "ChatRespond",
 			modes = M.config.chat_shortcut_respond.modes,
 			shortcut = M.config.chat_shortcut_respond.shortcut,
 			comment = "GPT prompt Chat Respond",
 		},
-		-- new shortcut
 		{
 			command = "ChatNew",
 			modes = M.config.chat_shortcut_new.modes,
@@ -1333,11 +1354,9 @@ M.prep_chat = function(buf)
 		end
 	end
 
-	-- delete shortcut
 	local ds = M.config.chat_shortcut_delete
 	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
 
-	-- stop shortcut
 	local ss = M.config.chat_shortcut_stop
 	_H.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
 
@@ -1350,17 +1369,18 @@ M.prep_chat = function(buf)
 		vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
 		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 	end
-
-	-- move cursor to a new line at the end of the file
-	M._H.feedkeys("G", "x")
-
-	-- ensure normal mode
-	vim.api.nvim_command("stopinsert")
-	M._H.feedkeys("<esc>", "x")
 end
 
-M.chat_handler = function()
-	local gid = M._H.create_augroup("GpChatHandler", { clear = true })
+M.prep_context = function(buf, file_name)
+	if not _H.ends_with(file_name, ".gp.md") then
+		return
+	end
+
+	M.prep_md(buf)
+end
+
+M.buf_handler = function()
+	local gid = M._H.create_augroup("GpBufHandler", { clear = true })
 
 	_H.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
@@ -1371,25 +1391,8 @@ M.chat_handler = function()
 
 		local file_name = vim.api.nvim_buf_get_name(buf)
 
-		-- check if file is in the chat dir
-		if not _H.starts_with(file_name, M.config.chat_dir) then
-			return
-		end
-
-		-- get all lines
-		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-
-		-- check length
-		if #lines < 4 then
-			return
-		end
-
-		-- check if file looks like a chat file
-		if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
-			return
-		end
-
-		M.prep_chat(buf)
+		M.prep_chat(buf, file_name)
+		M.prep_context(buf, file_name)
 	end, gid)
 end
 
