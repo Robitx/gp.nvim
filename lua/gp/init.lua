@@ -188,6 +188,10 @@ local config = {
 	},
 }
 
+local deprecated = {
+	chat_toggle_target = "please rename `chat_toggle_target` to `toggle_target`",
+}
+
 --------------------------------------------------------------------------------
 -- Module structure
 --------------------------------------------------------------------------------
@@ -807,7 +811,11 @@ M.setup = function(opts)
 
 	-- merge user opts to M.config
 	for k, v in pairs(opts) do
-		M.config[k] = v
+		if deprecated[k] then
+			M.warning("Deprecated option in setup(): " .. deprecated[k])
+		else
+			M.config[k] = v
+		end
 	end
 
 	-- make sure _dirs exists
