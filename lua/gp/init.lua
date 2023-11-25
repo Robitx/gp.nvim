@@ -55,8 +55,9 @@ local config = {
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
-	-- how to display ChatToggle: popup / split / vsplit / tabnew
-	chat_toggle_target = "vsplit",
+
+	-- how to display GpChatToggle or GpContext: popup / split / vsplit / tabnew
+	toggle_target = "vsplit",
 
 	-- styling for chatfinder
 	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
@@ -1613,7 +1614,7 @@ M.cmd.ChatNew = function(params, model, system_prompt)
 	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
 		if params.args == "" then
-			params.args = M.config.chat_toggle_target
+			params.args = M.config.toggle_target
 		end
 		return M.new_chat(params, model, system_prompt, true)
 	end
@@ -1630,7 +1631,7 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 	-- create new chat file otherwise
 	params.args = params.args or ""
 	if params.args == "" then
-		params.args = M.config.chat_toggle_target
+		params.args = M.config.toggle_target
 	end
 
 	-- if the range is 2, we want to create a new chat file with the selection
@@ -1669,7 +1670,7 @@ M.cmd.ChatPaste = function(params)
 
 	params.args = params.args or ""
 	if params.args == "" then
-		params.args = M.config.chat_toggle_target
+		params.args = M.config.toggle_target
 	end
 	local target = M.resolve_buf_target(params)
 
@@ -2180,7 +2181,7 @@ M.cmd.ChatFinder = function()
 		open_chat(M.BufTarget.tabnew, false)
 	end)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
-		local target = M.resolve_buf_target(M.config.chat_toggle_target)
+		local target = M.resolve_buf_target(M.config.toggle_target)
 		open_chat(target, true)
 	end)
 
@@ -2268,7 +2269,7 @@ M.cmd.Context = function(params)
 
 	params.args = params.args or ""
 	if params.args == "" then
-		params.args = M.config.chat_toggle_target
+		params.args = M.config.toggle_target
 	end
 	local target = M.resolve_buf_target(params)
 	buf = M.open_buf(file_name, target, M._toggle_kind.context, true)
