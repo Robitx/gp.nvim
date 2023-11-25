@@ -1209,16 +1209,45 @@ Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
 
 %s]]
 
-M._chat_toggle = { win = nil, buf = nil, close = nil }
+M._toggle = {}
 
+M._toggle_kind = {
+	unknown = 0, -- unknown toggle
+	chat = 1, -- chat toggle
+	popup = 2, -- popup toggle
+	context = 3, -- context toggle
+}
+
+---@param kind number # kind of toggle
 ---@return boolean # true if popup was closed
-M._chat_toggle_close = function()
-	if M._chat_toggle and M._chat_toggle.win and vim.api.nvim_win_is_valid(M._chat_toggle.win) then
-		M._chat_toggle.close()
-		M._chat_toggle = nil
+M._toggle_close = function(kind)
+	if M._toggle[kind] and M._toggle[kind].win and vim.api.nvim_win_is_valid(M._toggle[kind].win) then
+		M._toggle[kind].close()
+		M._toggle[kind] = nil
 		return true
 	end
 	return false
+end
+
+---@param kind number # kind of toggle
+---@param toggle table # table containing `win`, `buf`, and `close` information
+M._toggle_add = function(kind, toggle)
+	M._toggle[kind] = toggle
+end
+
+---@param kind string # string representation of the toggle kind
+---@return number # numeric kind of the toggle
+M._toggle_resolve = function(kind)
+	kind = kind:lower()
+	if kind == "chat" then
+		return M._toggle_kind.chat
+	elseif kind == "popup" then
+		return M._toggle_kind.popup
+	elseif kind == "context" then
+		return M._toggle_kind.context
+	end
+	M.warning("Unknown toggle kind: " .. kind)
+	return M._toggle_kind.unknown
 end
 
 ---@param buf number | nil # buffer number
@@ -1326,7 +1355,7 @@ M.chat_handler = function()
 	end, gid)
 end
 
-M.ChatTarget = {
+M.BufTarget = {
 	current = 0, -- current window
 	popup = 1, -- popup window
 	split = 2, -- split window
@@ -1335,47 +1364,51 @@ M.ChatTarget = {
 }
 
 ---@param params table | string # table with args or string args
----@return number # chat target
-M.resolve_chat_target = function(params)
+---@return number # buf target
+M.resolve_buf_target = function(params)
 	local args = ""
 	if type(params) == "table" then
 		args = params.args or ""
 	else
 		args = params
 	end
+
 	if args == "popup" then
-		return M.ChatTarget.popup
+		return M.BufTarget.popup
 	elseif args == "split" then
-		return M.ChatTarget.split
+		return M.BufTarget.split
 	elseif args == "vsplit" then
-		return M.ChatTarget.vsplit
+		return M.BufTarget.vsplit
 	elseif args == "tabnew" then
-		return M.ChatTarget.tabnew
+		return M.BufTarget.tabnew
 	else
-		return M.ChatTarget.current
+		return M.BufTarget.current
 	end
 end
 
 ---@param file_name string
----@param target number | nil # chat target
----@param toggle boolean # whether chat is toggled
+---@param target number | nil # buf target
+---@param kind number # nil or a toggle kind
+---@param toggle boolean # whether to toggle
 ---@return number # buffer number
-M.open_chat = function(file_name, target, toggle)
-	target = target or M.ChatTarget.current
+M.open_buf = function(file_name, target, kind, toggle)
+	target = target or M.BufTarget.current
 
 	-- close previous popup if it exists
-	M._chat_toggle_close()
+	M._toggle_close(M._toggle_kind.popup)
+
+	if toggle then
+		M._toggle_close(kind)
+	end
+
 	local close, buf, win
 
-	if target == M.ChatTarget.popup then
-		toggle = true
-
+	if target == M.BufTarget.popup then
 		local old_buf = M._H.get_buffer(file_name)
 
-		-- create popup
 		buf, win, close, _ = M._H.create_popup(
 			old_buf,
-			M._Name .. " Chat Popup",
+			M._Name .. " Popup",
 			function(w, h)
 				local top = M.config.style_popup_margin_top or 2
 				local bottom = M.config.style_popup_margin_bottom or 8
@@ -1389,6 +1422,10 @@ M.open_chat = function(file_name, target, toggle)
 			{ on_leave = false, escape = false, persist = true, keep_buf = true },
 			{ border = M.config.style_popup_border or "single" }
 		)
+
+		if not toggle then
+			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = close })
+		end
 
 		if old_buf == nil then
 			-- read file into buffer and force write it
@@ -1405,11 +1442,11 @@ M.open_chat = function(file_name, target, toggle)
 		-- insert a new line at the end of the file
 		vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 		vim.api.nvim_command("silent write! " .. file_name)
-	elseif target == M.ChatTarget.split then
+	elseif target == M.BufTarget.split then
 		vim.api.nvim_command("split " .. file_name)
-	elseif target == M.ChatTarget.vsplit then
+	elseif target == M.BufTarget.vsplit then
 		vim.api.nvim_command("vsplit " .. file_name)
-	elseif target == M.ChatTarget.tabnew then
+	elseif target == M.BufTarget.tabnew then
 		vim.api.nvim_command("tabnew " .. file_name)
 	else
 		-- is it already open in a buffer?
@@ -1428,10 +1465,12 @@ M.open_chat = function(file_name, target, toggle)
 		vim.api.nvim_command("edit " .. file_name)
 	end
 
-	-- make last.md a symlink to the last opened chat file
-	local last = M.config.chat_dir .. "/last.md"
-	if file_name ~= last then
-		os.execute("ln -sf " .. file_name .. " " .. last)
+	if kind == M._toggle_kind.chat then
+		-- make last.md a symlink to the last opened chat file
+		local last = M.config.chat_dir .. "/last.md"
+		if file_name ~= last then
+			os.execute("ln -sf " .. file_name .. " " .. last)
+		end
 	end
 
 	buf = vim.api.nvim_get_current_buf()
@@ -1441,14 +1480,14 @@ M.open_chat = function(file_name, target, toggle)
 		return buf
 	end
 
-	if target == M.ChatTarget.split or target == M.ChatTarget.vsplit then
+	if target == M.BufTarget.split or target == M.BufTarget.vsplit then
 		close = function()
 			if vim.api.nvim_win_is_valid(win) then
 				vim.api.nvim_win_close(win, true)
 			end
 		end
 	end
-	if target == M.ChatTarget.tabnew then
+	if target == M.BufTarget.tabnew then
 		close = function()
 			if vim.api.nvim_win_is_valid(win) then
 				local tab = vim.api.nvim_win_get_tabpage(win)
@@ -1457,7 +1496,7 @@ M.open_chat = function(file_name, target, toggle)
 			end
 		end
 	end
-	M._chat_toggle = { win = win, buf = buf, close = close }
+	M._toggle_add(kind, { win = win, buf = buf, close = close })
 
 	return buf
 end
@@ -1468,6 +1507,8 @@ end
 ---@param toggle boolean # whether chat is toggled
 ---@return number # buffer number
 M.new_chat = function(params, model, system_prompt, toggle)
+	M._toggle_close(M._toggle_kind.popup)
+
 	-- prepare filename
 	local time = os.date("%Y-%m-%d.%H-%M-%S")
 	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
@@ -1529,15 +1570,14 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	-- create chat file
 	vim.fn.writefile(vim.split(template, "\n"), filename)
 
-	local target = M.resolve_chat_target(params)
-	-- open and configure chat file
-	return M.open_chat(filename, target, toggle)
+	local target = M.resolve_buf_target(params)
+	return M.open_buf(filename, target, M._toggle_kind.chat, toggle)
 end
 
 ---@return number # buffer number
 M.cmd.ChatNew = function(params, model, system_prompt)
 	-- if chat toggle is open, close it and start a new one
-	if M._chat_toggle_close() then
+	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
 		if params.args == "" then
 			params.args = M.config.chat_toggle_target
@@ -1549,7 +1589,8 @@ M.cmd.ChatNew = function(params, model, system_prompt)
 end
 
 M.cmd.ChatToggle = function(params, model, system_prompt)
-	if M._chat_toggle_close() then
+	M._toggle_close(M._toggle_kind.popup)
+	if M._toggle_close(M._toggle_kind.chat) then
 		return
 	end
 
@@ -1566,7 +1607,7 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 		if vim.fn.filereadable(last) == 1 then
 			-- resolve symlink
 			last = vim.fn.resolve(last)
-			M.open_chat(last, M.resolve_chat_target(params), true)
+			M.open_buf(last, M.resolve_buf_target(params), M._toggle_kind.chat, true)
 			return
 		end
 	end
@@ -1595,8 +1636,8 @@ M.cmd.ChatPaste = function(params)
 
 	-- get last chat
 	last = vim.fn.resolve(last)
-	local target = M.resolve_chat_target(params)
-	local buf = M.open_chat(last, target, false)
+	local target = M.resolve_buf_target(params)
+	local buf = M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	-- prepare selection
 	local lines = vim.api.nvim_buf_get_lines(obuf, params.line1 - 1, params.line2, false)
@@ -1928,7 +1969,7 @@ M.cmd.ChatFinder = function()
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
-			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>|open/float/split/vsplit/tab",
+			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>|open/float/split/vsplit/tab/toggle",
 		function(w, h)
 			return w - left - right, 1, h - bottom, left
 		end,
@@ -2092,7 +2133,9 @@ M.cmd.ChatFinder = function()
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
 
-	local open_chat = function(target)
+	---@param target number
+	---@param toggle boolean
+	local open_chat = function(target, toggle)
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local file = picker_files[index]
 		close()
@@ -2101,23 +2144,27 @@ M.cmd.ChatFinder = function()
 			if not file then
 				return
 			end
-			M.open_chat(file, target, false)
+			M.open_buf(file, target, M._toggle_kind.chat, toggle)
 		end, 200)
 	end
 
 	-- enter on picker window will open file
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
-		open_chat(M.ChatTarget.popup)
+		open_chat(M.BufTarget.popup, false)
 	end)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
-		open_chat(M.ChatTarget.split)
+		open_chat(M.BufTarget.split, false)
 	end)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
-		open_chat(M.ChatTarget.vsplit)
+		open_chat(M.BufTarget.vsplit, false)
 	end)
 	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
-		open_chat(M.ChatTarget.tabnew)
+		open_chat(M.BufTarget.tabnew, false)
+	end)
+	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
+		local target = M.resolve_buf_target(M.config.chat_toggle_target)
+		open_chat(target, true)
 	end)
 
 	-- -- enter on preview window will go to picker window
@@ -2372,17 +2419,25 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- prepare handler
 			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.popup then
+			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
-			buf, win, _, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
-				local top = M.config.style_popup_margin_top or 2
-				local bottom = M.config.style_popup_margin_bottom or 8
-				local left = M.config.style_popup_margin_left or 1
-				local right = M.config.style_popup_margin_right or 1
-				local max_width = M.config.style_popup_max_width or 160
-				local ww = math.min(w - (left + right), max_width)
-				local wh = h - (top + bottom)
-				return ww, wh, top, (w - ww) / 2
-			end, { on_leave = true, escape = true }, { border = M.config.style_popup_border or "single" })
+			local popup_close = nil
+			buf, win, popup_close, _ = M._H.create_popup(
+				nil,
+				M._Name .. " popup (close with <esc>/<C-c>)",
+				function(w, h)
+					local top = M.config.style_popup_margin_top or 2
+					local bottom = M.config.style_popup_margin_bottom or 8
+					local left = M.config.style_popup_margin_left or 1
+					local right = M.config.style_popup_margin_right or 1
+					local max_width = M.config.style_popup_max_width or 160
+					local ww = math.min(w - (left + right), max_width)
+					local wh = h - (top + bottom)
+					return ww, wh, top, (w - ww) / 2
+				end,
+				{ on_leave = true, escape = true },
+				{ border = M.config.style_popup_border or "single" }
+			)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
@@ -2391,6 +2446,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
 			handler = M.create_handler(buf, win, 0, false, "", false)
+			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
 		elseif type(target) == "table" and target.type == M.Target.enew().type then
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
