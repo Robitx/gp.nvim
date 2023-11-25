@@ -180,8 +180,12 @@ local config = {
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
-			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
-			print(string.format("Command params:\n%s", vim.inspect(params)))
+			local bufnr = vim.api.nvim_create_buf(false, true)
+			local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(plugin))
+			local params_info = string.format("Command params:\n%s", vim.inspect(params))
+			local lines = vim.split(plugin_info .. "\n" .. params_info, "\n")
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+			vim.api.nvim_win_set_buf(0, bufnr)
 		end,
 
 		-- GpImplement rewrites the provided selection/range based on comments in it
