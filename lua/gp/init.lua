@@ -742,6 +742,31 @@ M.template_render = function(template, command, selection, filetype, filename)
 	return _H.template_render(template, key_value_pairs)
 end
 
+---@param params table # table with command args
+---@param origin_buf number # selection origin buffer
+---@param target_buf number # selection target buffer
+M.append_selection = function(params, origin_buf, target_buf)
+	-- prepare selection
+	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
+	local selection = table.concat(lines, "\n")
+	if selection ~= "" then
+		local filetype = M._H.get_filetype(origin_buf)
+		local fname = vim.api.nvim_buf_get_name(origin_buf)
+		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
+		if rendered then
+			selection = rendered
+		end
+	end
+
+	-- delete whitespace lines at the end of the file
+	local last_content_line = M._H.last_content_line(target_buf)
+	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
+
+	-- insert selection lines
+	lines = vim.split("\n" .. selection, "\n")
+	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
+end
+
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
@@ -1555,33 +1580,22 @@ M.new_chat = function(params, model, system_prompt, toggle)
 		M.config.cmd_prefix,
 		M.config.chat_user_prefix
 	)
+
 	-- escape underscores (for markdown)
 	template = template:gsub("_", "\\_")
 
-	if params.range == 2 then
-		-- get current buffer
-		local buf = vim.api.nvim_get_current_buf()
-
-		-- get range lines
-		local lines = vim.api.nvim_buf_get_lines(buf, params.line1 - 1, params.line2, false)
-		local selection = table.concat(lines, "\n")
-
-		if selection ~= "" then
-			local filetype = M._H.get_filetype(buf)
-			local fname = vim.api.nvim_buf_get_name(buf)
-			local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
-			template = template .. "\n" .. rendered
-		end
-	end
-
-	-- strip leading and trailing newlines
-	template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
+	local cbuf = vim.api.nvim_get_current_buf()
 
 	-- create chat file
 	vim.fn.writefile(vim.split(template, "\n"), filename)
-
 	local target = M.resolve_buf_target(params)
-	return M.open_buf(filename, target, M._toggle_kind.chat, toggle)
+	local buf = M.open_buf(filename, target, M._toggle_kind.chat, toggle)
+
+	if params.range == 2 then
+		M.append_selection(params, cbuf, buf)
+	end
+	M._H.feedkeys("G", "x")
+	return buf
 end
 
 ---@return number # buffer number
@@ -1633,7 +1647,7 @@ M.cmd.ChatPaste = function(params)
 	end
 
 	-- get current buffer
-	local obuf = vim.api.nvim_get_current_buf()
+	local cbuf = vim.api.nvim_get_current_buf()
 
 	local last = M.config.chat_dir .. "/last.md"
 
@@ -1653,27 +1667,7 @@ M.cmd.ChatPaste = function(params)
 	last = vim.fn.resolve(last)
 	local buf = M.open_buf(last, target, M._toggle_kind.chat, true)
 
-	-- prepare selection
-	local lines = vim.api.nvim_buf_get_lines(obuf, params.line1 - 1, params.line2, false)
-	local selection = table.concat(lines, "\n")
-	if selection ~= "" then
-		local filetype = M._H.get_filetype(obuf)
-		local fname = vim.api.nvim_buf_get_name(obuf)
-		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
-		if rendered then
-			selection = rendered
-		end
-	end
-
-	-- delete whitespace lines at the end of the file
-	local last_content_line = M._H.last_content_line(buf)
-	vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
-
-	-- insert selection lines
-	lines = vim.split("\n" .. selection, "\n")
-	vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, lines)
-
-	-- move cursor to a new line at the end of the file
+	M.append_selection(params, cbuf, buf)
 	M._H.feedkeys("G", "x")
 end
 
