@@ -829,6 +829,7 @@ M.setup = function(opts)
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
 		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
+		Context = { "popup", "split", "vsplit", "tabnew" },
 	}
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
@@ -2228,6 +2229,48 @@ end
 --------------------
 -- Prompt logic
 --------------------
+
+M.cmd.Context = function(params)
+	M._toggle_close(M._toggle_kind.popup)
+	-- if there is no selection, try to close context toggle
+	if params.range ~= 2 then
+		if M._toggle_close(M._toggle_kind.context) then
+			return
+		end
+	end
+
+	local cbuf = vim.api.nvim_get_current_buf()
+
+	local file_name = ""
+	local buf = _H.get_buffer(".gp.md")
+	if buf then
+		file_name = vim.api.nvim_buf_get_name(buf)
+	else
+		local git_root = _H.find_git_root()
+		if git_root == "" then
+			M.warning("Not in a git repository")
+			return
+		end
+		file_name = git_root .. "/.gp.md"
+	end
+
+	if vim.fn.filereadable(file_name) ~= 1 then
+		vim.fn.writefile({ "Additional context is provided bellow.", "" }, file_name)
+	end
+
+	params.args = params.args or ""
+	if params.args == "" then
+		params.args = M.config.chat_toggle_target
+	end
+	local target = M.resolve_buf_target(params)
+	buf = M.open_buf(file_name, target, M._toggle_kind.context, true)
+
+	if params.range == 2 then
+		M.append_selection(params, cbuf, buf)
+	end
+
+	M._H.feedkeys("G", "x")
+end
 
 M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
 	-- backwards compatibility for old usage of enew
