@@ -254,7 +254,7 @@ require("gp").setup(conf)
 	
     -   `:GpChatDelete` - delete the current chat
 
-    when calling `:GpChatNew` or `:GpChatPaste` you can also specify where to display chat using subcommands:
+    when calling `:GpChatNew` or `:GpChatPaste` and  `GpChatToggle` you can also specify where to display chat using subcommands:
     ![image](https://github.com/Robitx/gp.nvim/assets/8431097/350b38ce-52fb-4df7-b2a5-d6e51581f0c3)
 
 -   Ask GPT and get response to the specified output:
@@ -272,6 +272,12 @@ require("gp").setup(conf)
     -   as pure user commands without any other context in normal/insert mode
     -   with current selection (using whole lines) as a context in visual/Visual mode
     -   with specified range (such as `%` for the entire current buffer => `:%GpRewrite`)
+  
+-   Provide custom context per repository with`:GpContext`:
+    -   opens `.gp.md` file for given repository in toggable window
+    -   if used with selection/range it appends it to the context file
+    -   supports display targeting subcommands just like `GpChatNew`
+    -   see [Custom instructions](#custom-instructions-per-repository) section
 
 -   Voice commands transcribed by Whisper API:
     -   `:GpWhisper` - transcription replaces the current line, visual selection or range
@@ -299,13 +305,15 @@ Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event
 ```
 
 ### Custom instructions per repository
-You can make `.gp.md` (markdown) file in a root of a repository and commands such as `:GpRewrite`, `:GpAppend` will respect instructions provided in this file (works better with gpt4, gpt 3.5 doesn't always listen to system commands). For example:
+By calling `:GpContext` you can make `.gp.md` markdown file in a root of a repository. Commands such as `:GpRewrite`, `:GpAppend` etc. will respect instructions provided in this file (works better with gpt4, gpt 3.5 doesn't always listen to system commands). For example:
 ``` md
 Use ‎C++17.
 Use Testify library when writing Go tests.
 Use Early return/Guard Clauses pattern to avoid excessive nesting.
 ...
 ```
+
+Here is [another example](https://github.com/Robitx/gp.nvim/blob/main/.gp.md).
 
 ### Scripting and multifile edits
 `GpDone` event + `.gp.md` custom instructions provide a possibility to run gp.nvim using headless (neo)vim from terminal or shell script. So you can let gp run edits accross many files if you put it in a loop.
@@ -368,12 +376,12 @@ end
 
 -- Chat commands
 vim.keymap.set({"n", "i"}, "<C-g>c", "<cmd>GpChatNew<cr>", keymapOptions("New Chat"))
-vim.keymap.set({"n", "i"}, "<C-g>t", "<cmd>GpChatToggle<cr>", keymapOptions("Toggle Popup Chat"))
+vim.keymap.set({"n", "i"}, "<C-g>t", "<cmd>GpChatToggle<cr>", keymapOptions("Toggle Chat"))
 vim.keymap.set({"n", "i"}, "<C-g>f", "<cmd>GpChatFinder<cr>", keymapOptions("Chat Finder"))
 
 vim.keymap.set("v", "<C-g>c", ":<C-u>'<,'>GpChatNew<cr>", keymapOptions("Visual Chat New"))
 vim.keymap.set("v", "<C-g>v", ":<C-u>'<,'>GpChatPaste<cr>", keymapOptions("Visual Chat Paste"))
-vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Popup Chat"))
+vim.keymap.set("v", "<C-g>t", ":<C-u>'<,'>GpChatToggle<cr>", keymapOptions("Visual Toggle Chat"))
 
 vim.keymap.set({ "n", "i" }, "<C-g><C-x>", "<cmd>GpChatNew split<cr>", keymapOptions("New Chat split"))
 vim.keymap.set({ "n", "i" }, "<C-g><C-v>", "<cmd>GpChatNew vsplit<cr>", keymapOptions("New Chat vsplit"))
@@ -396,6 +404,8 @@ vim.keymap.set("v", "<C-g>b", ":<C-u>'<,'>GpPrepend<cr>", keymapOptions("Visual 
 vim.keymap.set("v", "<C-g>e", ":<C-u>'<,'>GpEnew<cr>", keymapOptions("Visual Enew"))
 vim.keymap.set("v", "<C-g>p", ":<C-u>'<,'>GpPopup<cr>", keymapOptions("Visual Popup"))
 
+vim.keymap.set({"n", "i"}, "<C-g>x", "<cmd>GpContext<cr>", keymapOptions("Toggle Context"))
+vim.keymap.set("v", "<C-g>x", ":<C-u>'<,'>GpContext<cr>", keymapOptions("Visual Toggle Context"))
 
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
 
@@ -428,7 +438,7 @@ require("which-key").register({
 	["<C-g>"] = {
 		c = { ":<C-u>'<,'>GpChatNew<cr>", "Visual Chat New" },
 		v = { ":<C-u>'<,'>GpChatPaste<cr>", "Visual Chat Paste" },
-		t = { ":<C-u>'<,'>GpChatToggle<cr>", "Visual Popup Chat" },
+		t = { ":<C-u>'<,'>GpChatToggle<cr>", "Visual Toggle Chat" },
 
 		["<C-x>"] = { ":'<,'>GpChatNew split<CR>", "Visual Chat New split" },
 		["<C-v>"] = { ":'<,'>GpChatNew vsplit<CR>", "Visual Chat New vsplit" },
@@ -439,6 +449,7 @@ require("which-key").register({
 		b = { ":<C-u>'<,'>GpPrepend<cr>", "Visual Prepend" },
 		e = { ":<C-u>'<,'>GpEnew<cr>", "Visual Enew" },
 		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
+		x = { ":<C-u>'<,'>GpContext<cr>", "Visual Toggle Context" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
 
@@ -465,7 +476,7 @@ require("which-key").register({
     -- ...
 	["<C-g>"] = {
 		c = { "<cmd>GpChatNew<cr>", "New Chat" },
-		t = { "<cmd>GpChatToggle<cr>", "Toggle Popup Chat" },
+		t = { "<cmd>GpChatToggle<cr>", "Toggle Chat" },
 		f = { "<cmd>GpChatFinder<cr>", "Chat Finder" },
 
 		["<C-x>"] = { "<cmd>GpChatNew split<cr>", "New Chat split" },
@@ -477,6 +488,7 @@ require("which-key").register({
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
+		x = { "<cmd>GpContext<cr>", "Toggle Context" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
                 -- optional Whisper commands
@@ -514,6 +526,7 @@ require("which-key").register({
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
+		x = { "<cmd>GpContext<cr>", "Toggle Context" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
                 -- optional Whisper commands
