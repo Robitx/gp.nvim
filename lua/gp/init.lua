@@ -93,17 +93,17 @@ local config = {
 	command_auto_select_response = true,
 
 	-- templates
-	template_selection = "I have the following code from {{filename}}:"
+	template_selection = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following code from {{filename}}:"
+	template_rewrite = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should replace the code above.",
-	template_append = "I have the following code from {{filename}}:"
+		.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
+	template_append = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be appended after the code above.",
-	template_prepend = "I have the following code from {{filename}}:"
+		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
+	template_prepend = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be prepended before the code above.",
+		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
 	template_command = "{{command}}",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
@@ -669,6 +669,7 @@ end
 _H.ends_with = function(str, ending)
 	return ending == "" or str:sub(-#ending) == ending
 end
+
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
