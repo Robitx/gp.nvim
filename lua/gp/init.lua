@@ -697,29 +697,30 @@ M.info = function(msg)
 	end)
 end
 
+-- helper function to find the root directory of the current git repository
+---@return string # returns the path of the git root dir or an empty string if not found
+_H.find_git_root = function()
+	local cwd = vim.fn.expand("%:p:h")
+	while cwd ~= "/" do
+		local files = vim.fn.readdir(cwd)
+		if vim.tbl_contains(files, ".git") then
+			return cwd
+		end
+		cwd = vim.fn.fnamemodify(cwd, ":h")
+	end
+	return ""
+end
+
 -- tries to find an .gp.md file in the root of current git repo
 ---@return string # returns instructions from the .gp.md file
 M.repo_instructions = function()
-	local cwd = vim.fn.expand("%:p:h")
+	local git_root = _H.find_git_root()
 
-	local git_dir = ""
-
-	while cwd ~= "/" do
-		local files = vim.fn.readdir(cwd)
-
-		if vim.tbl_contains(files, ".git") then
-			git_dir = cwd .. "/.git"
-			break
-		end
-
-		cwd = vim.fn.fnamemodify(cwd, ":h")
-	end
-
-	if git_dir == "" then
+	if git_root == "" then
 		return ""
 	end
 
-	local instruct_file = git_dir:gsub(".git$", ".gp.md")
+	local instruct_file = git_root .. "/.gp.md"
 
 	if vim.fn.filereadable(instruct_file) == 0 then
 		return ""
