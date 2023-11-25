@@ -1603,6 +1603,9 @@ M.new_chat = function(params, model, system_prompt, toggle)
 
 	local cbuf = vim.api.nvim_get_current_buf()
 
+	-- strip leading and trailing newlines
+	template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
+
 	-- create chat file
 	vim.fn.writefile(vim.split(template, "\n"), filename)
 	local target = M.resolve_buf_target(params)
