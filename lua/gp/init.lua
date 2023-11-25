@@ -288,8 +288,7 @@ end
 _H.get_buffer = function(file_name)
 	for _, b in ipairs(vim.api.nvim_list_bufs()) do
 		if vim.api.nvim_buf_is_valid(b) then
-			local buf_name = vim.api.nvim_buf_get_name(b)
-			if buf_name:sub(-#file_name) == file_name then
+			if _H.ends_with(vim.api.nvim_buf_get_name(b), file_name) then
 				return b
 			end
 		end
@@ -665,6 +664,11 @@ _H.starts_with = function(str, start)
 	return str:sub(1, #start) == start
 end
 
+---@param str string # string to check
+---@param ending string # string to check for
+_H.ends_with = function(str, ending)
+	return ending == "" or str:sub(-#ending) == ending
+end
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
