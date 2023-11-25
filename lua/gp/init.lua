@@ -1221,7 +1221,12 @@ M._toggle_kind = {
 ---@param kind number # kind of toggle
 ---@return boolean # true if popup was closed
 M._toggle_close = function(kind)
-	if M._toggle[kind] and M._toggle[kind].win and vim.api.nvim_win_is_valid(M._toggle[kind].win) then
+	if
+		M._toggle[kind]
+		and M._toggle[kind].win
+		and M._toggle[kind].close
+		and vim.api.nvim_win_is_valid(M._toggle[kind].win)
+	then
 		M._toggle[kind].close()
 		M._toggle[kind] = nil
 		return true
@@ -1475,6 +1480,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 
 	buf = vim.api.nvim_get_current_buf()
 	win = vim.api.nvim_get_current_win()
+	close = close or function() end
 
 	if not toggle then
 		return buf
@@ -1487,6 +1493,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			end
 		end
 	end
+
 	if target == M.BufTarget.tabnew then
 		close = function()
 			if vim.api.nvim_win_is_valid(win) then
@@ -1496,6 +1503,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			end
 		end
 	end
+
 	M._toggle_add(kind, { win = win, buf = buf, close = close })
 
 	return buf
@@ -1634,9 +1642,13 @@ M.cmd.ChatPaste = function(params)
 		return
 	end
 
-	-- get last chat
-	last = vim.fn.resolve(last)
+	params.args = params.args or ""
+	if params.args == "" then
+		params.args = M.config.chat_toggle_target
+	end
 	local target = M.resolve_buf_target(params)
+
+	last = vim.fn.resolve(last)
 	local buf = M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	-- prepare selection
