@@ -19,6 +19,38 @@ local config = {
 
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
+
+	chat_agents = {
+		generic_gpt4 = {
+			-- string with model name or table with model name and parameters
+			chat_model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n",
+		},
+		generic_gpt3_5 = {
+			-- string with model name or table with model name and parameters
+			chat_model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n",
+		},
+	},
+
 	-- chat model (string with model name or table with model name and parameters)
 	chat_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 	-- chat model system prompt (use this to specify the persona/role of the AI)
@@ -92,6 +124,25 @@ local config = {
 	-- auto select command response (easier chaining of commands)
 	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
+
+	command_agents = {
+		coder_gpt4 = {
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+		coder_gpt3_5 = {
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+	},
 
 	-- templates
 	template_selection = "I have the following from {{filename}}:"
@@ -197,13 +248,15 @@ local deprecated = {
 
 local _H = {}
 local M = {
-	_Name = "Gp (GPT prompt)", -- plugin name
 	_H = _H, -- helper functions
-	_queries = {}, -- table of latest queries
-	config = {}, -- config variables
-	cmd = {}, -- default command functions
-	cmd_hooks = {}, -- user defined command functions
+	_Name = "Gp (GPT prompt)", -- plugin name
 	_handles = {}, -- handles for running processes
+	_queries = {}, -- table of latest queries
+	cmd = {}, -- default command functions
+	hooks = {}, -- user defined command functions
+	config = {}, -- config variables
+	chat_agents = {}, -- table of chat agents
+	command_agents = {}, -- table of command agents
 }
 
 --------------------------------------------------------------------------------
@@ -794,18 +847,25 @@ M.setup = function(opts)
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
-	-- mv default M.config.hooks to M.cmd_hooks
-	for k, v in pairs(M.config.hooks) do
-		M.cmd_hooks[k] = v
-	end
-	M.config.hooks = nil
-
-	-- merge user hooks to M.cmd_hooks
-	if opts.hooks then
-		for k, v in pairs(opts.hooks) do
-			M.cmd_hooks[k] = v
+	-- merge nested tables
+	local mergeTables = { "hooks", "command_agents", "chat_agents" }
+	for _, tbl in ipairs(mergeTables) do
+		if M.config[tbl] then
+			M[tbl] = M[tbl] or {}
+			---@diagnostic disable-next-line: param-type-mismatch
+			for k, v in pairs(M.config[tbl]) do
+				M[tbl][k] = v
+			end
+			M.config[tbl] = nil
 		end
-		opts.hooks = nil
+
+		if opts[tbl] then
+			M[tbl] = M[tbl] or {}
+			for k, v in pairs(opts[tbl]) do
+				M[tbl][k] = v
+			end
+			opts[tbl] = nil
+		end
 	end
 
 	-- merge user opts to M.config
@@ -832,7 +892,7 @@ M.setup = function(opts)
 	M.prepare_commands()
 
 	-- register user commands
-	for hook, _ in pairs(M.cmd_hooks) do
+	for hook, _ in pairs(M.hooks) do
 		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
 			M.call_hook(hook, params)
 		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
@@ -846,7 +906,7 @@ M.setup = function(opts)
 	}
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
-		if M.cmd_hooks[cmd] == nil then
+		if M.hooks[cmd] == nil then
 			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
 				M.cmd[cmd](params)
 			end, {
@@ -940,8 +1000,8 @@ end
 
 -- hook caller
 M.call_hook = function(name, params)
-	if M.cmd_hooks[name] ~= nil then
-		return M.cmd_hooks[name](M, params)
+	if M.hooks[name] ~= nil then
+		return M.hooks[name](M, params)
 	end
 	M.error("The hook '" .. name .. "' does not exist.")
 end
