@@ -286,10 +286,12 @@ end
 ---@param file_name string # name of the file for which to get buffer
 ---@return number | nil # buffer number
 _H.get_buffer = function(file_name)
-	-- iterate over buffer list and return first buffer with the same name
 	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file_name then
-			return b
+		if vim.api.nvim_buf_is_valid(b) then
+			local buf_name = vim.api.nvim_buf_get_name(b)
+			if buf_name:sub(-#file_name) == file_name then
+				return b
+			end
 		end
 	end
 	return nil
