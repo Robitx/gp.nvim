@@ -242,8 +242,14 @@ local config = {
 	},
 }
 
+local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
 local deprecated = {
-	chat_toggle_target = "please rename `chat_toggle_target` to `toggle_target`",
+	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target`",
+	command_model = "`command_model`\n" .. switch_to_agent,
+	command_system_prompt = "`command_system_prompt`\n" .. switch_to_agent,
+	chat_custom_instructions = "`chat_custom_instructions`\n" .. switch_to_agent,
+	chat_model = "`chat_model`\n" .. switch_to_agent,
+	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
 }
 
 --------------------------------------------------------------------------------
@@ -873,12 +879,27 @@ M.setup = function(opts)
 	end
 
 	-- merge user opts to M.config
+	M._deprecated = {}
 	for k, v in pairs(opts) do
 		if deprecated[k] then
-			M.warning("Deprecated option in setup(): " .. deprecated[k])
+			table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
 		else
 			M.config[k] = v
 		end
+	end
+
+	if #M._deprecated > 0 then
+		local msg = "Hey there, I have good news and bad news for you.\n"
+			.. "\nThe good news is that development of gp.nvim is going strong."
+			.. "\nThe bad news is that some of the config options you are using are deprecated:"
+		for _, v in ipairs(M._deprecated) do
+			msg = msg .. "\n\n- " .. v.msg
+		end
+		msg = msg
+			.. "\n\nThis is shown only at startup, so you can deal with it later."
+			.. "\nYou can check deprecated options any time with `:checkhealth gp`"
+			.. "\nSorry for the inconvenience and thank you for using gp.nvim!"
+		M.warning(msg)
 	end
 
 	-- make sure _dirs exists
