@@ -742,34 +742,33 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
+---@param msg string # message to log
+---@param kind string # hl group to use for logging
+---@param history boolean # whether to add the message to history
+M._log = function(msg, kind, history)
+	vim.schedule(function()
+		vim.api.nvim_echo({
+			{ M._Name .. ": " .. msg .. "\n", kind },
+		}, history, {})
+	end)
+end
+
 -- nicer error messages using nvim_echo
 ---@param msg string # error message
 M.error = function(msg)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", "ErrorMsg" },
-		}, true, {})
-	end)
+	M._log(msg, "ErrorMsg", true)
 end
 
 -- nicer warning messages using nvim_echo
 ---@param msg string # warning message
 M.warning = function(msg)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", "WarningMsg" },
-		}, true, {})
-	end)
+	M._log(msg, "WarningMsg", true)
 end
 
 -- nicer plain messages using nvim_echo
 ---@param msg string # plain message
 M.info = function(msg)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", "Normal" },
-		}, true, {})
-	end)
+	M._log(msg, "Normal", true)
 end
 
 ---@param tbl table # the table to be stored
