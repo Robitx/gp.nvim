@@ -88,7 +88,10 @@ local config = {
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
-	-- chat assistant prompt prefix (static string or table {static, template})
+	-- chat assistant prompt prefix (static string or a table {static, template})
+	-- first string has to be static, second string can contain template {{agent}}
+	-- just a static string is legacy and the [{{agent}}] element is added automatically
+	-- if you really want just a static string, make it a table with one element { "🤖:" }
 	chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
 	-- chat topic generation prompt
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
@@ -936,7 +939,7 @@ M.setup = function(opts)
 			.. "\n\nThis is shown only at startup, so you can deal with it later."
 			.. "\nYou can check deprecated options any time with `:checkhealth gp`"
 			.. "\nSorry for the inconvenience and thank you for using gp.nvim!"
-		M.warning(msg)
+		M.info(msg)
 	end
 
 	-- make sure _dirs exists
@@ -1973,13 +1976,6 @@ M.chat_respond = function(params)
 	local agent = M.get_chat_agent()
 	local agent_name = agent.name
 
-	local assistant_prefix = {}
-	if type(M.config.chat_assistant_prefix) == "string" then
-		assistant_prefix = { M.config.chat_assistant_prefix, "" }
-	else
-		assistant_prefix = M.config.chat_assistant_prefix
-	end
-
 	-- if model contains { } then it is a json string otherwise it is a model name
 	if headers.model and headers.model:match("{.*}") then
 		-- unescape underscores before decoding json
@@ -1998,7 +1994,17 @@ M.chat_respond = function(params)
 		agent_name = agent_name .. " & custom role"
 	end
 
-	local full_prefix = M._H.template_render(table.concat(assistant_prefix, ""), { ["{{agent}}"] = agent_name })
+	local agent_prefix = config.chat_assistant_prefix[1]
+	local agent_suffix = config.chat_assistant_prefix[2]
+	if type(M.config.chat_assistant_prefix) == "string" then
+		---@diagnostic disable-next-line: cast-local-type
+		agent_prefix = M.config.chat_assistant_prefix
+	elseif type(M.config.chat_assistant_prefix) == "table" then
+		agent_prefix = M.config.chat_assistant_prefix[1]
+		agent_suffix = M.config.chat_assistant_prefix[2] or ""
+	end
+	---@diagnostic disable-next-line: cast-local-type
+	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
 
 	for index = start_index, end_index do
 		local line = lines[index]
@@ -2006,7 +2012,7 @@ M.chat_respond = function(params)
 			table.insert(messages, { role = role, content = content })
 			role = "user"
 			content = line:sub(#M.config.chat_user_prefix + 1)
-		elseif line:sub(1, #assistant_prefix[1]) == assistant_prefix[1] then
+		elseif line:sub(1, #agent_prefix) == agent_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "assistant"
 			content = ""
@@ -2042,7 +2048,13 @@ M.chat_respond = function(params)
 
 	-- write assistant prompt
 	local last_content_line = M._H.last_content_line(buf)
-	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", full_prefix, "" })
+	vim.api.nvim_buf_set_lines(
+		buf,
+		last_content_line,
+		last_content_line,
+		false,
+		{ "", agent_prefix .. agent_suffix, "" }
+	)
 
 	-- call the model and write response
 	M.query(
