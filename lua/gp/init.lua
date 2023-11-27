@@ -138,8 +138,8 @@ local config = {
 	style_popup_max_width = 160,
 
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
-	-- command prompt prefix for asking user for input
-	command_prompt_prefix = "🤖 {{agent}} ~ ",
+	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
+	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
 	-- auto select command response (easier chaining of commands)
 	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
@@ -247,12 +247,14 @@ local config = {
 
 local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
 local deprecated = {
-	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target`",
+	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target` which is also used by other commands",
 	command_model = "`command_model`\n" .. switch_to_agent,
 	command_system_prompt = "`command_system_prompt`\n" .. switch_to_agent,
 	chat_custom_instructions = "`chat_custom_instructions`\n" .. switch_to_agent,
 	chat_model = "`chat_model`\n" .. switch_to_agent,
 	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
+	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
+		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
 }
 
 --------------------------------------------------------------------------------
@@ -930,15 +932,19 @@ M.setup = function(opts)
 
 	if #M._deprecated > 0 then
 		local msg = "Hey there, I have good news and bad news for you.\n"
-			.. "\nThe good news is that development of gp.nvim is going strong."
+			.. "\nThe good news is that you've updated gp.nvim and got some new features."
 			.. "\nThe bad news is that some of the config options you are using are deprecated:"
+		table.sort(M._deprecated, function(a, b)
+			return a.msg < b.msg
+		end)
 		for _, v in ipairs(M._deprecated) do
 			msg = msg .. "\n\n- " .. v.msg
 		end
 		msg = msg
-			.. "\n\nThis is shown only at startup, so you can deal with it later."
-			.. "\nYou can check deprecated options any time with `:checkhealth gp`"
-			.. "\nSorry for the inconvenience and thank you for using gp.nvim!"
+			.. "\n\nThis is shown only at startup and deprecated options are ignored"
+			.. "\nso everything should work without problems and you can deal with this later."
+			.. "\n\nYou can check deprecated options any time with `:checkhealth gp`"
+			.. "\nSorry for the inconvenience and thank you for using gp.nvim."
 		M.info(msg)
 	end
 
@@ -2036,11 +2042,6 @@ M.chat_respond = function(params)
 		messages[1] = { role = "system", content = content }
 	end
 
-	-- add custom instructions if they exist and contains some text
-	if M.config.chat_custom_instructions and M.config.chat_custom_instructions:match("%S") then
-		table.insert(messages, 2, { role = "system", content = M.config.chat_custom_instructions })
-	end
-
 	-- strip whitespace from ends of content
 	for _, message in ipairs(messages) do
 		message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
@@ -2493,7 +2494,8 @@ end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }
 M.get_command_agent = function()
-	local cmd_prefix = M._H.template_render(M.config.command_prompt_prefix, { ["{{agent}}"] = M._state.command_agent })
+	local template = M.config.command_prompt_prefix_template
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
 	local name = M._state.command_agent
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
@@ -2502,7 +2504,8 @@ end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }
 M.get_chat_agent = function()
-	local cmd_prefix = M._H.template_render(M.config.command_prompt_prefix, { ["{{agent}}"] = M._state.chat_agent })
+	local template = M.config.command_prompt_prefix_template
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.chat_agent })
 	local name = M._state.chat_agent
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
