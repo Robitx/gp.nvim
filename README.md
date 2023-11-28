@@ -362,6 +362,14 @@ require("gp").setup(conf)
   - supports display targeting subcommands just like `GpChatNew`
   - see [Custom instructions](#custom-instructions-per-repository) section
 
+- Switch between configured agents (model + persona):
+
+  - `:GpNextAgent` - cycle between available agents
+  - `:GpAgent` - display currently used agents for chat and command instructions
+  - `:GpAgent XY` - choose new agent based on its name
+
+  commands are context aware (they switch chat or command agent based on the current buffer)
+
 - Voice commands transcribed by Whisper API:
   - `:GpWhisper` - transcription replaces the current line, visual selection or range
   - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
