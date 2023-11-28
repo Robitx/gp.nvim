@@ -1477,7 +1477,7 @@ end
 ---@param buf number | nil # buffer number
 M.prep_md = function(buf)
 	-- disable swapping for this buffer and set filetype to markdown
-	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
+	vim.api.nvim_command("setlocal noswapfile")
 	-- better text wrapping
 	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
