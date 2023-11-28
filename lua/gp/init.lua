@@ -1567,6 +1567,12 @@ M.prep_chat = function(buf, file_name)
 		vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
 		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 	end
+
+	-- make last.md a symlink to the last opened chat file
+	local last = M.config.chat_dir .. "/last.md"
+	if file_name ~= last then
+		os.execute("ln -sf " .. file_name .. " " .. last)
+	end
 end
 
 M.prep_context = function(buf, file_name)
@@ -1702,14 +1708,6 @@ M.open_buf = function(file_name, target, kind, toggle)
 
 		-- open in new buffer
 		vim.api.nvim_command("edit " .. file_name)
-	end
-
-	if kind == M._toggle_kind.chat then
-		-- make last.md a symlink to the last opened chat file
-		local last = M.config.chat_dir .. "/last.md"
-		if file_name ~= last then
-			os.execute("ln -sf " .. file_name .. " " .. last)
-		end
 	end
 
 	buf = vim.api.nvim_get_current_buf()
