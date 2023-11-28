@@ -102,10 +102,8 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 
 ### 4. Configuration
 
-Bellow are the default values, but I suggest starting with minimal config possible - setting just `openai_api_key` if you don't have `OPENAI_API_KEY` env setup.
+Bellow are the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 
-
-Defaults change over time to improve things, options might get deprecated and so on. 
 ````lua
 local conf = {
 	-- required openai api key
