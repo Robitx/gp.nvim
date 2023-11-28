@@ -968,20 +968,18 @@ M.setup = function(opts)
 	end
 
 	-- prepare agent completions
-	local chat_agents = {}
-	local command_agents = {}
+	M._chat_agents = {}
+	M._command_agents = {}
 	for name, agent in pairs(M.agents) do
 		if agent.command then
-			table.insert(command_agents, name)
+			table.insert(M._command_agents, name)
 		end
 		if agent.chat then
-			table.insert(chat_agents, name)
+			table.insert(M._chat_agents, name)
 		end
 	end
-	table.sort(chat_agents)
-	table.sort(command_agents)
-	M._state.default_chat_agent = chat_agents[1]
-	M._state.default_command_agent = command_agents[1]
+	table.sort(M._chat_agents)
+	table.sort(M._command_agents)
 
 	M.refresh_state()
 
@@ -1017,9 +1015,9 @@ M.setup = function(opts)
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
 						if M.is_chat(buf, file_name) then
-							return chat_agents
+							return M._chat_agents
 						end
-						return command_agents
+						return M._command_agents
 					end
 
 					return {}
@@ -1046,12 +1044,12 @@ M.refresh_state = function()
 
 	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
 	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
-		M._state.chat_agent = M._state.default_chat_agent
+		M._state.chat_agent = M._chat_agents[1]
 	end
 
 	M._state.command_agent = M._state.command_agent or state.command_agent or nil
 	if not M._state.command_agent == nil or not M.agents[M._state.command_agent] then
-		M._state.command_agent = M._state.default_command_agent
+		M._state.command_agent = M._command_agents[1]
 	end
 
 	M.table_to_file(M._state, state_file)
@@ -2463,33 +2461,63 @@ end
 --------------------
 
 M.cmd.Agent = function(params)
-	params.args = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-	if params.args == "" then
+	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
+	if agent_name == "" then
 		M.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
 		return
 	end
 
-	if not M.agents[params.args] then
-		M.warning("Unknown agent: " .. params.args)
+	if not M.agents[agent_name] then
+		M.warning("Unknown agent: " .. agent_name)
 		return
 	end
 
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.is_chat(buf, file_name)
-	if is_chat and M.agents[params.args].chat then
-		M._state.chat_agent = params.args
-		M.info(" Chat agent: " .. M._state.chat_agent)
+	if is_chat and M.agents[agent_name].chat then
+		M._state.chat_agent = agent_name
+		M.info("Chat agent: " .. M._state.chat_agent)
 	elseif is_chat then
-		M.warning(params.args .. " is not a Chat agent")
-	elseif M.agents[params.args].command then
-		M._state.command_agent = params.args
-		M.info(" Command agent: " .. M._state.command_agent)
+		M.warning(agent_name .. " is not a Chat agent")
+	elseif M.agents[agent_name].command then
+		M._state.command_agent = agent_name
+		M.info("Command agent: " .. M._state.command_agent)
 	else
-		M.warning(params.args .. " is not a Command agent")
+		M.warning(agent_name .. " is not a Command agent")
 	end
 
 	M.refresh_state()
+end
+
+M.cmd.NextAgent = function()
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	local is_chat = M.is_chat(buf, file_name)
+	local current_agent, agent_list
+
+	if is_chat then
+		current_agent = M._state.chat_agent
+		agent_list = M._chat_agents
+	else
+		current_agent = M._state.command_agent
+		agent_list = M._command_agents
+	end
+
+	for i, agent_name in ipairs(agent_list) do
+		if agent_name == current_agent then
+			local next_agent = agent_list[i % #agent_list + 1]
+			if is_chat then
+				M._state.chat_agent = next_agent
+				M.info("Chat agent: " .. next_agent)
+			else
+				M._state.command_agent = next_agent
+				M.info("Command agent: " .. next_agent)
+			end
+			M.refresh_state()
+			return
+		end
+	end
 end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }

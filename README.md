@@ -500,7 +500,7 @@ vim.keymap.set({"n", "i"}, "<C-g>x", "<cmd>GpContext<cr>", keymapOptions("Toggle
 vim.keymap.set("v", "<C-g>x", ":<C-u>'<,'>GpContext<cr>", keymapOptions("Visual Toggle Context"))
 
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
-
+vim.keymap.set({"n", "i", "v", "x"}, "<C-g>n", "<cmd>GpNextAgent<cr>", keymapOptions("Next Agent"))
 
 -- optional Whisper commands
 vim.keymap.set({"n", "i"}, "<C-g>w", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
@@ -541,7 +541,10 @@ require("which-key").register({
 		b = { ":<C-u>'<,'>GpPrepend<cr>", "Visual Prepend" },
 		e = { ":<C-u>'<,'>GpEnew<cr>", "Visual Enew" },
 		p = { ":<C-u>'<,'>GpPopup<cr>", "Visual Popup" },
+
 		x = { ":<C-u>'<,'>GpContext<cr>", "Visual Toggle Context" },
+
+		n = { "<cmd>GpNextAgent<cr>", "Next Agent" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
 
@@ -580,7 +583,9 @@ require("which-key").register({
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
+
 		x = { "<cmd>GpContext<cr>", "Toggle Context" },
+		n = { "<cmd>GpNextAgent<cr>", "Next Agent" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
                 -- optional Whisper commands
@@ -618,7 +623,9 @@ require("which-key").register({
 		b = { "<cmd>GpPrepend<cr>", "Prepend" },
 		e = { "<cmd>GpEnew<cr>", "Enew" },
 		p = { "<cmd>GpPopup<cr>", "Popup" },
+
 		x = { "<cmd>GpContext<cr>", "Toggle Context" },
+		n = { "<cmd>GpNextAgent<cr>", "Next Agent" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
                 -- optional Whisper commands
