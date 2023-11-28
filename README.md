@@ -204,7 +204,7 @@ local conf = {
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
-	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
+	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
@@ -508,7 +508,7 @@ vim.keymap.set({"n", "i"}, "<C-g>x", "<cmd>GpContext<cr>", keymapOptions("Toggle
 vim.keymap.set("v", "<C-g>x", ":<C-u>'<,'>GpContext<cr>", keymapOptions("Visual Toggle Context"))
 
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
-vim.keymap.set({"n", "i", "v", "x"}, "<C-g><C-n>", "<cmd>GpNextAgent<cr>", keymapOptions("Next Agent"))
+vim.keymap.set({"n", "i", "v", "x"}, "<C-g>n", "<cmd>GpNextAgent<cr>", keymapOptions("Next Agent"))
 
 -- optional Whisper commands
 vim.keymap.set({"n", "i"}, "<C-g>w", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
@@ -552,7 +552,7 @@ require("which-key").register({
 
 		x = { ":<C-u>'<,'>GpContext<cr>", "Visual Toggle Context" },
 
-		["<C-n>"] = { "<cmd>GpNextAgent<cr>", "Next Agent" },
+		n = { "<cmd>GpNextAgent<cr>", "Next Agent" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
 
@@ -593,7 +593,7 @@ require("which-key").register({
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 
 		x = { "<cmd>GpContext<cr>", "Toggle Context" },
-		["<C-n>"] = { "<cmd>GpNextAgent<cr>", "Next Agent" },
+		n = { "<cmd>GpNextAgent<cr>", "Next Agent" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
                 -- optional Whisper commands
@@ -633,7 +633,7 @@ require("which-key").register({
 		p = { "<cmd>GpPopup<cr>", "Popup" },
 
 		x = { "<cmd>GpContext<cr>", "Toggle Context" },
-		["<C-n>"] = { "<cmd>GpNextAgent<cr>", "Next Agent" },
+		n = { "<cmd>GpNextAgent<cr>", "Next Agent" },
 		s = { "<cmd>GpStop<cr>", "Stop" },
 
                 -- optional Whisper commands
