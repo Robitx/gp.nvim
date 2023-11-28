@@ -898,26 +898,26 @@ M.setup = function(opts)
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents" }
 	for _, tbl in ipairs(mergeTables) do
-		if M.config[tbl] then
-			M[tbl] = M[tbl] or {}
-			---@diagnostic disable-next-line: param-type-mismatch
-			for k, v in pairs(M.config[tbl]) do
-				if tbl == "agents" then
-					M[tbl][v.name] = v
-				elseif tbl == "hooks" then
-					M[tbl][k] = v
-				end
-			end
-			M.config[tbl] = nil
-		end
-
-		if opts[tbl] then
-			M[tbl] = M[tbl] or {}
-			for k, v in pairs(opts[tbl]) do
+		M[tbl] = M[tbl] or {}
+		---@diagnostic disable-next-line: param-type-mismatch
+		for k, v in pairs(M.config[tbl]) do
+			if tbl == "agents" then
+				M[tbl][v.name] = v
+			elseif tbl == "hooks" then
 				M[tbl][k] = v
 			end
-			opts[tbl] = nil
 		end
+		M.config[tbl] = nil
+
+		opts[tbl] = opts[tbl] or {}
+		for k, v in pairs(opts[tbl]) do
+			if tbl == "agents" then
+				M[tbl][v.name] = v
+			elseif tbl == "hooks" then
+				M[tbl][k] = v
+			end
+		end
+		opts[tbl] = nil
 	end
 
 	-- merge user opts to M.config
