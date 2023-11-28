@@ -17,25 +17,82 @@ local config = {
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
 
+	-- directory for persisting state dynamically changed by user (like model or persona)
+	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
+
+	-- default command agents (model + persona)
+	-- name, model and system_prompt are mandatory fields
+	-- to use agent for chat set chat = true, for command set command = true
+	-- to remove some default agent completely set it just with the name like:
+	-- agents = {  { name = "ChatGPT4" }, ... },
+	agents = {
+		{
+			name = "ChatGPT4",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n",
+		},
+		{
+			name = "ChatGPT3-5",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n",
+		},
+		{
+			name = "CodeGPT4",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-4-1106-preview", temperature = 0.8, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+		{
+			name = "CodeGPT3-5",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-3.5-turbo-1106", temperature = 0.8, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+	},
+
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
-	-- chat model (string with model name or table with model name and parameters)
-	chat_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
-	-- chat model system prompt (use this to specify the persona/role of the AI)
-	chat_system_prompt = "You are a general AI assistant.",
-	-- chat custom instructions (not visible in the chat but prepended to model prompt)
-	chat_custom_instructions = "The user provided the additional info about how they would like you to respond:\n\n"
-		.. "- If you're unsure don't guess and say you don't know instead.\n"
-		.. "- Ask question if you need clarification to provide better answer.\n"
-		.. "- Think deeply and carefully from first principles step by step.\n"
-		.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-		.. "- Use Socratic method to improve your thinking and coding skills.\n"
-		.. "- Don't elide any code from your output if the answer requires coding.\n"
-		.. "- Take a deep breath; You've got this!\n",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
-	-- chat assistant prompt prefix
-	chat_assistant_prefix = "🤖:",
+	-- chat assistant prompt prefix (static string or a table {static, template})
+	-- first string has to be static, second string can contain template {{agent}}
+	-- just a static string is legacy and the [{{agent}}] element is added automatically
+	-- if you really want just a static string, make it a table with one element { "🤖:" }
+	chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
 	-- chat topic generation prompt
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
 		.. " in two or three words. Respond only with those words.",
@@ -50,7 +107,7 @@ local config = {
 	chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
-	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>n" },
+	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
@@ -81,14 +138,8 @@ local config = {
 	style_popup_max_width = 160,
 
 	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
-	-- command prompt prefix for asking user for input
-	command_prompt_prefix = "🤖 ~ ",
-	-- command model (string with model name or table with model name and parameters)
-	command_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
-	-- command system prompt
-	command_system_prompt = "You are an AI working as a code editor.\n\n"
-		.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-		.. "START AND END YOUR ANSWER WITH:\n\n```",
+	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
+	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
 	-- auto select command response (easier chaining of commands)
 	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
@@ -129,8 +180,12 @@ local config = {
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
-			print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
-			print(string.format("Command params:\n%s", vim.inspect(params)))
+			local bufnr = vim.api.nvim_create_buf(false, true)
+			local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(plugin))
+			local params_info = string.format("Command params:\n%s", vim.inspect(params))
+			local lines = vim.split(plugin_info .. "\n" .. params_info, "\n")
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+			vim.api.nvim_win_set_buf(0, bufnr)
 		end,
 
 		-- GpImplement rewrites the provided selection/range based on comments in it
@@ -139,32 +194,35 @@ local config = {
 				.. "```{{filetype}}\n{{selection}}\n```\n\n"
 				.. "Please rewrite this according to the contained instructions."
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
+
+			local agent = gp.get_command_agent()
+			gp.Info("Implementing selection with agent: " .. agent.name)
+
 			gp.Prompt(
 				params,
 				gp.Target.rewrite,
 				nil, -- command will run directly without any prompting for user input
-				gp.config.command_model,
+				agent.model,
 				template,
-				gp.config.command_system_prompt
+				agent.system_prompt
 			)
 		end,
 
 		-- your own functions can go here, see README for more examples like
-		-- :GpExplain, :GpUnitTests.., :GpBetterChatNew, ..
+		-- :GpExplain, :GpUnitTests.., :GpTranslator etc.
 
 		-- -- example of making :%GpChatNew a dedicated command which
 		-- -- opens new chat with the entire current buffer as a context
 		-- BufferChatNew = function(gp, _)
-		--     -- call GpChatNew command in range mode on whole buffer
-		--     vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
+		-- 	-- call GpChatNew command in range mode on whole buffer
+		-- 	vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
 		-- end,
 
-		-- -- example of adding a custom chat command with non-default parameters
-		-- -- (configured default might be gpt-3 and sometimes you might want to use gpt-4)
-		-- BetterChatNew = function(gp, params)
-		-- 	local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
-		-- 	local chat_system_prompt = "You are a general AI assistant."
-		-- 	gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
+		-- -- example of adding command which opens new chat dedicated for translation
+		-- Translator = function(gp, params)
+		-- 	local agent = gp.get_command_agent()
+		-- 	local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
+		-- 	gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
 		-- end,
 
 		-- -- example of adding command which writes unit tests for the selected code
@@ -172,8 +230,8 @@ local config = {
 		-- 	local template = "I have the following code from {{filename}}:\n\n"
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by writing table driven unit tests for the code above."
-		-- 	gp.Prompt(params, gp.Target.enew, nil, gp.config.command_model,
-		--         template, gp.config.command_system_prompt)
+		-- 	local agent = gp.get_command_agent()
+		-- 	gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
 		-- end,
 
 		-- -- example of adding command which explains the selected code
@@ -181,14 +239,22 @@ local config = {
 		-- 	local template = "I have the following code from {{filename}}:\n\n"
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by explaining the code above."
-		-- 	gp.Prompt(params, gp.Target.popup, nil, gp.config.command_model,
-		--         template, gp.config.chat_system_prompt)
+		-- 	local agent = gp.get_chat_agent()
+		-- 	gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
 		-- end,
 	},
 }
 
+local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
 local deprecated = {
-	chat_toggle_target = "please rename `chat_toggle_target` to `toggle_target`",
+	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target` which is also used by other commands",
+	command_model = "`command_model`\n" .. switch_to_agent,
+	command_system_prompt = "`command_system_prompt`\n" .. switch_to_agent,
+	chat_custom_instructions = "`chat_custom_instructions`\n" .. switch_to_agent,
+	chat_model = "`chat_model`\n" .. switch_to_agent,
+	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
+	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
+		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
 }
 
 --------------------------------------------------------------------------------
@@ -197,13 +263,15 @@ local deprecated = {
 
 local _H = {}
 local M = {
-	_Name = "Gp (GPT prompt)", -- plugin name
 	_H = _H, -- helper functions
-	_queries = {}, -- table of latest queries
-	config = {}, -- config variables
-	cmd = {}, -- default command functions
-	cmd_hooks = {}, -- user defined command functions
+	_Name = "Gp", -- plugin name
 	_handles = {}, -- handles for running processes
+	_queries = {}, -- table of latest queries
+	_state = {}, -- table of state variables
+	agents = {}, -- table of agents
+	cmd = {}, -- default command functions
+	config = {}, -- config variables
+	hooks = {}, -- user defined command functions
 }
 
 --------------------------------------------------------------------------------
@@ -678,34 +746,67 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
+---@param msg string # message to log
+---@param kind string # hl group to use for logging
+---@param history boolean # whether to add the message to history
+M._log = function(msg, kind, history)
+	vim.schedule(function()
+		vim.api.nvim_echo({
+			{ M._Name .. ": " .. msg .. "\n", kind },
+		}, history, {})
+	end)
+end
+
 -- nicer error messages using nvim_echo
 ---@param msg string # error message
 M.error = function(msg)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", "ErrorMsg" },
-		}, true, {})
-	end)
+	M._log(msg, "ErrorMsg", true)
 end
 
 -- nicer warning messages using nvim_echo
 ---@param msg string # warning message
 M.warning = function(msg)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", "WarningMsg" },
-		}, true, {})
-	end)
+	M._log(msg, "WarningMsg", true)
 end
 
 -- nicer plain messages using nvim_echo
 ---@param msg string # plain message
 M.info = function(msg)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", "Normal" },
-		}, true, {})
-	end)
+	M._log(msg, "Normal", true)
+end
+
+---@param tbl table # the table to be stored
+---@param file_path string # the file path where the table will be stored as json
+M.table_to_file = function(tbl, file_path)
+	local json = vim.json.encode(tbl)
+
+	local file = io.open(file_path, "w")
+	if not file then
+		M.warning("Failed to open file for writing: " .. file_path)
+		return
+	end
+	file:write(json)
+	file:close()
+end
+
+---@param file_path string # the file path from where to read the json into a table
+---@return table | nil # the table read from the file, or nil if an error occurred
+M.file_to_table = function(file_path)
+	local file, err = io.open(file_path, "r")
+	if not file then
+		M.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
+		return nil
+	end
+	local content = file:read("*a")
+	file:close()
+
+	if content == nil or content == "" then
+		M.warning("Failed to read any content from file: " .. file_path)
+		return nil
+	end
+
+	local tbl = vim.json.decode(content)
+	return tbl
 end
 
 -- helper function to find the root directory of the current git repository
@@ -794,27 +895,57 @@ M.setup = function(opts)
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
-	-- mv default M.config.hooks to M.cmd_hooks
-	for k, v in pairs(M.config.hooks) do
-		M.cmd_hooks[k] = v
-	end
-	M.config.hooks = nil
-
-	-- merge user hooks to M.cmd_hooks
-	if opts.hooks then
-		for k, v in pairs(opts.hooks) do
-			M.cmd_hooks[k] = v
+	-- merge nested tables
+	local mergeTables = { "hooks", "agents" }
+	for _, tbl in ipairs(mergeTables) do
+		M[tbl] = M[tbl] or {}
+		---@diagnostic disable-next-line: param-type-mismatch
+		for k, v in pairs(M.config[tbl]) do
+			if tbl == "agents" then
+				M[tbl][v.name] = v
+			elseif tbl == "hooks" then
+				M[tbl][k] = v
+			end
 		end
-		opts.hooks = nil
+		M.config[tbl] = nil
+
+		opts[tbl] = opts[tbl] or {}
+		for k, v in pairs(opts[tbl]) do
+			if tbl == "agents" then
+				M[tbl][v.name] = v
+			elseif tbl == "hooks" then
+				M[tbl][k] = v
+			end
+		end
+		opts[tbl] = nil
 	end
 
 	-- merge user opts to M.config
+	M._deprecated = {}
 	for k, v in pairs(opts) do
 		if deprecated[k] then
-			M.warning("Deprecated option in setup(): " .. deprecated[k])
+			table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
 		else
 			M.config[k] = v
 		end
+	end
+
+	if #M._deprecated > 0 then
+		local msg = "Hey there, I have good news and bad news for you.\n"
+			.. "\nThe good news is that you've updated gp.nvim and got some new features."
+			.. "\nThe bad news is that some of the config options you are using are deprecated:"
+		table.sort(M._deprecated, function(a, b)
+			return a.msg < b.msg
+		end)
+		for _, v in ipairs(M._deprecated) do
+			msg = msg .. "\n\n- " .. v.msg
+		end
+		msg = msg
+			.. "\n\nThis is shown only at startup and deprecated options are ignored"
+			.. "\nso everything should work without problems and you can deal with this later."
+			.. "\n\nYou can check deprecated options any time with `:checkhealth gp`"
+			.. "\nSorry for the inconvenience and thank you for using gp.nvim."
+		M.info(msg)
 	end
 
 	-- make sure _dirs exists
@@ -829,10 +960,31 @@ M.setup = function(opts)
 		end
 	end
 
-	M.prepare_commands()
+	-- remove invalid agents
+	for name, agent in pairs(M.agents) do
+		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
+			M.agents[name] = nil
+		end
+	end
+
+	-- prepare agent completions
+	M._chat_agents = {}
+	M._command_agents = {}
+	for name, agent in pairs(M.agents) do
+		if agent.command then
+			table.insert(M._command_agents, name)
+		end
+		if agent.chat then
+			table.insert(M._chat_agents, name)
+		end
+	end
+	table.sort(M._chat_agents)
+	table.sort(M._command_agents)
+
+	M.refresh_state()
 
 	-- register user commands
-	for hook, _ in pairs(M.cmd_hooks) do
+	for hook, _ in pairs(M.hooks) do
 		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
 			M.call_hook(hook, params)
 		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
@@ -844,9 +996,10 @@ M.setup = function(opts)
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
 	}
+
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
-		if M.cmd_hooks[cmd] == nil then
+		if M.hooks[cmd] == nil then
 			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
 				M.cmd[cmd](params)
 			end, {
@@ -857,11 +1010,23 @@ M.setup = function(opts)
 					if completions[cmd] then
 						return completions[cmd]
 					end
+
+					if cmd == "Agent" then
+						local buf = vim.api.nvim_get_current_buf()
+						local file_name = vim.api.nvim_buf_get_name(buf)
+						if M.is_chat(buf, file_name) then
+							return M._chat_agents
+						end
+						return M._command_agents
+					end
+
 					return {}
 				end,
 			})
 		end
 	end
+
+	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
 		M.error("curl is not installed, run :checkhealth gp")
@@ -870,8 +1035,26 @@ M.setup = function(opts)
 	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
 		M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
+end
 
-	M.buf_handler()
+M.refresh_state = function()
+	local state_file = M.config.state_dir .. "/state.json"
+
+	local state = M.file_to_table(state_file) or {}
+
+	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
+	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
+		M._state.chat_agent = M._chat_agents[1]
+	end
+
+	M._state.command_agent = M._state.command_agent or state.command_agent or nil
+	if not M._state.command_agent == nil or not M.agents[M._state.command_agent] then
+		M._state.command_agent = M._command_agents[1]
+	end
+
+	M.table_to_file(M._state, state_file)
+
+	M.prepare_commands()
 end
 
 M.Target = {
@@ -894,15 +1077,10 @@ M.prepare_commands = function()
 		-- uppercase first letter
 		local command = name:gsub("^%l", string.upper)
 
-		local prefix = M.config.command_prompt_prefix
-		local system_prompt = M.config.command_system_prompt
-
-		-- model to use
-		local model = M.config.command_model
+		local agent = M.get_command_agent()
 		-- popup is like ephemeral one off chat
 		if target == M.Target.popup then
-			model = M.config.chat_model
-			system_prompt = M.config.chat_system_prompt
+			agent = M.get_chat_agent()
 		end
 
 		local cmd = function(params, whisper)
@@ -921,7 +1099,7 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(params, target, prefix, model, template, system_prompt, whisper)
+			M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt, whisper)
 		end
 
 		M.cmd[command] = function(params)
@@ -940,13 +1118,16 @@ end
 
 -- hook caller
 M.call_hook = function(name, params)
-	if M.cmd_hooks[name] ~= nil then
-		return M.cmd_hooks[name](M, params)
+	if M.hooks[name] ~= nil then
+		return M.hooks[name](M, params)
 	end
 	M.error("The hook '" .. name .. "' does not exist.")
 end
 
-M.prepare_payload = function(model, default_model, messages)
+---@param messages table
+---@param model string | table | nil
+---@param default_model string | table
+M.prepare_payload = function(messages, model, default_model)
 	model = model or default_model
 
 	-- if model is a string
@@ -1236,10 +1417,8 @@ end
 M.chat_template = [[
 # topic: ?
 
-- model: %s
 - file: %s
-- role: %s
-
+%s
 Write your queries after %s. Use `%s` or :%sChatRespond to generate a response.
 Response generation can be terminated by using `%s` or :%sChatStop command.
 Chats are saved automatically. To delete this chat, use `%s` or :%sChatDelete.
@@ -1298,7 +1477,7 @@ end
 ---@param buf number | nil # buffer number
 M.prep_md = function(buf)
 	-- disable swapping for this buffer and set filetype to markdown
-	vim.api.nvim_command("setlocal filetype=markdown noswapfile")
+	vim.api.nvim_command("setlocal noswapfile")
 	-- better text wrapping
 	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
@@ -1315,17 +1494,28 @@ M.prep_md = function(buf)
 	M._H.feedkeys("<esc>", "x")
 end
 
-M.prep_chat = function(buf, file_name)
+M.is_chat = function(buf, file_name)
 	if not _H.starts_with(file_name, M.config.chat_dir) then
-		return
+		return false
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 	if #lines < 4 then
-		return
+		return false
 	end
 
-	if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
+	if not lines[1]:match("^# ") then
+		return false
+	end
+
+	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
+		return false
+	end
+	return true
+end
+
+M.prep_chat = function(buf, file_name)
+	if not M.is_chat(buf, file_name) then
 		return
 	end
 
@@ -1376,6 +1566,12 @@ M.prep_chat = function(buf, file_name)
 		vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
 		vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
 		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
+	end
+
+	-- make last.md a symlink to the last opened chat file
+	local last = M.config.chat_dir .. "/last.md"
+	if file_name ~= last then
+		os.execute("ln -sf " .. file_name .. " " .. last)
 	end
 end
 
@@ -1514,14 +1710,6 @@ M.open_buf = function(file_name, target, kind, toggle)
 		vim.api.nvim_command("edit " .. file_name)
 	end
 
-	if kind == M._toggle_kind.chat then
-		-- make last.md a symlink to the last opened chat file
-		local last = M.config.chat_dir .. "/last.md"
-		if file_name ~= last then
-			os.execute("ln -sf " .. file_name .. " " .. last)
-		end
-	end
-
 	buf = vim.api.nvim_get_current_buf()
 	win = vim.api.nvim_get_current_win()
 	close = close or function() end
@@ -1572,20 +1760,25 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
 	-- encode as json if model is a table
-	model = model or M.config.chat_model
-	if type(model) == "table" then
-		model = vim.json.encode(model)
+	if model and type(model) == "table" then
+		model = "- model: " .. vim.json.encode(model) .. "\n"
+	elseif model then
+		model = "- model: " .. model .. "\n"
+	else
+		model = ""
 	end
 
 	-- display system prompt as single line with escaped newlines
-	system_prompt = system_prompt or M.config.chat_system_prompt
-	system_prompt = system_prompt:gsub("\n", "\\n")
+	if system_prompt then
+		system_prompt = "- role: " .. system_prompt:gsub("\n", "\\n") .. "\n"
+	else
+		system_prompt = ""
+	end
 
 	local template = string.format(
 		M.chat_template,
-		model,
 		string.match(filename, "([^/]+)$"),
-		system_prompt,
+		model .. system_prompt,
 		M.config.chat_user_prefix,
 		M.config.chat_shortcut_respond.shortcut,
 		M.config.cmd_prefix,
@@ -1739,7 +1932,7 @@ M.chat_respond = function(params)
 
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	if not (lines[1]:match("^# ") and lines[3]:match("^- model: ")) then
+	if not M.is_chat(buf, file_name) then
 		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
 		return
 	end
@@ -1782,16 +1975,49 @@ M.chat_respond = function(params)
 		end_index = math.min(end_index, params.line2)
 	end
 
+	local agent = M.get_chat_agent()
+	local agent_name = agent.name
+
+	-- if model contains { } then it is a json string otherwise it is a model name
+	if headers.model and headers.model:match("{.*}") then
+		-- unescape underscores before decoding json
+		headers.model = headers.model:gsub("\\_", "_")
+		headers.model = vim.json.decode(headers.model)
+	end
+
+	if headers.model and type(headers.model) == "table" then
+		agent_name = headers.model.model
+	elseif headers.model and headers.model:match("%S") then
+		agent_name = headers.model
+	end
+
+	if headers.role and headers.role:match("%S") then
+		---@diagnostic disable-next-line: cast-local-type
+		agent_name = agent_name .. " & custom role"
+	end
+
+	local agent_prefix = config.chat_assistant_prefix[1]
+	local agent_suffix = config.chat_assistant_prefix[2]
+	if type(M.config.chat_assistant_prefix) == "string" then
+		---@diagnostic disable-next-line: cast-local-type
+		agent_prefix = M.config.chat_assistant_prefix
+	elseif type(M.config.chat_assistant_prefix) == "table" then
+		agent_prefix = M.config.chat_assistant_prefix[1]
+		agent_suffix = M.config.chat_assistant_prefix[2] or ""
+	end
+	---@diagnostic disable-next-line: cast-local-type
+	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
+
 	for index = start_index, end_index do
 		local line = lines[index]
 		if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "user"
 			content = line:sub(#M.config.chat_user_prefix + 1)
-		elseif line:sub(1, #M.config.chat_assistant_prefix) == M.config.chat_assistant_prefix then
+		elseif line:sub(1, #agent_prefix) == agent_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "assistant"
-			content = line:sub(#M.config.chat_assistant_prefix + 1)
+			content = ""
 		elseif role ~= "" then
 			content = content .. "\n" .. line
 		end
@@ -1804,17 +2030,12 @@ M.chat_respond = function(params)
 	if headers.role and headers.role:match("%S") then
 		content = headers.role
 	else
-		content = M.config.chat_system_prompt
+		content = agent.system_prompt
 	end
 	if content:match("%S") then
 		-- make it multiline again if it contains escaped newlines
 		content = content:gsub("\\n", "\n")
 		messages[1] = { role = "system", content = content }
-	end
-
-	-- add custom instructions if they exist and contains some text
-	if M.config.chat_custom_instructions and M.config.chat_custom_instructions:match("%S") then
-		table.insert(messages, 2, { role = "system", content = M.config.chat_custom_instructions })
 	end
 
 	-- strip whitespace from ends of content
@@ -1829,20 +2050,13 @@ M.chat_respond = function(params)
 		last_content_line,
 		last_content_line,
 		false,
-		{ "", M.config.chat_assistant_prefix, "" }
+		{ "", agent_prefix .. agent_suffix, "" }
 	)
-
-	-- if model contains { } then it is a json string otherwise it is a model name
-	if headers.model and headers.model:match("{.*}") then
-		-- unescape underscores before decoding json
-		headers.model = headers.model:gsub("\\_", "_")
-		headers.model = vim.json.decode(headers.model)
-	end
 
 	-- call the model and write response
 	M.query(
 		buf,
-		M.prepare_payload(headers.model, M.config.chat_model, messages),
+		M.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", false),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
@@ -1874,11 +2088,6 @@ M.chat_respond = function(params)
 				-- insert last model response
 				table.insert(messages, { role = "assistant", content = qt.response })
 
-				-- ignore custom instructions for topic generation
-				if M.config.chat_custom_instructions and M.config.chat_custom_instructions:match("%S") then
-					table.remove(messages, 2)
-				end
-
 				-- ask model to generate topic/title for the chat
 				table.insert(messages, { role = "user", content = M.config.chat_topic_gen_prompt })
 
@@ -1889,7 +2098,7 @@ M.chat_respond = function(params)
 				-- call the model
 				M.query(
 					nil,
-					M.prepare_payload(nil, M.config.chat_topic_gen_model, messages),
+					M.prepare_payload(messages, nil, M.config.chat_topic_gen_model),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2249,6 +2458,86 @@ end
 -- Prompt logic
 --------------------
 
+M.cmd.Agent = function(params)
+	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
+	if agent_name == "" then
+		M.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
+		return
+	end
+
+	if not M.agents[agent_name] then
+		M.warning("Unknown agent: " .. agent_name)
+		return
+	end
+
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	local is_chat = M.is_chat(buf, file_name)
+	if is_chat and M.agents[agent_name].chat then
+		M._state.chat_agent = agent_name
+		M.info("Chat agent: " .. M._state.chat_agent)
+	elseif is_chat then
+		M.warning(agent_name .. " is not a Chat agent")
+	elseif M.agents[agent_name].command then
+		M._state.command_agent = agent_name
+		M.info("Command agent: " .. M._state.command_agent)
+	else
+		M.warning(agent_name .. " is not a Command agent")
+	end
+
+	M.refresh_state()
+end
+
+M.cmd.NextAgent = function()
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	local is_chat = M.is_chat(buf, file_name)
+	local current_agent, agent_list
+
+	if is_chat then
+		current_agent = M._state.chat_agent
+		agent_list = M._chat_agents
+	else
+		current_agent = M._state.command_agent
+		agent_list = M._command_agents
+	end
+
+	for i, agent_name in ipairs(agent_list) do
+		if agent_name == current_agent then
+			local next_agent = agent_list[i % #agent_list + 1]
+			if is_chat then
+				M._state.chat_agent = next_agent
+				M.info("Chat agent: " .. next_agent)
+			else
+				M._state.command_agent = next_agent
+				M.info("Command agent: " .. next_agent)
+			end
+			M.refresh_state()
+			return
+		end
+	end
+end
+
+---@return table # { cmd_prefix, name, model, system_prompt }
+M.get_command_agent = function()
+	local template = M.config.command_prompt_prefix_template
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
+	local name = M._state.command_agent
+	local model = M.agents[name].model
+	local system_prompt = M.agents[name].system_prompt
+	return { cmd_prefix = cmd_prefix, name = name, model = model, system_prompt = system_prompt }
+end
+
+---@return table # { cmd_prefix, name, model, system_prompt }
+M.get_chat_agent = function()
+	local template = M.config.command_prompt_prefix_template
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.chat_agent })
+	local name = M._state.chat_agent
+	local model = M.agents[name].model
+	local system_prompt = M.agents[name].system_prompt
+	return { cmd_prefix = cmd_prefix, name = name, model = model, system_prompt = system_prompt }
+end
+
 M.cmd.Context = function(params)
 	M._toggle_close(M._toggle_kind.popup)
 	-- if there is no selection, try to close context toggle
@@ -2530,9 +2819,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		end
 
 		-- call the model and write the response
+		local agent = M.get_command_agent()
 		M.query(
 			buf,
-			M.prepare_payload(model, M.config.command_model, messages),
+			M.prepare_payload(messages, model, agent.model),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
