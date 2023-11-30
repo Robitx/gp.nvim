@@ -2431,6 +2431,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 				flc = vim.api.nvim_buf_get_lines(buf, fl, fl + 1, false)[1]
 				llc = vim.api.nvim_buf_get_lines(buf, ll, ll + 1, false)[1]
 
+				if not flc or not llc then
+					break
+				end
+
 				local flm = flc:match("%S")
 				local llm = llc:match("%S")
 
