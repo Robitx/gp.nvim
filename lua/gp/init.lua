@@ -2628,6 +2628,46 @@ M.Whisper = function(callback)
 		return
 	end
 
+	local rec_options = {
+		sox = {
+			cmd = "sox",
+			opts = {
+				-- single channel
+				"-c",
+				"1",
+				-- small buffer
+				"--buffer",
+				"32",
+				"-d",
+				-- output file
+				M.config.whisper_dir .. "/rec.wav",
+				-- max recording time
+				"trim",
+				"0",
+				M.config.whisper_max_time,
+			},
+			exit_code = 0,
+		},
+		arecord = {
+			cmd = "arecord",
+			opts = {
+				-- single channel
+				"-c",
+				"1",
+				"-f",
+				"S16_LE",
+				"-r",
+				"48000",
+				-- max recording time
+				"-d",
+				3600,
+				-- output file
+				M.config.whisper_dir .. "/rec.wav",
+			},
+			exit_code = 1,
+		},
+	}
+
 	-- make sure openai_api_key is set
 	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
 		M.error("config.openai_api_key is not set, run :checkhealth gp")
@@ -2759,22 +2799,16 @@ M.Whisper = function(callback)
 		end)
 	end
 
-	M._H.process(nil, "sox", {
-		--[[ "-q", ]]
-		-- single channel
-		"-c",
-		"1",
-		-- output file
-		"-d",
-		M.config.whisper_dir .. "/rec.wav",
-		-- max recording time
-		"trim",
-		"0",
-		M.config.whisper_max_time,
-	}, function(code, signal, _, _)
+	local rec_cmd = "sox"
+	if vim.fn.executable("arecord") == 1 then
+		rec_cmd = "arecord"
+	end
+
+	local cmd = rec_options[rec_cmd]
+	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, _, _)
 		close()
 
-		if code and code ~= 0 then
+		if code and code ~= cmd.exit_code then
 			M.error("Sox exited with code and signal: " .. code .. " " .. signal)
 			return
 		end
