@@ -1,0 +1,162 @@
+*gp.txt*                 GPT Prompt plugin for Neovim
+
+==============================================================================
+CONTENTS                                                       *gp-contents*
+
+  1. Introduction ......................... |gp-intro|
+  2. Commands ............................. |gp-commands|
+     2.1. General Commands ................. |gp-general-commands|
+     2.2. Chat Commands .................... |gp-chat-commands|
+     2.3. Context Commands ................. |gp-context-commands|
+     2.4. Agent Commands ................... |gp-agent-commands|
+     2.5. Whisper Commands ................. |gp-whisper-commands|
+  3. Hooks ................................ |gp-hooks|
+  4. Query Handling ....................... |gp-query-handling|
+  5. Configurations ....................... |gp-config|
+  6. Known Issues ......................... |gp-issues|
+  7. Change Log ........................... |gp-change-log|
+
+==============================================================================
+1. INTRODUCTION                                                     *gp-intro*
+
+Gp (GPT prompt) is a Neovim Lua plugin for interacting with advanced AI models
+such as OpenAI's GPT-3. Utilizing this plugin, users can generate automated text
+responses, rewrite selections, insert generated code and text snippets, and
+create chat interactions with an AI assistant. The plugin offers customization
+through various settings and allows for dynamic agent switching based on user
+preferences.
+
+To get started with Gp, first ensure you have both cURL and 'sox' utilities
+installed on your system. Set your OpenAI API key in the plugin configuration
+and install any additional dependencies required by the plugin. Once configured,
+users can interact with the plugin's features using several key mappings and
+ex-commands, or by installing user-defined hooks for custom functionality.
+
+==============================================================================
+2. COMMANDS                                                        *gp-commands*
+
+The following is a list of commands provided by the Gp plugin, with brief
+descriptions of their functionality.
+
+------------------------------------------------------------------------------
+2.1. GENERAL COMMANDS                                  *gp-general-commands*
+
+:GpStop
+  Stop all current Gp processes.
+
+:GpAgent [{agent-name}]
+  Switch the current agent used for GPT queries to the specified agent name.
+  If {agent-name} is omitted, the current agents for both chat and command
+  contexts are displayed.                                     |gp-agent-commands|
+
+:GpNextAgent
+  Switch to the next available agent based on the current file type (chat or
+  non-chat context).                                          |gp-agent-commands|
+
+:GpWhisper
+  Use the 'sox' utility to record voice input and transcribe it via OpenAI's
+  Whisper API.                                                 |gp-whisper-commands|
+
+    *                                                           *gp-commands*
+------------------------------------------------------------------------------
+2.2. CHAT COMMANDS                                      *gp-chat-commands*
+
+:GpChatNew
+:GpChatToggle
+:GpChatPaste
+:GpChatDelete
+:GpChatRespond
+  These commands interact with chat files and perform actions such as creating
+  a new chat, toggling chat visibility, pasting selected text into a chat,
+  deleting a chat, and generating a response within a chat context.
+
+:GpChatFinder
+  Open a popup window to search and navigate through chat files using the
+  provided finder interface.
+
+------------------------------------------------------------------------------
+2.3. CONTEXT COMMANDS                                   *gp-context-commands*
+
+:GpContext
+  Opens a context file (.gp.md) within the root of the current git repository
+  for additional context provision.
+
+------------------------------------------------------------------------------
+2.4. AGENT COMMANDS                                       *gp-agent-commands*
+
+:GpAgent [{agent-name}]
+:GpNextAgent
+  Set the current agent or switch to the next agent for GPT prompts.
+
+------------------------------------------------------------------------------
+2.5. WHISPER COMMANDS                                    *gp-whisper-commands*
+
+:GpWhisper
+  Start an interactive voice-to-text conversion process using OpenAI's Whisper
+  API and transcribe user's speech input.
+
+==============================================================================
+3. HOOKS                                                             *gp-hooks*
+
+Users can define custom hooks by extending the `hooks` table in the plugin's
+configuration. Each hook key should map to a function which receives the plugin
+instance (M) and params of the invoked command.
+
+Example:
+```lua
+require('gp').setup({
+  hooks = {
+    MyCustomCommand = function(M, params)
+      -- Custom command logic here.
+    end,
+  }
+})
+```
+
+Add the corresponding command using Neovim's `nvim_create_user_command` API and
+refer to the hook function using `M.call_hook`.
+
+==============================================================================
+4. QUERY HANDLING                                             *gp-query-handling*
+
+Gp allows users to handle GPT queries with customizable response delivery
+methods such as appending, prepending, rewriting, and opening in new popups or
+buffers. The plugin provides helper functions for managing process handles,
+constructing payloads for the GPT models, cleaning up old queries, and defining
+custom response handlers and exit callbacks.
+
+==============================================================================
+5. CONFIGURATIONS                                                 *gp-config*
+
+The plugin behavior can be tailored through various configuration settings, such
+as directories for storing chats and whisper recordings, OpenAI API keys, agent
+definitions, templates for different command modes, and styling options for
+popups and chat windows.
+
+Example:
+```lua
+require('gp').setup({
+  openai_api_key = "your_api_key",
+  chat_dir = "/path/to/chat/directory",
+  -- ... other configurations ...
+})
+```
+
+==============================================================================
+6. KNOWN ISSUES                                                   *gp-issues*
+
+- Ensure Vim/Nvim is compiled with +terminal and +timers features.
+- For Whisper functionality, ensure 'sox' is installed on the system.
+- Due to the reliance on external tools, some features may not be supported on
+  all operating systems.
+- Always check the plugin repository and documentation for updates and new
+  features.
+
+==============================================================================
+7. CHANGE LOG                                                   *gp-change-log*
+
+Refer to the Git history and release notes in the plugin repository for a
+complete list of changes and updates to the Gp plugin.
+
+
+==============================================================================
