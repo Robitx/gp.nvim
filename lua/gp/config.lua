@@ -196,7 +196,7 @@ local config = {
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
 
 			local agent = gp.get_command_agent()
-			gp.Info("Implementing selection with agent: " .. agent.name)
+			gp.info("Implementing selection with agent: " .. agent.name)
 
 			gp.Prompt(
 				params,
