@@ -95,7 +95,7 @@ The core plugin only needs `curl` installed to make calls to OpenAI API and `gre
 Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio recording and processing:
 
 - Mac OS: `brew install sox`
-- Ubuntu/Debian: `apt-get install sox`
+- Ubuntu/Debian: `apt-get install sox libsox-fmt-mp3`
 - Arch Linux: `pacman -S sox`
 - Redhat/CentOS: `yum install sox`
 - NixOS: `nix-env -i sox`
