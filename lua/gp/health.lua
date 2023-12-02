@@ -45,8 +45,18 @@ function M.check()
 
 	if vim.fn.executable("sox") == 1 then
 		vim.health.ok("sox is installed")
+		local output = vim.fn.system("sox -h | grep -i mp3 | wc -l 2>/dev/null")
+		if output:sub(1, 1) == "0" then
+			vim.health.error("sox is not compiled with mp3 support" .. "\n  on debian/ubuntu install libsox-fmt-mp3")
+		else
+			vim.health.ok("sox is compiled with mp3 support")
+		end
 	else
 		vim.health.warn("sox is not installed")
+	end
+
+	if vim.fn.executable("arecord") == 1 then
+		vim.health.ok("arecord found - will be used for recording (sox for post-processing)")
 	end
 
 	if #gp._deprecated > 0 then
