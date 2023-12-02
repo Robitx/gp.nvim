@@ -831,6 +831,27 @@ M.Target = {
 	enew = function(filetype)
 		return { type = 4, filetype = filetype }
 	end,
+
+	--- for creating a new horizontal split
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=5 and filetype=filetype
+	new = function(filetype)
+		return { type = 5, filetype = filetype }
+	end,
+
+	--- for creating a new vertical split
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=6 and filetype=filetype
+	vnew = function(filetype)
+		return { type = 6, filetype = filetype }
+	end,
+
+	--- for creating a new tab
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=7 and filetype=filetype
+	tabnew = function(filetype)
+		return { type = 7, filetype = filetype }
+	end,
 }
 
 -- creates prompt commands for each target
@@ -2343,9 +2364,9 @@ M.cmd.Context = function(params)
 end
 
 M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
-	-- backwards compatibility for old usage of enew
+	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
-		target = M.Target.enew()
+		target = target()
 	end
 
 	target = target or M.Target.enew()
@@ -2505,6 +2526,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		local filename = vim.api.nvim_buf_get_name(buf)
 
 		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
+		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
 		local repo_instructions = M.repo_instructions()
@@ -2572,7 +2594,17 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- prepare handler
 			handler = M.create_handler(buf, win, 0, false, "", false)
 			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
-		elseif type(target) == "table" and target.type == M.Target.enew().type then
+		elseif type(target) == "table" then
+			if target.type == M.Target.new().type then
+				vim.cmd("split")
+				win = vim.api.nvim_get_current_win()
+			elseif target.type == M.Target.vnew().type then
+				vim.cmd("vsplit")
+				win = vim.api.nvim_get_current_win()
+			elseif target.type == M.Target.tabnew().type then
+				vim.cmd("tabnew")
+				win = vim.api.nvim_get_current_win()
+			end
 			-- create a new buffer
 			buf = vim.api.nvim_create_buf(true, false)
 			-- set the created buffer as the current buffer

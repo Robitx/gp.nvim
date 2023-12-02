@@ -132,7 +132,10 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
   - `:GpRewrite` - answer replaces the current line, visual selection or range
   - `:GpAppend` - answers after the current line, visual selection or range
   - `:GpPrepend` - answers before the current line, selection or range
-  - `:GpEnew` - answers into new buffer
+  - `:GpEnew` - answers into a new buffer in the current window
+  - `:GpNew` - answers into new horizontal split window
+  - `:GpVnew` - answers into new vertical split window
+  - `:GpTabnew` - answers into new tab
   - `:GpPopup` - answers into pop up window
   - `:GpImplement` - default example hook command for finishing the code  
     based on comments provided in visual selection or specified range
@@ -163,7 +166,10 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
   - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
   - `:GpWhisperAppend` - answers after the current line, visual selection or range
   - `:GpWhisperPrepend` - answers before the current line, selection or range
-  - `:GpWhisperEnew` - answers into new buffer
+  - `:GpWhisperEnew` - answers into new buffer in the current window
+  - `:GpWhisperNew` - answers into new horizontal split
+  - `:GpWhisperVnew` - answers into new vertical split
+  - `:GpWhisperTabnew` - answers into new tab
   - `:GpWhisperPopup` - answers into pop up window
 - To stop the stream of currently running gpt response you can use `:GpStop`
 - Run your own custom hook commands:
