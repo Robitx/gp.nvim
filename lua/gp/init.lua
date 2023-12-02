@@ -1610,7 +1610,7 @@ end
 
 M.cmd.ChatToggle = function(params, model, system_prompt)
 	M._toggle_close(M._toggle_kind.popup)
-	if M._toggle_close(M._toggle_kind.chat) then
+	if M._toggle_close(M._toggle_kind.chat) and params.range ~= 2 then
 		return
 	end
 
