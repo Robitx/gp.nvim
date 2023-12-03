@@ -1221,18 +1221,26 @@ M._toggle_kind = {
 }
 
 ---@param kind number # kind of toggle
----@return boolean # true if popup was closed
+---@return boolean # true if toggle was closed
 M._toggle_close = function(kind)
 	if
 		M._toggle[kind]
 		and M._toggle[kind].win
+		and M._toggle[kind].buf
 		and M._toggle[kind].close
 		and vim.api.nvim_win_is_valid(M._toggle[kind].win)
+		and vim.api.nvim_buf_is_valid(M._toggle[kind].buf)
+		and vim.api.nvim_win_get_buf(M._toggle[kind].win) == M._toggle[kind].buf
 	then
-		M._toggle[kind].close()
-		M._toggle[kind] = nil
+		if #vim.api.nvim_list_wins() == 1 then
+			M.warning("Can't close the last window.")
+		else
+			M._toggle[kind].close()
+			M._toggle[kind] = nil
+		end
 		return true
 	end
+	M._toggle[kind] = nil
 	return false
 end
 
