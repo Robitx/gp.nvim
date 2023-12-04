@@ -20,7 +20,8 @@ M._spinner_timer = nil
 M._current_spinner_frame = 1
 
 M._display_spinner = function(msg)
-	vim.notify(M._spinner_frames[M._current_spinner_frame] .. " " .. msg, vim.log.levels.INFO)
+	local spinner_msg = M._spinner_frames[M._current_spinner_frame] .. " " .. msg
+	vim.api.nvim_echo({ { spinner_msg, "Normal" } }, false, {})
 	M._current_spinner_frame = (M._current_spinner_frame % #M._spinner_frames) + 1
 end
 
@@ -48,7 +49,6 @@ function M.stop_spinner()
 		M._spinner_timer:stop()
 		M._spinner_timer:close()
 		M._spinner_timer = nil
-		vim.notify("Operation complete", vim.log.levels.INFO)
 	end
 end
 
