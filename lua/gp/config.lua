@@ -177,6 +177,101 @@ local config = {
 	-- The language of the input audio, in ISO-639-1 format.
 	whisper_language = "en",
 
+	-- image generation settings
+	-- image prompt prefix for asking user for input (supports {{agent}} template variable)
+	image_prompt_prefix_template = "🖌️ {{agent}} ~ ",
+	-- image prompt prefix for asking location to save the image
+	image_prompt_save = "🖌️💾 ~ ",
+	-- default image agents (model + settings)
+	-- to remove some default agent completely set it just with the name like:
+	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid" }, ... },
+	image_agents = {
+		{
+			name = "DALL-E-3-1024x1024-vivid",
+			model = "dall-e-3",
+			quality = "standard",
+			style = "vivid",
+			size = "1024x1024",
+		},
+		{
+			name = "DALL-E-3-1792x1024-vivid",
+			model = "dall-e-3",
+			quality = "standard",
+			style = "vivid",
+			size = "1792x1024",
+		},
+		{
+			name = "DALL-E-3-1024x1792-vivid",
+			model = "dall-e-3",
+			quality = "standard",
+			style = "vivid",
+			size = "1024x1792",
+		},
+		{
+			name = "DALL-E-3-1024x1024-natural",
+			model = "dall-e-3",
+			quality = "standard",
+			style = "natural",
+			size = "1024x1024",
+		},
+		{
+			name = "DALL-E-3-1792x1024-natural",
+			model = "dall-e-3",
+			quality = "standard",
+			style = "natural",
+			size = "1792x1024",
+		},
+		{
+			name = "DALL-E-3-1024x1792-natural",
+			model = "dall-e-3",
+			quality = "standard",
+			style = "natural",
+			size = "1024x1792",
+		},
+		{
+			name = "DALL-E-3-1024x1024-vivid-hd",
+			model = "dall-e-3",
+			quality = "hd",
+			style = "vivid",
+			size = "1024x1024",
+		},
+		{
+			name = "DALL-E-3-1792x1024-vivid-hd",
+			model = "dall-e-3",
+			quality = "hd",
+			style = "vivid",
+			size = "1792x1024",
+		},
+		{
+			name = "DALL-E-3-1024x1792-vivid-hd",
+			model = "dall-e-3",
+			quality = "hd",
+			style = "vivid",
+			size = "1024x1792",
+		},
+		{
+			name = "DALL-E-3-1024x1024-natural-hd",
+			model = "dall-e-3",
+			quality = "hd",
+			style = "natural",
+			size = "1024x1024",
+		},
+		{
+			name = "DALL-E-3-1792x1024-natural-hd",
+			model = "dall-e-3",
+			quality = "hd",
+			style = "natural",
+			size = "1792x1024",
+		},
+		{
+			name = "DALL-E-3-1024x1792-natural-hd",
+			model = "dall-e-3",
+			quality = "hd",
+			style = "natural",
+			size = "1024x1792",
+		},
+	},
+
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
