@@ -34,6 +34,7 @@ local M = {
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
+	spinner = require("gp.spinner"), -- spinner module
 }
 
 --------------------------------------------------------------------------------
@@ -2880,6 +2881,74 @@ M.cmd.Whisper = function(params)
 
 		if text then
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
+		end
+	end)
+end
+
+M.cmd.Image = function(params)
+	local prompt = params.args
+	if prompt == "" then
+		vim.ui.input({ prompt = "🖌️ ~ " }, function(input)
+			prompt = input
+			if not prompt then
+				return
+			end
+			M.generate_image(prompt)
+		end)
+	else
+		M.generate_image(prompt)
+	end
+end
+
+function M.generate_image(prompt)
+	local cmd = "curl"
+	local args = {
+		"-H",
+		"Content-Type: application/json",
+		"-H",
+		"Authorization: Bearer " .. M.config.openai_api_key,
+		"-d",
+		vim.json.encode({
+			model = "dall-e-3",
+			prompt = prompt,
+			n = 1,
+			size = "1024x1024",
+		}),
+		"https://api.openai.com/v1/images/generations",
+	}
+
+	M.spinner.start_spinner("Generating image...")
+
+	_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
+		if code ~= 0 then
+			M.spinner.stop_spinner()
+			vim.notify("Failed to generate image: " .. stderr_data, vim.log.levels.ERROR)
+			return
+		end
+		local result = vim.json.decode(stdout_data)
+		if result and result.data and result.data[1] and result.data[1].url then
+			local image_url = result.data[1].url
+			vim.ui.input({ prompt = "🖼️💾: " }, function(save_path)
+				if save_path then
+					M.spinner.start_spinner("Saving image...")
+					vim.fn.jobstart({ "curl", "-o", save_path, image_url }, {
+						on_exit = function(j, return_val)
+							M.spinner.stop_spinner()
+							if return_val == 0 then
+								vim.notify("Image saved to: " .. save_path, vim.log.levels.INFO)
+							else
+								vim.notify("Failed to download the image.", vim.log.levels.ERROR)
+							end
+						end,
+					})
+				else
+					M.spinner.stop_spinner()
+					vim.notify("Image generation canceled.", vim.log.levels.INFO)
+				end
+			end)
+		else
+			M.spinner.stop_spinner()
+			vim.notify("Failed to parse the response from DALL-E.", vim.log.levels.ERROR)
 		end
 	end)
 end
