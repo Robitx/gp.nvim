@@ -31,6 +31,7 @@ local M = {
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
 	agents = {}, -- table of agents
+    image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
@@ -2909,7 +2910,7 @@ end
 M.cmd.ImageAgent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
-		M.info(" Image agent: " .. (M._state.image_agent or "none"))
+		M.info("Image agent: " .. (M._state.image_agent or "none"))
 		return
 	end
 
@@ -2945,10 +2946,10 @@ M.cmd.Image = function(params)
 			if not prompt then
 				return
 			end
-			M.generate_image(prompt)
+			M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
 		end)
 	else
-		M.generate_image(prompt)
+		M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
 	end
 end
 
