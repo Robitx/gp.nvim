@@ -31,7 +31,7 @@ local M = {
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
 	agents = {}, -- table of agents
-    image_agents = {}, -- table of image agents
+	image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
@@ -641,6 +641,35 @@ M.append_selection = function(params, origin_buf, target_buf)
 	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
+local split_command = function(command)
+	local cmd = {}
+	for word in command:gmatch("%S+") do
+		table.insert(cmd, word)
+	end
+	return cmd
+end
+
+local job = require("plenary.job")
+local function load_openai_key_by_cmd(command, _config)
+	local cmd = split_command(command)
+	job:new({
+		command = cmd[1],
+		args = vim.list_slice(cmd, 2, #cmd),
+		on_exit = function(j, exit_code)
+			if exit_code ~= 0 then
+				M.warning("gp.nvim config.openai_api_key_cmd need return a value")
+				return
+			end
+			local value = j:result()[1]:gsub("%s+$", "")
+			if value ~= nil and value ~= "" then
+				M.warning("gp.nvim config.openai_api_key_cmd need return a value")
+			else
+				_config.openai_api_key = value
+			end
+		end,
+	}):start()
+end
+
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
@@ -812,9 +841,18 @@ M.setup = function(opts)
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
+	local api_key_check = function(key)
+		return key == nil or key == ""
+	end
+	if api_key_check(M.config.openai_api_key) and api_key_check(M.config.openai_api_key_cmd) then
 		M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
 	end
+	if api_key_check(M.config.openai_api_key) then
+		load_openai_key_by_cmd(M.config.openai_api_key_cmd, M.config)
+	end
+	-- if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
+	-- 	M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
+	-- end
 end
 
 M.refresh_state = function()

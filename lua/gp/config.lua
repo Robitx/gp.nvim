@@ -8,6 +8,7 @@
 local config = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
+	openai_api_key_cmd = "",
 	-- api endpoint (you can change this to azure endpoint)
 	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
 	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
