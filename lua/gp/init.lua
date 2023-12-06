@@ -200,6 +200,20 @@ M.remove_handle = function(pid)
 	end
 end
 
+---@param buf number # buffer number
+_H.undojoin = function(buf)
+	if not buf or not vim.api.nvim_buf_is_loaded(buf) then
+		return
+	end
+	local status, result = pcall(vim.cmd.undojoin)
+	if not status then
+		if result:match("E790") then
+			return
+		end
+		M.error("Error running undojoin: " .. vim.inspect(result))
+	end
+end
+
 ---@param buf number | nil # buffer number
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
@@ -1159,7 +1173,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 		if skip_first_undojoin then
 			skip_first_undojoin = false
 		else
-			vim.cmd("undojoin")
+			M._H.undojoin(buf)
 		end
 
 		if not qt.ns_id then
@@ -1178,7 +1192,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 
 		-- append new response
 		response = response .. chunk
-		vim.cmd("undojoin")
+		M._H.undojoin(buf)
 
 		-- prepend prefix to each line
 		local lines = vim.split(response, "\n")
@@ -1880,7 +1894,7 @@ M.chat_respond = function(params)
 
 			-- write user prompt
 			last_content_line = M._H.last_content_line(buf)
-			vim.cmd("undojoin")
+			M._H.undojoin(buf)
 			vim.api.nvim_buf_set_lines(
 				buf,
 				last_content_line,
@@ -1891,10 +1905,10 @@ M.chat_respond = function(params)
 
 			-- delete whitespace lines at the end of the file
 			last_content_line = M._H.last_content_line(buf)
-			vim.cmd("undojoin")
+			M._H.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 			-- insert a new line at the end of the file
-			vim.cmd("undojoin")
+			M._H.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
 			-- if topic is ?, then generate it
@@ -1930,7 +1944,7 @@ M.chat_respond = function(params)
 						end
 
 						-- replace topic in current buffer
-						vim.cmd("undojoin")
+						M._H.undojoin(buf)
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
 					end)
 				)
@@ -2501,10 +2515,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 				end
 
 				if not flm then
-					vim.cmd("undojoin")
+					M._H.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				else
-					vim.cmd("undojoin")
+					M._H.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, ll, ll + 1, false, {})
 				end
 				ll = ll - 1
@@ -2513,10 +2527,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			-- if fl and ll starts with triple backticks, remove these lines
 			if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
 				-- remove first line with undojoin
-				vim.cmd("undojoin")
+				M._H.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				-- remove last line
-				vim.cmd("undojoin")
+				M._H.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
 				ll = ll - 2
 			end
