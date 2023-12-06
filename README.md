@@ -164,7 +164,8 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
   commands are context aware (they switch chat or command agent based on the current buffer)
 
 - Voice commands transcribed by Whisper API:
-  - `:GpWhisper` - transcription replaces the current line, visual selection or range
+  - `:GpWhisper` - transcription replaces the current line, visual selection or range in the current buffer (use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel)  
+for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
   - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
   - `:GpWhisperAppend` - answers after the current line, visual selection or range
   - `:GpWhisperPrepend` - answers before the current line, selection or range
