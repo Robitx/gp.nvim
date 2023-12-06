@@ -650,6 +650,10 @@ local split_command = function(command)
 end
 
 local job = require("plenary.job")
+
+--- load openai api key in asynchronous way
+---@param command string the command whose result is the api key
+---@param _config table the M.config table
 local function load_openai_key_by_cmd(command, _config)
 	local cmd = split_command(command)
 	job:new({
@@ -850,9 +854,6 @@ M.setup = function(opts)
 	if api_key_check(M.config.openai_api_key) then
 		load_openai_key_by_cmd(M.config.openai_api_key_cmd, M.config)
 	end
-	-- if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
-	-- 	M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
-	-- end
 end
 
 M.refresh_state = function()

@@ -8,6 +8,7 @@
 local config = {
 	-- required openai api key
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
+	-- openai api key from cmd, only works without openai_api_key
 	openai_api_key_cmd = "",
 	-- api endpoint (you can change this to azure endpoint)
 	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
