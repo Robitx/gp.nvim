@@ -31,7 +31,7 @@ local M = {
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
 	agents = {}, -- table of agents
-    image_agents = {}, -- table of image agents
+	image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
@@ -3013,8 +3013,13 @@ function M.generate_image(prompt, model, quality, style, size)
 			local image_url = result.data[1].url
 			query.url = image_url
 			-- query.prompt = result.data[1].prompt
-			vim.ui.input({ prompt = M.config.image_prompt_save, completion = "file" }, function(save_path)
-				if save_path then
+			vim.ui.input(
+				{ prompt = M.config.image_prompt_save, completion = "file", default = M.config.image_dir },
+				function(save_path)
+					if not save_path or save_path == "" then
+						M.info("Image URL: " .. image_url)
+						return
+					end
 					query.save_path = save_path
 					M.spinner.start_spinner("Saving image...")
 					_H.process(
@@ -3041,10 +3046,8 @@ function M.generate_image(prompt, model, quality, style, size)
 							end
 						end
 					)
-				else
-					M.info("Image URL: " .. image_url)
 				end
-			end)
+			)
 		else
 			M.error("Image generation failed: " .. vim.inspect(stdout_data))
 		end
