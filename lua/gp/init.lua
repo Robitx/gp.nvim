@@ -2828,6 +2828,7 @@ M.Whisper = function(callback)
 		local cmd = "cd "
 			.. M.config.whisper_dir
 			.. " && "
+			.. "export LC_NUMERIC='C' && "
 			-- normalize volume to -3dB
 			.. "sox --norm=-3 rec.wav norm.wav && "
 			-- get RMS level dB * silence threshold
