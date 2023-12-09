@@ -61,6 +61,12 @@ function M.check()
 
 	if vim.fn.executable("arecord") == 1 then
 		vim.health.ok("arecord found - will be used for recording (sox for post-processing)")
+	elseif vim.fn.executable("ffmpeg") == 1 then
+		local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
+		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+		if devices == "1" then
+			vim.health.ok("ffmpeg with avfoundation found - will be used for recording (sox for post-processing)")
+		end
 	end
 
 	if #gp._deprecated > 0 then
