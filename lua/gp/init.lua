@@ -2801,7 +2801,7 @@ M.Whisper = function(callback)
 				"3600",
 				M.config.whisper_dir .. "/rec.wav",
 			},
-			exit_code = 0,
+			exit_code = 255,
 		},
 	}
 
