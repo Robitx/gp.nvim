@@ -20,7 +20,7 @@ Gp.nvim provides you ChatGPT like sessions and instructable text/code operations
 
 ## Goals and Features
 
-The goal is to extend Neovim with the **power of GPT models in a simple unobtrusive extensible way.**
+The goal is to extend Neovim with the **power of GPT models in a simple unobtrusive extensible way.**  
 Trying to keep things as native as possible - reusing and integrating well with the natural features of (Neo)vim.
 
 - **Streaming responses**
@@ -40,13 +40,13 @@ Trying to keep things as native as possible - reusing and integrating well with 
   - templating mechanism to combine user instructions, selections etc into the gpt query
   - multimodal - same command works for normal/insert mode, with selection or a range
   - many possible output targets - rewrite, prepend, append, new buffer, popup
-  - non interactive command mode available for common repetitive tasks implementable as simple hooks
-    (explain something in a popup window, write unit tests for selected code into a new buffer,
+  - non interactive command mode available for common repetitive tasks implementable as simple hooks  
+    (explain something in a popup window, write unit tests for selected code into a new buffer,  
     finish selected code based on comments in it, etc.)
-  - custom instructions per repository with `.gp.md` file
+  - custom instructions per repository with `.gp.md` file  
     (instruct gpt to generate code using certain libs, packages, conventions and so on)
 - **Speech to text support**
-  - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense
+  - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
     (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
 ## Install
@@ -85,14 +85,14 @@ use({
 
 ### 2. OpenAI API key
 
-Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
-and use it in the [config](#4-configuration) (or **setup env `OPENAI_API_KEY`** or use one system command which returned the API key).
+Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
-There are two options to set OpenAI API key:
-1. use `openai_api_key`: it is a string. You can set the key directly (not recommended) or use env `OPENAI_API_KEY`.
-2. use `openai_api_key_cmd`: it is highly secure when you use some password managers like [1Password](https://1password.com/) or [Bitwarden](https://bitwarden.com/).
-
-Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
+The OpenAI API key can be passed to the plugin in multiple ways:
+- set up env variable `OPENAI_API_KEY` which the plugin tries to read by default and fills into `openai_api_key` automatically
+- set up any env name you want and read it via `openai_api_key = os.getenv("env_name.."),`
+- insert the key directly into the config `openai_api_key: "sk-...",` (least safe from security standpoint)
+- read the key from a file `openai_api_key = { "cat", "path_to/openai_api_key" },`
+- use cli command from your password manager (like [1Password](https://1password.com/) or [Bitwarden](https://bitwarden.com/)) by passing a list (command + attributes) into the config field `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`, this is the most secure way, but managers are often take a second or two (Gp runs the command asynchronously to avoid blocking neovim)
 
 ### 3. Dependencies
 
@@ -118,15 +118,15 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
 
 - Have ChatGPT experience directly in neovim:
 
-  - `:GpChatNew` - open fresh chat in the current window
+  - `:GpChatNew` - open fresh chat in the current window  
     (either empty or with the visual selection or specified range as a context)
   - `:GpChatPaste` - paste the selection or specified range to the latest chat
     (simplifies adding code from multiple files into a single chat buffer)
-  - `:GpChatToggle` - open chat in toggleable popup window
+  - `:GpChatToggle` - open chat in toggleable popup window  
     (the last active chat or a fresh one with selection or a range as a context)
   - `:GpChatFinder` - open a dialog to search through chats
   - `:GpChatRespond` - request new gpt response for the current chat
-  - `:GpChatRespond N` - request new gpt response with only last N messages as a context
+  - `:GpChatRespond N` - request new gpt response with only last N messages as a context  
     (using everything from the end up to Nth instance of `🗨:..` => `N=1` is like asking a question in a new chat)
   - `:GpChatDelete` - delete the current chat
 
@@ -143,7 +143,7 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
   - `:GpVnew` - answers into new vertical split window
   - `:GpTabnew` - answers into new tab
   - `:GpPopup` - answers into pop up window
-  - `:GpImplement` - default example hook command for finishing the code
+  - `:GpImplement` - default example hook command for finishing the code  
     based on comments provided in visual selection or specified range
 
   all these command work either:
@@ -169,7 +169,7 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
 
 - Voice commands transcribed by Whisper API:
   - `:GpWhisper` - transcription replaces the current line, visual selection or range in the current buffer (use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel)  
-for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
+    for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
   - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
   - `:GpWhisperAppend` - answers after the current line, visual selection or range
   - `:GpWhisperPrepend` - answers before the current line, selection or range
@@ -666,7 +666,7 @@ The raw plugin text editing method `Prompt` has seven aprameters:
 - `prompt`
   - string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
   - if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
-  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called
+  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
     (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
 - `model`
   - see [gpt model overview](https://platform.openai.com/docs/models/overview)

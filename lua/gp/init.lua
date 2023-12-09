@@ -655,39 +655,6 @@ M.append_selection = function(params, origin_buf, target_buf)
 	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
-local split_command = function(command)
-	local cmd = {}
-	for word in command:gmatch("%S+") do
-		table.insert(cmd, word)
-	end
-	return cmd
-end
-
-local job = require("plenary.job")
-
---- load openai api key in asynchronous way
----@param command string the command whose result is the api key
----@param _config table the M.config table
-local function load_openai_key_by_cmd(command, _config)
-	local cmd = split_command(command)
-	job:new({
-		command = cmd[1],
-		args = vim.list_slice(cmd, 2, #cmd),
-		on_exit = function(j, exit_code)
-			if exit_code ~= 0 then
-				M.warning("gp.nvim config.openai_api_key_cmd need return a value")
-				return
-			end
-			local value = j:result()[1]:gsub("%s+$", "")
-			if value ~= nil and value ~= "" then
-				M.warning("gp.nvim config.openai_api_key_cmd need return a value")
-			else
-				_config.openai_api_key = value
-			end
-		end,
-	}):start()
-end
-
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
@@ -859,15 +826,59 @@ M.setup = function(opts)
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	local api_key_check = function(key)
-		return key == nil or key == ""
+	if type(M.config.openai_api_key) == "table" then
+		---@diagnostic disable-next-line: param-type-mismatch
+		local copy = vim.deepcopy(M.config.openai_api_key)
+		---@diagnostic disable-next-line: param-type-mismatch
+		local cmd = table.remove(copy, 1)
+		local args = copy
+		---@diagnostic disable-next-line: param-type-mismatch
+		_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
+			if code == 0 then
+				local content = stdout_data:match("^%s*(.-)%s*$")
+				if not string.match(content, "%S") then
+					M.warning(
+						"response from the config.openai_api_key command "
+							.. vim.inspect(M.config.openai_api_key)
+							.. " is empty"
+					)
+					return
+				end
+				M.config.openai_api_key = content
+			else
+				M.warning(
+					"config.openai_api_key command "
+						.. vim.inspect(M.config.openai_api_key)
+						.. " to retrieve openai_api_key failed:\ncode: "
+						.. code
+						.. ", signal: "
+						.. signal
+						.. "\nstdout: "
+						.. stdout_data
+						.. "\nstderr: "
+						.. stderr_data
+				)
+			end
+		end)
+	else
+		M.valid_api_key()
 	end
-	if api_key_check(M.config.openai_api_key) and api_key_check(M.config.openai_api_key_cmd) then
-		M.warning("gp.nvim config.openai_api_key is not set, run :checkhealth gp")
+end
+
+M.valid_api_key = function()
+	local api_key = M.config.openai_api_key
+
+	if type(api_key) == "table" then
+		M.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
+		return false
 	end
-	if api_key_check(M.config.openai_api_key) then
-		load_openai_key_by_cmd(M.config.openai_api_key_cmd, M.config)
+
+	if api_key and string.match(api_key, "%S") then
+		return true
 	end
+
+	M.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
+	return false
 end
 
 M.refresh_state = function()
@@ -1053,9 +1064,7 @@ M.query = function(buf, payload, handler, on_exit)
 		return
 	end
 
-	-- make sure openai_api_key is set
-	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
-		M.error("config.openai_api_key is not set, run :checkhealth gp")
+	if not M.valid_api_key() then
 		return
 	end
 
@@ -1780,9 +1789,7 @@ M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	-- make sure openai_api_key is set
-	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
-		M.error("config.openai_api_key is not set, run :checkhealth gp")
+	if not M.valid_api_key() then
 		return
 	end
 
@@ -2784,9 +2791,7 @@ M.Whisper = function(callback)
 		},
 	}
 
-	-- make sure openai_api_key is set
-	if M.config.openai_api_key == nil or M.config.openai_api_key == "" then
-		M.error("config.openai_api_key is not set, run :checkhealth gp")
+	if not M.valid_api_key() then
 		return
 	end
 
@@ -3008,6 +3013,10 @@ M.cmd.Image = function(params)
 end
 
 function M.generate_image(prompt, model, quality, style, size)
+	if not M.valid_api_key() then
+		return
+	end
+
 	local cmd = "curl"
 	local payload = {
 		model = model,
