@@ -2936,9 +2936,9 @@ M.Whisper = function(callback)
 
 	local rec_cmd = "sox"
 	if vim.fn.executable("ffmpeg") == 1 then
-		local devices = vim.fn.system("ffmpeg -devices | grep -i avfoundation | wc -l")
-		if tonumber(devices) > 0 then
-			print("Using ffmpeg")
+		local devices = vim.fn.system("ffmpeg -devices 2>/dev/null | grep -i avfoundation | wc -l")
+		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+		if devices == "1" then
 			rec_cmd = "ffmpeg"
 		end
 	end
