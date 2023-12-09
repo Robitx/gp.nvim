@@ -90,11 +90,11 @@ Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/ac
 The OpenAI API key can be passed to the plugin in multiple ways:
 | Method                                                                                    | Example                                                         | Security Level |
 |---------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------------|
-| Hardcoded string                                                       | `openai_api_key: "sk-...",`                   | Low            |
-| Default Environment Variable                                             | Set `OPENAI_API_KEY` in shell configuration                     | Medium         |
-| Custom Environment Variable                          | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),` | Medium         |
-| Read from File                          | `openai_api_key = { "cat", "/path_to/openai_api_key" },` | Medium-High    |
-| Password Manager                        | `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`| High           |
+| hardcoded string                                                       | `openai_api_key: "sk-...",`                   | Low            |
+| default env var                                             | set `OPENAI_API_KEY` environment variable in shell config                     | Medium         |
+| custom env var                          | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),` | Medium         |
+| read from file                          | `openai_api_key = { "cat", "/path_to/openai_api_key" },` | Medium-High    |
+| password manager                        | `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`| High           |
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
