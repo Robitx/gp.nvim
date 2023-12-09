@@ -2789,6 +2789,19 @@ M.Whisper = function(callback)
 			},
 			exit_code = 1,
 		},
+		ffmpeg = {
+			cmd = "ffmpeg",
+			opts = {
+				"-f",
+				"avfoundation",
+				"-i",
+				":0",
+				"-t",
+				"3600",
+				M.config.whisper_dir .. "/rec.wav",
+			},
+			exit_code = 0,
+		},
 	}
 
 	if not M.valid_api_key() then
@@ -2922,6 +2935,13 @@ M.Whisper = function(callback)
 	end
 
 	local rec_cmd = "sox"
+	if vim.fn.executable("ffmpeg") == 1 then
+		local devices = vim.fn.system("ffmpeg -devices | grep -i avfoundation | wc -l")
+		if tonumber(devices) > 0 then
+			print("Using ffmpeg")
+			rec_cmd = "ffmpeg"
+		end
+	end
 	if vim.fn.executable("arecord") == 1 then
 		rec_cmd = "arecord"
 	end
