@@ -2795,9 +2795,9 @@ M.Whisper = function(callback)
 				"-f",
 				"avfoundation",
 				"-i",
-				'":0"',
+				":0",
 				"-t",
-				3600,
+				"3600",
 				M.config.whisper_dir .. "/rec.wav",
 			},
 			exit_code = 0,
@@ -2951,11 +2951,13 @@ M.Whisper = function(callback)
 	print(rec_cmd)
 
 	local cmd = rec_options[rec_cmd]
-	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, _, _)
+	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, stdout, stderr)
 		close()
 
 		if code and code ~= cmd.exit_code then
 			M.error("Sox exited with code and signal: " .. code .. " " .. signal)
+			print(vim.inspect(stdout))
+			print(vim.inspect(stderr))
 			return
 		end
 
