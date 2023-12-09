@@ -94,7 +94,7 @@ The OpenAI API key can be passed to the plugin in multiple ways:
 | Default Environment Variable                                             | Set `OPENAI_API_KEY` in shell configuration                     | Medium         |
 | Custom Environment Variable                          | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),` | Medium         |
 | Read from File                          | `openai_api_key = { "cat", "/path_to/openai_api_key" },` | Medium-High    |
-| Password Manager CLI Command                        | `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`| High           |
+| Password Manager                        | `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`| High           |
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
