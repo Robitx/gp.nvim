@@ -6,7 +6,11 @@
 --------------------------------------------------------------------------------
 
 local config = {
-	-- required openai api key
+	-- required openai api key (string or table with command and arguments)
+	-- openai_api_key = { "cat", "path_to/openai_api_key" },
+	-- openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },
+	-- openai_api_key: "sk-...",
+	-- openai_api_key = os.getenv("env_name.."),
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
 	-- api endpoint (you can change this to azure endpoint)
 	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",

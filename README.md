@@ -85,10 +85,14 @@ use({
 
 ### 2. OpenAI API key
 
-Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys)
-and use it in the [config](#4-configuration) (or **setup env `OPENAI_API_KEY`**).
+Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
-Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
+The OpenAI API key can be passed to the plugin in multiple ways:
+- set up env variable `OPENAI_API_KEY` which the plugin tries to read by default and fills into `openai_api_key` automatically
+- set up any env name you want and read it via `openai_api_key = os.getenv("env_name.."),`
+- insert the key directly into the config `openai_api_key: "sk-...",` (least safe from security standpoint)
+- read the key from a file `openai_api_key = { "cat", "path_to/openai_api_key" },`
+- use cli command from your password manager (like [1Password](https://1password.com/) or [Bitwarden](https://bitwarden.com/)) by passing a list (command + attributes) into the config field `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`, this is the most secure way, but managers are often take a second or two (Gp runs the command asynchronously to avoid blocking neovim)
 
 ### 3. Dependencies
 
@@ -165,7 +169,7 @@ https://github.com/Robitx/gp.nvim/blob/84a39ce557ac771b42c38e9b9d211ec3f3bd32cc/
 
 - Voice commands transcribed by Whisper API:
   - `:GpWhisper` - transcription replaces the current line, visual selection or range in the current buffer (use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel)  
-for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
+    for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
   - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
   - `:GpWhisperAppend` - answers after the current line, visual selection or range
   - `:GpWhisperPrepend` - answers before the current line, selection or range
