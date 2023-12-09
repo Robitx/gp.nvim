@@ -184,6 +184,8 @@ local config = {
 	image_prompt_prefix_template = "🖌️ {{agent}} ~ ",
 	-- image prompt prefix for asking location to save the image
 	image_prompt_save = "🖌️💾 ~ ",
+	-- default folder for saving images
+	image_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
 	-- default image agents (model + settings)
 	-- to remove some default agent completely set it just with the name like:
 	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid" }, ... },
