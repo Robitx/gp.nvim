@@ -88,11 +88,15 @@ use({
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 The OpenAI API key can be passed to the plugin in multiple ways:
-- set up env variable `OPENAI_API_KEY` which the plugin tries to read by default and fills into `openai_api_key` automatically
-- set up any env name you want and read it via `openai_api_key = os.getenv("env_name.."),`
-- insert the key directly into the config `openai_api_key: "sk-...",` (least safe from security standpoint)
-- read the key from a file `openai_api_key = { "cat", "path_to/openai_api_key" },`
-- use cli command from your password manager (like [1Password](https://1password.com/) or [Bitwarden](https://bitwarden.com/)) by passing a list (command + attributes) into the config field `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`, this is the most secure way, but managers are often take a second or two (Gp runs the command asynchronously to avoid blocking neovim)
+| Method                                                                                    | Example                                                         | Security Level |
+|---------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------------|
+| Hardcoded string                                                       | `openai_api_key: "sk-...",`                   | Low            |
+| Default Environment Variable                                             | Set `OPENAI_API_KEY` in shell configuration                     | Medium         |
+| Custom Environment Variable                          | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),` | Medium         |
+| Read from File                          | `openai_api_key = { "cat", "/path_to/openai_api_key" },` | Medium-High    |
+| Password Manager CLI Command                        | `openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },`| High           |
+
+If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
 ### 3. Dependencies
 
