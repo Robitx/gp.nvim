@@ -2937,7 +2937,9 @@ M.Whisper = function(callback)
 	local rec_cmd = "sox"
 	if vim.fn.executable("ffmpeg") == 1 then
 		local devices = vim.fn.system("ffmpeg -devices 2>/dev/null | grep -i avfoundation | wc -l")
+		print(devices)
 		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+		print(devices)
 		if devices == "1" then
 			rec_cmd = "ffmpeg"
 		end
@@ -2945,6 +2947,8 @@ M.Whisper = function(callback)
 	if vim.fn.executable("arecord") == 1 then
 		rec_cmd = "arecord"
 	end
+
+	print(rec_cmd)
 
 	local cmd = rec_options[rec_cmd]
 	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, _, _)
