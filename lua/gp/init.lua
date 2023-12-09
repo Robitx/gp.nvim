@@ -2792,6 +2792,7 @@ M.Whisper = function(callback)
 		ffmpeg = {
 			cmd = "ffmpeg",
 			opts = {
+				"-y",
 				"-f",
 				"avfoundation",
 				"-i",
