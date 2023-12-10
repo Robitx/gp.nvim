@@ -241,8 +241,8 @@ scripts.
 
 :GpAppend                                                          *:GpAppend*
 
-Similar to |gp.nvim-:gprewrite|, but the answer is added after the current
-line, visual selection, or range.
+Similar to `:GpRewrite`, but the answer is added after the current line, visual
+selection, or range.
 
 
 :GpPrepend                                                        *:GpPrepend*
@@ -290,10 +290,14 @@ specified range.
 Provides custom context per repository: - Opens `.gp.md` file for a given
 repository in a toggable window. - Appends selection/range to the context file
 when used in visual/range mode. - Refer to |gp.nvim-custom-instructions| for
-more details. - Supports display targeting subcommands similar to `GpChatNew`.
-- `:GpContext vsplit` Open `.gp.md` in a vertical split window. - `:GpContext
-split` Open `.gp.md` in a horizontal split window. - `:GpContext tabnew` Open
-`.gp.md` in a new tab. - `:GpContext popup` Open `.gp.md` in a popup window.
+more details. - Also supports subcommands for layout specification:
+
+>
+    - `:GpContext vsplit` Open `.gp.md` in a vertical split window.
+    - `:GpContext split` Open `.gp.md` in a horizontal split window.
+    - `:GpContext tabnew` Open `.gp.md` in a new tab.
+    - `:GpContext popup` Open `.gp.md` in a popup window.
+<
 
 
 SPEECH COMMANDS                                      *gp.nvim-speech-commands*
@@ -307,8 +311,8 @@ writing it by hand, dictate some comments for the code, notes or even your next
 novel..
 
 For the rest of the whisper commands, the transcription is used as an editable
-prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates
-instructions for `GpRewrite` etc.).
+prompt for the equivalent non whisper command - `GpWhisperRewrite` dictates
+instructions for `GpRewrite` etc.
 
 
 :GpWhisperRewrite                                          *:GpWhisperRewrite*
