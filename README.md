@@ -123,55 +123,39 @@ https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/
 
 ## Commands
 
-### Chat
+### GpChat
 #### `:GpChatNew` <!-- {doc=:GpChatNew}  -->
 Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
+
 - `:GpChatNew vsplit` Open a fresh chat in a vertical split window.
 - `:GpChatNew split` Open a fresh chat in a horizontal split window.
 - `:GpChatNew tabnew` Open a fresh chat in a new tab.
 - `:GpChatNew popup` Open a fresh chat in a popup window.
 
-#### :GpChatPaste <!-- {doc=:GpChatPaste}  -->
-    : Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
+#### `:GpChatPaste` <!-- {doc=:GpChatPaste}  -->
+Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
 
-    - `:GpChatPaste vsplit`
-        : Paste into the latest chat in a vertical split window.
+- `:GpChatPaste vsplit` Paste into the latest chat in a vertical split window.
+- `:GpChatPaste split` Paste into the latest chat in a horizontal split window.
+- `:GpChatPaste tab` Paste into the latest chat in a new tab.
+- `:GpChatPaste popup` Paste into the latest chat in a popup window.
 
-    - `:GpChatPaste split`
-        : Paste into the latest chat in a horizontal split window.
+#### `:GpChatToggle` <!-- {doc=:GpChatToggle}  -->
+Open chat in a toggleable popup window, showing the last active chat or a fresh one with selection or a range as a context. This command also supports subcommands for layout specification:
 
-    - `:GpChatPaste tab`
-        : Paste into the latest chat in a new tab.
+- `:GpChatToggle vsplit` Toggle chat in a vertical split window.
+- `:GpChatToggle split` Toggle chat in a horizontal split window.
+- `:GpChatToggle tab` Toggle chat in a new tab.
+- `:GpChatToggle popup` Toggle chat in a popup window.
 
-    - `:GpChatPaste popup`
-        : Paste into the latest chat in a popup window.
+#### `:GpChatFinder` <!-- {doc=:GpChatFinder}  -->
+Open a dialog to search through chats.
 
-- `:GpChatToggle`
-    : Open chat in a toggleable popup window, showing the last active chat or a fresh one with selection or a range as a context. This command also supports subcommands for layout specification:
+#### `:GpChatRespond` <!-- {doc=:GpChatRespond}  -->
+Request a new GPT response for the current chat. Usin`:GpChatRespond N` request a new GPT response with only the last N messages as context, using everything from the end up to the Nth instance of `🗨:..` (N=1 is like asking a question in a new chat).
 
-    - `:GpChatToggle vsplit`
-        : Toggle chat in a vertical split window.
-
-    - `:GpChatToggle split`
-        : Toggle chat in a horizontal split window.
-
-    - `:GpChatToggle tab`
-        : Toggle chat in a new tab.
-
-    - `:GpChatToggle popup`
-        : Toggle chat in a popup window.
-
-- `:GpChatFinder`
-    : Open a dialog to search through chats.
-
-- `:GpChatRespond`
-    : Request a new GPT response for the current chat.
-
-- `:GpChatRespond N`
-    : Request a new GPT response with only the last N messages as context, using everything from the end up to the Nth instance of `🗨:..` (N=1 is like asking a question in a new chat).
-
-- `:GpChatDelete`
-    : Delete the current chat.
+#### `:GpChatDelete` <!-- {doc=:GpChatDelete}  -->
+Delete the current chat. By default requires confirmation before delete, which can be disabled in config using `chat_confirm_delete = false,`.
 
 ### Text/Code operations
 - `:GpRewrite`<a id="gprewrite"></a>
