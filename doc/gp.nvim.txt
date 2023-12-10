@@ -3,17 +3,10 @@
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
 
-1. Gp.nvim                                                   |gp.nvim-gp.nvim|
-  - Goals and Features                    |gp.nvim-gp.nvim-goals-and-features|
-  - Install                                          |gp.nvim-gp.nvim-install|
-  - Usage                                              |gp.nvim-gp.nvim-usage|
-  - Extend functionality                |gp.nvim-gp.nvim-extend-functionality|
-
-==============================================================================
-1. Gp.nvim                                                   *gp.nvim-gp.nvim*
-
-
-
+  - Goals and Features                            |gp.nvim-goals-and-features|
+  - Install                                                  |gp.nvim-install|
+  - Usage                                                      |gp.nvim-usage|
+  - Extend functionality                        |gp.nvim-extend-functionality|
 Gp (GPT prompt) provides you ChatGPT like sessions and instructable text/code
 operations in your favorite editor.
 
@@ -25,7 +18,7 @@ YOUTUBE DEMOS ~
 - older-5-min-demo <https://www.youtube.com/watch?v=wPDcBnQgNCc> (screen capture, no sound)
 
 
-GOALS AND FEATURES                        *gp.nvim-gp.nvim-goals-and-features*
+GOALS AND FEATURES                                *gp.nvim-goals-and-features*
 
 The goal is to extend Neovim with the **power of GPT models in a simple
 unobtrusive extensible way.** Trying to keep things as native as possible -
@@ -58,7 +51,7 @@ reusing and integrating well with the natural features of (Neo)vim.
         (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
 
-INSTALL                                              *gp.nvim-gp.nvim-install*
+INSTALL                                                      *gp.nvim-install*
 
 
 1. INSTALL THE PLUGIN WITH YOUR PREFERRED PACKAGE MANAGER: ~
@@ -152,7 +145,7 @@ your needs.
 https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/lua/gp/config.lua#L8-L350
 
 
-USAGE                                                  *gp.nvim-gp.nvim-usage*
+USAGE                                                          *gp.nvim-usage*
 
 
 COMMANDS ~
@@ -556,7 +549,7 @@ Or go more fancy by using which-key.nvim
 <
 
 
-EXTEND FUNCTIONALITY                    *gp.nvim-gp.nvim-extend-functionality*
+EXTEND FUNCTIONALITY                            *gp.nvim-extend-functionality*
 
 You can extend/override the plugin functionality with your own, by putting
 functions into `config.hooks`. Hooks have access to everything (see
@@ -717,7 +710,7 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     - optional string serving as a default for input prompt (for example generated from speech by Whisper)
 
 ==============================================================================
-2. Links                                                       *gp.nvim-links*
+1. Links                                                       *gp.nvim-links*
 
 1. *image*: https://github.com/Robitx/gp.nvim/assets/8431097/350b38ce-52fb-4df7-b2a5-d6e51581f0c3
 
