@@ -55,6 +55,8 @@ Trying to keep things as native as possible - reusing and integrating well with 
 - **Speech to text support**
   - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
     (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
+- **Image generation**
+  - be even less tempted to open the browser with the ability to generate images directly from Neovim
 
 # Install
 
@@ -241,13 +243,24 @@ Similar to `:GpPopup`, but the prompt instruction dialog uses transcribed spoken
 ## Agent commands
 
 #### `:GpNextAgent` <!-- {doc=:GpNextAgent}  -->
-Cycles between available agents based on the current buffer (chat agents if current buffer is a chat and command agents otherwise).
+Cycles between available agents based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
 
 #### `:GpAgent` <!-- {doc=:GpAgent}  -->
 Displays currently used agents for chat and command instructions.
 
 #### `:GpAgent XY` <!-- {doc=:GpAgent-XY}  -->
-Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise).
+Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
+
+## Image commands
+
+#### `:GpImage` <!-- {doc=:GpImage}  -->
+Opens a dialog for entering a prompt describing wanted images. When the generation is done it opens dialog for storing the image to the disk.
+
+#### `:GpImageAgent` <!-- {doc=:GpImageAgent}  -->
+Displays currently used image agent (configuration).
+
+#### `:GpImageAgent XY` <!-- {doc=:GpImageAgent-XY}  -->
+Choose a new "image agent" based on its name. In the context of images, agent is basically a configuration for model, image size, quality and so on. The agent setting is persisted on disk across Neovim instances.
 
 ## Other commands
 
