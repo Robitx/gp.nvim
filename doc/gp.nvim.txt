@@ -12,6 +12,7 @@ Table of Contents                                  *gp.nvim-table-of-contents*
 3. Usage                                                       |gp.nvim-usage|
   - Chat commands                                      |gp.nvim-chat-commands|
   - Text/Code commands                            |gp.nvim-text/code-commands|
+  - Speech commands                                  |gp.nvim-speech-commands|
   - Agent commands                                    |gp.nvim-agent-commands|
   - Image commands                                    |gp.nvim-image-commands|
   - Other commands                                    |gp.nvim-other-commands|
@@ -120,20 +121,25 @@ suprised at the end of the month.
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
-  ---------------------------------------------------------------------------------------------
-  Method           Example                                                        Security
-                                                                                  Level
-  ---------------- -------------------------------------------------------------- -------------
-  hardcoded string openai_api_key: "sk-...",                                      Low
+  -----------------------------------------------------------------------------------------
+  Method       Example                                                        Security
+                                                                              Level
+  ------------ -------------------------------------------------------------- -------------
+  hardcoded    openai_api_key: "sk-...",                                      Low
+  string                                                                      
 
-  default env var  set OPENAI_API_KEY environment variable in shell config        Medium
+  default env  set OPENAI_API_KEY environment variable in shell config        Medium
+  var                                                                         
 
-  custom env var   openai_api_key = os.getenv("CUSTOM_ENV_NAME"),                 Medium
+  custom env   openai_api_key = os.getenv("CUSTOM_ENV_NAME"),                 Medium
+  var                                                                         
 
-  read from file   openai_api_key = { "cat", "path_to_api_key" },                 Medium-High
+  read from    openai_api_key = { "cat", "path_to_api_key" },                 Medium-High
+  file                                                                        
 
-  password manager openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },   High
-  ---------------------------------------------------------------------------------------------
+  password     openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },   High
+  manager                                                                     
+  -----------------------------------------------------------------------------------------
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking
 Neovim (password managers can take a second or two).
 
@@ -162,7 +168,7 @@ options might get deprecated and so on - it’s better to change only things
 where the default doesn’t fit your needs.
 
 
-https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/lua/gp/config.lua#L8-L350
+https://github.com/Robitx/gp.nvim/blob/d90816b2e9185202d72f7b1346b6d33b36350886/lua/gp/config.lua#L8-L355
 
 
 ==============================================================================
@@ -300,7 +306,10 @@ Provides custom context per repository:
     - `:GpContext split` Open `.gp.md` in a horizontal split window.
     - `:GpContext tabnew` Open `.gp.md` in a new tab.
     - `:GpContext popup` Open `.gp.md` in a popup window.
-- refer to |gp.nvim-custom-instructions| for more details. ## Speech commands
+- refer to |gp.nvim-custom-instructions| for more details.
+
+
+SPEECH COMMANDS                                      *gp.nvim-speech-commands*
 
 
 :GpWhisper                                                        *:GpWhisper*
