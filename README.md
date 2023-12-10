@@ -196,16 +196,17 @@ Example hook command to develop code from comments in a visual selection or spec
 
 #### `:GpContext`<!-- {doc=:GpContext}  -->
 Provides custom context per repository:
-- Opens `.gp.md` file for a given repository in a toggable window.
-- Appends selection/range to the context file when used in visual/range mode.
-- Refer to [Custom Instructions](#custom-instructions) for more details.
-- Also supports subcommands for layout specification:
+
+- opens `.gp.md` file for a given repository in a toggable window.
+- appends selection/range to the context file when used in visual/range mode.
+- also supports subcommands for layout specification:
 
 	- `:GpContext vsplit` Open `.gp.md` in a vertical split window.
 	- `:GpContext split` Open `.gp.md` in a horizontal split window.
 	- `:GpContext tabnew` Open `.gp.md` in a new tab.
 	- `:GpContext popup` Open `.gp.md` in a popup window.
 
+- refer to [Custom Instructions](#custom-instructions) for more details.
 ## Speech commands
 
 #### `:GpWhisper` <!-- {doc=:GpWhisper}  -->
