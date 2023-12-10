@@ -12,7 +12,6 @@ Table of Contents                                  *gp.nvim-table-of-contents*
 3. Usage                                                       |gp.nvim-usage|
   - Chat commands                                      |gp.nvim-chat-commands|
   - Text/Code commands                            |gp.nvim-text/code-commands|
-  - Speech commands                                  |gp.nvim-speech-commands|
   - Agent commands                                    |gp.nvim-agent-commands|
   - Other commands                                    |gp.nvim-other-commands|
   - GpDone autocommand                            |gp.nvim-gpdone-autocommand|
@@ -287,20 +286,16 @@ specified range.
 
 :GpContext                                                        *:GpContext*
 
-Provides custom context per repository: - Opens `.gp.md` file for a given
-repository in a toggable window. - Appends selection/range to the context file
-when used in visual/range mode. - Refer to |gp.nvim-custom-instructions| for
-more details. - Also supports subcommands for layout specification:
+Provides custom context per repository:
 
->
+- opens `.gp.md` file for a given repository in a toggable window.
+- appends selection/range to the context file when used in visual/range mode.
+- also supports subcommands for layout specification:
     - `:GpContext vsplit` Open `.gp.md` in a vertical split window.
     - `:GpContext split` Open `.gp.md` in a horizontal split window.
     - `:GpContext tabnew` Open `.gp.md` in a new tab.
     - `:GpContext popup` Open `.gp.md` in a popup window.
-<
-
-
-SPEECH COMMANDS                                      *gp.nvim-speech-commands*
+- refer to |gp.nvim-custom-instructions| for more details. ## Speech commands
 
 
 :GpWhisper                                                        *:GpWhisper*
