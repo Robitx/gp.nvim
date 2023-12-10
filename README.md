@@ -14,7 +14,7 @@
 
 <br>
 
-_ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor._
+**ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.**
 
 <p align="left">
 <img src="https://github.com/Robitx/gp.nvim/assets/8431097/cb288094-2308-42d6-9060-4eb21b3ba74c" width="49%">
@@ -36,7 +36,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
   - properly working undo (response can be undone with a single `u`)
 - **Infinitely extensible** via hook functions specified as part of the config
   - hooks have access to everything in the plugin and are automatically registered as commands
-  - see [Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
+  - see [4. Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
 - **Minimum dependencies** (`neovim`, `curl`, `grep` and optionally `sox`)
   - zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
@@ -93,7 +93,7 @@ use({
 
 ## 2. OpenAI API key
 
-Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
+Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [4. Configuration](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
