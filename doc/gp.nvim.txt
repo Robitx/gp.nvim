@@ -5,22 +5,22 @@ Table of Contents                                  *gp.nvim-table-of-contents*
 
 1. Goals and Features                             |gp.nvim-goals-and-features|
 2. Install                                                   |gp.nvim-install|
-  - 1. Install the plugin              |gp.nvim-install-1.-install-the-plugin|
-  - 2. OpenAI API key                      |gp.nvim-install-2.-openai-api-key|
-  - 3. Dependencies                          |gp.nvim-install-3.-dependencies|
-  - 4. Configuration                        |gp.nvim-install-4.-configuration|
+  - 1. Install the plugin                      |gp.nvim-1.-install-the-plugin|
+  - 2. OpenAI API key                              |gp.nvim-2.-openai-api-key|
+  - 3. Dependencies                                  |gp.nvim-3.-dependencies|
+  - 4. Configuration                                |gp.nvim-4.-configuration|
 3. Usage                                                       |gp.nvim-usage|
-  - Chat commands                                |gp.nvim-usage-chat-commands|
-  - Text/Code commands                      |gp.nvim-usage-text/code-commands|
-  - Speech commands                            |gp.nvim-usage-speech-commands|
-  - Agent commands                              |gp.nvim-usage-agent-commands|
-  - Other commands                              |gp.nvim-usage-other-commands|
-  - GpDone autocommand                      |gp.nvim-usage-gpdone-autocommand|
-  - Custom instructions                    |gp.nvim-usage-custom-instructions|
-  - Scripting                                        |gp.nvim-usage-scripting|
+  - Chat commands                                      |gp.nvim-chat-commands|
+  - Text/Code commands                            |gp.nvim-text/code-commands|
+  - Speech commands                                  |gp.nvim-speech-commands|
+  - Agent commands                                    |gp.nvim-agent-commands|
+  - Other commands                                    |gp.nvim-other-commands|
+  - GpDone autocommand                            |gp.nvim-gpdone-autocommand|
+  - Custom instructions                          |gp.nvim-custom-instructions|
+  - Scripting                                              |gp.nvim-scripting|
 4. Shortcuts                                               |gp.nvim-shortcuts|
-  - Native                                          |gp.nvim-shortcuts-native|
-  - Whichkey                                      |gp.nvim-shortcuts-whichkey|
+  - Native                                                    |gp.nvim-native|
+  - Whichkey                                                |gp.nvim-whichkey|
 5. Extend functionality                         |gp.nvim-extend-functionality|
 
 
@@ -73,7 +73,7 @@ reusing and integrating well with the natural features of (Neo)vim.
 2. Install                                                   *gp.nvim-install*
 
 
-1. INSTALL THE PLUGIN                  *gp.nvim-install-1.-install-the-plugin*
+1. INSTALL THE PLUGIN                          *gp.nvim-1.-install-the-plugin*
 
 Snippets for your preferred package manager:
 
@@ -108,7 +108,7 @@ Snippets for your preferred package manager:
 <
 
 
-2. OPENAI API KEY                          *gp.nvim-install-2.-openai-api-key*
+2. OPENAI API KEY                                  *gp.nvim-2.-openai-api-key*
 
 Make sure you have OpenAI API key. Get one here
 <https://platform.openai.com/account/api-keys> and use it in the
@@ -136,7 +136,7 @@ If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking
 Neovim (password managers can take a second or two).
 
 
-3. DEPENDENCIES                              *gp.nvim-install-3.-dependencies*
+3. DEPENDENCIES                                      *gp.nvim-3.-dependencies*
 
 The core plugin only needs `curl` installed to make calls to OpenAI API and
 `grep` for ChatFinder. So Linux, BSD and Mac OS should be covered.
@@ -151,7 +151,7 @@ recording and processing:
 - NixOS: `nix-env -i sox`
 
 
-4. CONFIGURATION                            *gp.nvim-install-4.-configuration*
+4. CONFIGURATION                                    *gp.nvim-4.-configuration*
 
 Bellow are the default values, but I suggest starting with minimal config
 possible (just `openai_api_key` if you don’t have `OPENAI_API_KEY` env set
@@ -165,7 +165,7 @@ https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/
 3. Usage                                                       *gp.nvim-usage*
 
 
-CHAT COMMANDS                                    *gp.nvim-usage-chat-commands*
+CHAT COMMANDS                                          *gp.nvim-chat-commands*
 
 
 :GpChatNew                                                        *:GpChatNew*
@@ -223,7 +223,7 @@ Delete the current chat. By default requires confirmation before delete, which
 can be disabled in config using `chat_confirm_delete = false,`.
 
 
-TEXT/CODE COMMANDS                          *gp.nvim-usage-text/code-commands*
+TEXT/CODE COMMANDS                                *gp.nvim-text/code-commands*
 
 
 :GpRewrite                                                        *:GpRewrite*
@@ -296,7 +296,7 @@ split` Open `.gp.md` in a horizontal split window. - `:GpContext tabnew` Open
 `.gp.md` in a new tab. - `:GpContext popup` Open `.gp.md` in a popup window.
 
 
-SPEECH COMMANDS                                *gp.nvim-usage-speech-commands*
+SPEECH COMMANDS                                      *gp.nvim-speech-commands*
 
 
 :GpWhisper                                                        *:GpWhisper*
@@ -361,7 +361,7 @@ Similar to `:GpPopup`, but the prompt instruction dialog uses transcribed
 spoken instructions for displaying content in a pop-up window.
 
 
-AGENT COMMANDS                                  *gp.nvim-usage-agent-commands*
+AGENT COMMANDS                                        *gp.nvim-agent-commands*
 
 
 :GpNextAgent                                                    *:GpNextAgent*
@@ -381,7 +381,7 @@ Choose a new agent based on its name, listing options based on the current
 buffer (chat agents if current buffer is a chat and command agents otherwise).
 
 
-OTHER COMMANDS                                  *gp.nvim-usage-other-commands*
+OTHER COMMANDS                                        *gp.nvim-other-commands*
 
 
 :GpStop                                                              *:GpStop*
@@ -394,7 +394,7 @@ Stops all currently running responses and jobs.
 Inspects the GPT prompt plugin object in a new scratch buffer.
 
 
-GPDONE AUTOCOMMAND                          *gp.nvim-usage-gpdone-autocommand*
+GPDONE AUTOCOMMAND                                *gp.nvim-gpdone-autocommand*
 
 Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate
 event `GpDone`, so you can define autocmd (like auto formating) to run when gp
@@ -412,7 +412,7 @@ finishes:
 <
 
 
-CUSTOM INSTRUCTIONS                        *gp.nvim-usage-custom-instructions*
+CUSTOM INSTRUCTIONS                              *gp.nvim-custom-instructions*
 
 By calling `:GpContext` you can make `.gp.md` markdown file in a root of a
 repository. Commands such as `:GpRewrite`, `:GpAppend` etc. will respect
@@ -429,7 +429,7 @@ always listen to system commands). For example:
 Here is another example <https://github.com/Robitx/gp.nvim/blob/main/.gp.md>.
 
 
-SCRIPTING                                            *gp.nvim-usage-scripting*
+SCRIPTING                                                  *gp.nvim-scripting*
 
 `GpDone` event + `.gp.md` custom instructions provide a possibility to run
 gp.nvim using headless (neo)vim from terminal or shell script. So you can let
@@ -485,7 +485,7 @@ There are no default global shortcuts to mess with your own config. Bellow are
 examples for you to adjust or just use directly.
 
 
-NATIVE                                              *gp.nvim-shortcuts-native*
+NATIVE                                                        *gp.nvim-native*
 
 You can use the good old `vim.keymap.set` and paste the following after
 `require("gp").setup(conf)` call (or anywhere you keep shortcuts if you want
@@ -572,7 +572,7 @@ them at one place).
 <
 
 
-WHICHKEY                                          *gp.nvim-shortcuts-whichkey*
+WHICHKEY                                                    *gp.nvim-whichkey*
 
 Or go more fancy by using which-key.nvim
 <https://github.com/folke/which-key.nvim> plugin:
