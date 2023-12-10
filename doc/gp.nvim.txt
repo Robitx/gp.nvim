@@ -13,6 +13,7 @@ Table of Contents                                  *gp.nvim-table-of-contents*
   - Chat commands                                      |gp.nvim-chat-commands|
   - Text/Code commands                            |gp.nvim-text/code-commands|
   - Agent commands                                    |gp.nvim-agent-commands|
+  - Image commands                                    |gp.nvim-image-commands|
   - Other commands                                    |gp.nvim-other-commands|
   - GpDone autocommand                            |gp.nvim-gpdone-autocommand|
   - Custom instructions                          |gp.nvim-custom-instructions|
@@ -66,6 +67,8 @@ reusing and integrating well with the natural features of (Neo)vim.
 - **Speech to text support**
     - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense
         (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
+- **Image generation**
+    - be even less tempted to open the browser with the ability to generate images directly from Neovim
 
 
 ==============================================================================
@@ -366,7 +369,8 @@ AGENT COMMANDS                                        *gp.nvim-agent-commands*
 :GpNextAgent                                                    *:GpNextAgent*
 
 Cycles between available agents based on the current buffer (chat agents if
-current buffer is a chat and command agents otherwise).
+current buffer is a chat and command agents otherwise). The agent setting is
+persisted on disk across Neovim instances.
 
 
 :GpAgent                                                            *:GpAgent*
@@ -378,6 +382,28 @@ Displays currently used agents for chat and command instructions.
 
 Choose a new agent based on its name, listing options based on the current
 buffer (chat agents if current buffer is a chat and command agents otherwise).
+The agent setting is persisted on disk across Neovim instances.
+
+
+IMAGE COMMANDS                                        *gp.nvim-image-commands*
+
+
+:GpImage                                                            *:GpImage*
+
+Opens a dialog for entering a prompt describing wanted images. When the
+generation is done it opens dialog for storing the image to the disk.
+
+
+:GpImageAgent                                                  *:GpImageAgent*
+
+Displays currently used image agent (configuration).
+
+
+:GpImageAgent XY                                            *:GpImageAgent-XY*
+
+Choose a new "image agent" based on its name. In the context of images, agent
+is basically a configuration for model, image size, quality and so on. The
+agent setting is persisted on disk across Neovim instances.
 
 
 OTHER COMMANDS                                        *gp.nvim-other-commands*
