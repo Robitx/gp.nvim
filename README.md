@@ -171,7 +171,7 @@ Opens a dialog for entering a prompt. After providing prompt instructions into t
 `:GpRewrite {prompt}` Executes directly with specified `{prompt}` instructions, bypassing the dialog. Suitable for mapping repetitive tasks to keyboard shortcuts or for automation using headless Neovim via terminal or shell scripts.
 
 #### `:GpAppend` <!-- {doc=:GpAppend}  -->
-Similar to [:GpRewrite](#gprewrite), but the answer is added after the current line, visual selection, or range.
+Similar to `:GpRewrite`, but the answer is added after the current line, visual selection, or range.
 
 #### `:GpPrepend` <!-- {doc=:GpPrepend}  -->
 Similar to `:GpRewrite`, but the answer is added before the current line, visual selection, or range.
@@ -199,7 +199,8 @@ Provides custom context per repository:
 - Opens `.gp.md` file for a given repository in a toggable window.
 - Appends selection/range to the context file when used in visual/range mode.
 - Refer to [Custom Instructions](#custom-instructions) for more details.
-- Supports display targeting subcommands similar to `GpChatNew`.
+- Also supports subcommands for layout specification:
+
 	- `:GpContext vsplit` Open `.gp.md` in a vertical split window.
 	- `:GpContext split` Open `.gp.md` in a horizontal split window.
 	- `:GpContext tabnew` Open `.gp.md` in a new tab.
@@ -210,7 +211,7 @@ Provides custom context per repository:
 #### `:GpWhisper` <!-- {doc=:GpWhisper}  -->
 Transcription replaces the current line, visual selection or range in the current buffer. Use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel..  
 
-For the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.).
+For the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command - `GpWhisperRewrite` dictates instructions for `GpRewrite` etc.
 
 #### `:GpWhisperRewrite` <!-- {doc=:GpWhisperRewrite}  -->
 Similar to `:GpRewrite`, but the prompt instruction dialog uses transcribed spoken instructions.
