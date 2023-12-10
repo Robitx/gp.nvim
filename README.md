@@ -23,7 +23,7 @@
 - [5-min-demo](https://www.youtube.com/watch?v=X-cT7s47PLo) (December 2023)
 - [older-5-min-demo](https://www.youtube.com/watch?v=wPDcBnQgNCc)  (screen capture, no sound)
 
-## Goals and Features
+# Goals and Features
 
 The goal is to extend Neovim with the **power of GPT models in a simple unobtrusive extensible way.**  
 Trying to keep things as native as possible - reusing and integrating well with the natural features of (Neo)vim.
@@ -54,9 +54,9 @@ Trying to keep things as native as possible - reusing and integrating well with 
   - a mouth is 2-4x faster than fingers when it comes to outputting words - use it where it makes sense  
     (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
-## Install
+# Install
 
-### 1. Install the plugin with your preferred package manager:
+## 1. Install the plugin with your preferred package manager:
 
 ```lua
 -- lazy.nvim
@@ -88,7 +88,7 @@ use({
 })
 ```
 
-### 2. OpenAI API key
+## 2. OpenAI API key
 
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
@@ -104,7 +104,7 @@ The OpenAI API key can be passed to the plugin in multiple ways:
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
-### 3. Dependencies
+## 3. Dependencies
 
 The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux, BSD and Mac OS should be covered.
 
@@ -116,14 +116,14 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 - Redhat/CentOS: `yum install sox`
 - NixOS: `nix-env -i sox`
 
-### 4. Configuration
+## 4. Configuration
 
 Bellow are the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/lua/gp/config.lua#L8-L350
 
-## Commands
+# Usage
 
-### GpChat
+## GpChat commands
 #### `:GpChatNew` <!-- {doc=:GpChatNew}  -->
 Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
 
@@ -157,7 +157,7 @@ Request a new GPT response for the current chat. Usin`:GpChatRespond N` request 
 #### `:GpChatDelete` <!-- {doc=:GpChatDelete}  -->
 Delete the current chat. By default requires confirmation before delete, which can be disabled in config using `chat_confirm_delete = false,`.
 
-### Text/Code operations
+## Text/Code operation commands
 - `:GpRewrite`<a id="gprewrite"></a>
     : Opens a dialog for entering a prompt. After providing prompt instructions into the dialog, the generated response replaces the current line in the normal/insert mode, selected lines in visual mode, or the specified range (for example `:%GpRewrite` would apply the rewrite to the entire buffer).
 
@@ -188,7 +188,7 @@ Delete the current chat. By default requires confirmation before delete, which c
 - `:GpImplement`<a id="gpimplement"></a>
     : Example hook command for finishing the code based on comments provided in the visual selection or specified range.
 
-### Other
+## Other commands
 
 - `:GpContext`
     : Provides custom context per repository by opening `.gp.md` file for a given repository in a toggleable window. If used with selection/range, it appends it to the context file. Supports display targeting subcommands just like `GpChatNew`.
@@ -235,7 +235,7 @@ Delete the current chat. By default requires confirmation before delete, which c
 - Run your own custom hook commands:
   - `:GpInspectPlugin` - inspect GPT prompt plugin object
 
-### GpDone autocommand to run consequent actions
+## GpDone autocommand to run consequent actions
 
 Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event `GpDone`, so you can define autocmd (like auto formating) to run when gp finishes:
 
@@ -250,7 +250,7 @@ Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event
     })
 ```
 
-### Custom instructions per repository
+## Custom instructions per repository
 
 By calling `:GpContext` you can make `.gp.md` markdown file in a root of a repository. Commands such as `:GpRewrite`, `:GpAppend` etc. will respect instructions provided in this file (works better with gpt4, gpt 3.5 doesn't always listen to system commands). For example:
 
@@ -263,7 +263,7 @@ Use Early return/Guard Clauses pattern to avoid excessive nesting.
 
 Here is [another example](https://github.com/Robitx/gp.nvim/blob/main/.gp.md).
 
-### Scripting and multifile edits
+## Scripting and multifile edits
 
 `GpDone` event + `.gp.md` custom instructions provide a possibility to run gp.nvim using headless (neo)vim from terminal or shell script. So you can let gp run edits accross many files if you put it in a loop.
 
@@ -309,11 +309,11 @@ Ahoy there!
 5
 ```
 
-### Shortcuts
+# Shortcuts
 
 There are no default global shortcuts to mess with your own config. Bellow are examples for you to adjust or just use directly.
 
-#### Native
+## Native
 
 You can use the good old `vim.keymap.set` and paste the following after `require("gp").setup(conf)` call
 (or anywhere you keep shortcuts if you want them at one place).
@@ -398,7 +398,7 @@ vim.keymap.set("v", "<C-g>wv", ":<C-u>'<,'>GpWhisperVnew<cr>", keymapOptions("Vi
 vim.keymap.set("v", "<C-g>wt", ":<C-u>'<,'>GpWhisperTabnew<cr>", keymapOptions("Visual Whisper Tabnew"))
 ```
 
-#### Whichkey
+## Whichkey
 
 Or go more fancy by using [which-key.nvim](https://github.com/folke/which-key.nvim) plugin:
 
@@ -562,7 +562,7 @@ require("which-key").register({
 })
 ```
 
-## Extend functionality
+# Extend functionality
 
 You can extend/override the plugin functionality with your own, by putting functions into `config.hooks`.
 Hooks have access to everything (see `InspectPlugin` example in defaults) and are
