@@ -97,23 +97,20 @@ suprised at the end of the month.
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
-  -------------------------------------------------------------------------------------------
-  Method         Example                                                        Security
-                                                                                Level
-  -------------- -------------------------------------------------------------- -------------
-  hardcoded      openai_api_key: "sk-...",                                      Low
-  string                                                                        
+  ---------------------------------------------------------------------------------------------
+  Method           Example                                                        Security
+                                                                                  Level
+  ---------------- -------------------------------------------------------------- -------------
+  hardcoded string openai_api_key: "sk-...",                                      Low
 
-  default env    set OPENAI_API_KEY environment variable in shell config        Medium
-  var                                                                           
+  default env var  set OPENAI_API_KEY environment variable in shell config        Medium
 
-  custom env var openai_api_key = os.getenv("CUSTOM_ENV_NAME"),                 Medium
+  custom env var   openai_api_key = os.getenv("CUSTOM_ENV_NAME"),                 Medium
 
-  read from file openai_api_key = { "cat", "path_to_api_key" },                 Medium-High
+  read from file   openai_api_key = { "cat", "path_to_api_key" },                 Medium-High
 
-  password       openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },   High
-  manager                                                                       
-  -------------------------------------------------------------------------------------------
+  password manager openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },   High
+  ---------------------------------------------------------------------------------------------
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking
 Neovim (password managers can take a second or two).
 
@@ -148,18 +145,18 @@ COMMANDS                                                    *gp.nvim-commands*
 
 CHAT ~
 
--                                                       *gp.nvim-`:GpChatNew`*
-    `:GpChatNew`                           Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
-    -                                                *gp.nvim-`:GpChatNew-vsplit`*
-        `:GpChatNew vsplit`                    Open a fresh chat in a vertical split window.
+-                                                     *gp.nvim-**:GpChatNew***
+    **:GpChatNew**                         Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
+    -                                                 *gp.nvim-:GpChatNew-vsplit`*
+        :GpChatNew vsplit`                     Open a fresh chat in a vertical split window.
     -                                                 *gp.nvim-`:GpChatNew-split`*
         `:GpChatNew split`                     Open a fresh chat in a horizontal split window.
     -                                                   *gp.nvim-`:GpChatNew-tab`*
         `:GpChatNew tab`                       Open a fresh chat in a new tab.
     -                                                 *gp.nvim-`:GpChatNew-popup`*
         `:GpChatNew popup`                     Open a fresh chat in a popup window.
--                                                     *gp.nvim-`:GpChatPaste`*
-    `:GpChatPaste`                         Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
+-                                                       *gp.nvim-:GpChatPaste*
+    :GpChatPaste                           Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
     -                                              *gp.nvim-`:GpChatPaste-vsplit`*
         `:GpChatPaste vsplit`                  Paste into the latest chat in a vertical split window.
     -                                               *gp.nvim-`:GpChatPaste-split`*
