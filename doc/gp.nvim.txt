@@ -145,26 +145,35 @@ COMMANDS                                                    *gp.nvim-commands*
 
 CHAT ~
 
--                                                     *gp.nvim-**:GpChatNew***
-    **:GpChatNew**                         Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
-    -                                                 *gp.nvim-:GpChatNew-vsplit`*
-        :GpChatNew vsplit`                     Open a fresh chat in a vertical split window.
-    -                                                 *gp.nvim-`:GpChatNew-split`*
-        `:GpChatNew split`                     Open a fresh chat in a horizontal split window.
-    -                                                   *gp.nvim-`:GpChatNew-tab`*
-        `:GpChatNew tab`                       Open a fresh chat in a new tab.
-    -                                                 *gp.nvim-`:GpChatNew-popup`*
-        `:GpChatNew popup`                     Open a fresh chat in a popup window.
--                                                       *gp.nvim-:GpChatPaste*
-    :GpChatPaste                           Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
-    -                                              *gp.nvim-`:GpChatPaste-vsplit`*
-        `:GpChatPaste vsplit`                  Paste into the latest chat in a vertical split window.
-    -                                               *gp.nvim-`:GpChatPaste-split`*
-        `:GpChatPaste split`                   Paste into the latest chat in a horizontal split window.
-    -                                                 *gp.nvim-`:GpChatPaste-tab`*
-        `:GpChatPaste tab`                     Paste into the latest chat in a new tab.
-    -                                               *gp.nvim-`:GpChatPaste-popup`*
-        `:GpChatPaste popup`                   Paste into the latest chat in a popup window.
+
+:GPCHATNEW 
+
+Open a fresh chat in the current window. It can be either empty or include the
+visual selection or specified range as context. This command also supports
+subcommands for layout specification: - `:GpChatNew vsplit` Open a fresh chat
+in a vertical split window. - `:GpChatNew split` Open a fresh chat in a
+horizontal split window. - `:GpChatNew tabnew` Open a fresh chat in a new tab.
+- `:GpChatNew popup` Open a fresh chat in a popup window.
+
+
+:GPCHATPASTE 
+
+>
+    : Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
+    
+    - `:GpChatPaste vsplit`
+        : Paste into the latest chat in a vertical split window.
+    
+    - `:GpChatPaste split`
+        : Paste into the latest chat in a horizontal split window.
+    
+    - `:GpChatPaste tab`
+        : Paste into the latest chat in a new tab.
+    
+    - `:GpChatPaste popup`
+        : Paste into the latest chat in a popup window.
+<
+
 -                                                    *gp.nvim-`:GpChatToggle`*
     `:GpChatToggle`                        Open chat in a toggleable popup window, showing the last active chat or a fresh one with selection or a range as a context. This command also supports subcommands for layout specification:
     -                                             *gp.nvim-`:GpChatToggle-vsplit`*
