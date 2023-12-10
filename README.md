@@ -12,7 +12,7 @@
 
 <!-- panvimdoc-ignore-end -->
 
-#### ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.
+**ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.**
 
 <p align="left">
 <img src="https://github.com/Robitx/gp.nvim/assets/8431097/cb288094-2308-42d6-9060-4eb21b3ba74c" width="49%">
