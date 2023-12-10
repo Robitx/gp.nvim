@@ -124,22 +124,14 @@ https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/
 ## Commands
 
 ### Chat
-- **:GpChatNew**
-    : Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
+#### `:GpChatNew` <!-- {doc=:GpChatNew}  -->
+Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
+- `:GpChatNew vsplit` Open a fresh chat in a vertical split window.
+- `:GpChatNew split` Open a fresh chat in a horizontal split window.
+- `:GpChatNew tabnew` Open a fresh chat in a new tab.
+- `:GpChatNew popup` Open a fresh chat in a popup window.
 
-    - :GpChatNew vsplit`
-        : Open a fresh chat in a vertical split window.
-
-    - `:GpChatNew split`
-        : Open a fresh chat in a horizontal split window.
-
-    - `:GpChatNew tab`
-        : Open a fresh chat in a new tab.
-
-    - `:GpChatNew popup`
-        : Open a fresh chat in a popup window.
-
-- :GpChatPaste
+#### :GpChatPaste <!-- {doc=:GpChatPaste}  -->
     : Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
 
     - `:GpChatPaste vsplit`
