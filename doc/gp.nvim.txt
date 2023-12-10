@@ -12,6 +12,8 @@ Table of Contents                                  *gp.nvim-table-of-contents*
 3. Usage                                                       |gp.nvim-usage|
   - Chat commands                                |gp.nvim-usage-chat-commands|
   - Text/Code commands                      |gp.nvim-usage-text/code-commands|
+  - Speech commands                            |gp.nvim-usage-speech-commands|
+  - Agent commands                              |gp.nvim-usage-agent-commands|
   - Other commands                              |gp.nvim-usage-other-commands|
   - GpDone autocommand                      |gp.nvim-usage-gpdone-autocommand|
   - Custom instructions                    |gp.nvim-usage-custom-instructions|
@@ -22,8 +24,8 @@ Table of Contents                                  *gp.nvim-table-of-contents*
 5. Extend functionality                         |gp.nvim-extend-functionality|
 
 
-**ChatGPT like sessions, Instructable text/code operations, Speech to text and
-Image generation in your favorite editor.**
+_ChatGPT like sessions, Instructable text/code operations, Speech to text and
+Image generation in your favorite editor._
 
 
 
@@ -223,65 +225,173 @@ can be disabled in config using `chat_confirm_delete = false,`.
 
 TEXT/CODE COMMANDS                          *gp.nvim-usage-text/code-commands*
 
--                                                               *`:GpRewrite`*
-    `:GpRewrite`                           Opens a dialog for entering a prompt. After providing prompt instructions into the dialog, the generated response replaces the current line in the normal/insert mode, selected lines in visual mode, or the specified range (for example `:%GpRewrite` would apply the rewrite to the entire buffer).
-    -                                                              *`:GpRewrite-`*
-        `:GpRewrite {prompt}`                  Executes directly with specified `{prompt}` instructions, bypassing the dialog. Suitable mapping repetitive tasks to keyboard shortcuts or for automation using headless Neovim via terminal or shell scripts.
--                                                                *`:GpAppend`*
-    `:GpAppend`                            Behaves like |gp.nvim-gprewrite|, but the answer is added after the current line, visual selection, or range.
--                                                               *`:GpPrepend`*
-    `:GpPrepend`                           Behaves like |gp.nvim-gprewrite|, but the answer is added before the current line, visual selection, or range.
--                                                                  *`:GpEnew`*
-    `:GpEnew`                              Behaves like |gp.nvim-gprewrite|, but the answer is added into a new buffer in the current window.
--                                                                   *`:GpNew`*
-    `:GpNew`                               Behaves like |gp.nvim-gprewrite|, but the answer is added into a new horizontal split window.
--                                                                  *`:GpVnew`*
-    `:GpVnew`                              Behaves like |gp.nvim-gprewrite|, but the answer is added into a new vertical split window.
--                                                                *`:GpTabnew`*
-    `:GpTabnew`                            Behaves like |gp.nvim-gprewrite|, but the answer is added into a new tab.
--                                                                 *`:GpPopup`*
-    `:GpPopup`                             Behaves like |gp.nvim-gprewrite|, but the answer is added into a pop-up window.
--                                                             *`:GpImplement`*
-    `:GpImplement`                         Example hook command for finishing the code based on comments provided in the visual selection or specified range.
+
+:GpRewrite                                                        *:GpRewrite*
+
+Opens a dialog for entering a prompt. After providing prompt instructions into
+the dialog, the generated response replaces the current line in normal/insert
+mode, selected lines in visual mode, or the specified range (e.g.,
+`:%GpRewrite` applies the rewrite to the entire buffer).
+
+`:GpRewrite {prompt}` Executes directly with specified `{prompt}` instructions,
+bypassing the dialog. Suitable for mapping repetitive tasks to keyboard
+shortcuts or for automation using headless Neovim via terminal or shell
+scripts.
+
+
+:GpAppend                                                          *:GpAppend*
+
+Similar to |gp.nvim-:gprewrite|, but the answer is added after the current
+line, visual selection, or range.
+
+
+:GpPrepend                                                        *:GpPrepend*
+
+Similar to `:GpRewrite`, but the answer is added before the current line,
+visual selection, or range.
+
+
+:GpEnew                                                              *:GpEnew*
+
+Similar to `:GpRewrite`, but the answer is added into a new buffer in the
+current window.
+
+
+:GpNew                                                                *:GpNew*
+
+Similar to `:GpRewrite`, but the answer is added into a new horizontal split
+window.
+
+
+:GpVnew                                                              *:GpVnew*
+
+Similar to `:GpRewrite`, but the answer is added into a new vertical split
+window.
+
+
+:GpTabnew                                                          *:GpTabnew*
+
+Similar to `:GpRewrite`, but the answer is added into a new tab.
+
+
+:GpPopup                                                            *:GpPopup*
+
+Similar to `:GpRewrite`, but the answer is added into a pop-up window.
+
+
+:GpImplement                                                    *:GpImplement*
+
+Example hook command to develop code from comments in a visual selection or
+specified range.
+
+
+:GpContext                                                        *:GpContext*
+
+Provides custom context per repository: - Opens `.gp.md` file for a given
+repository in a toggable window. - Appends selection/range to the context file
+when used in visual/range mode. - Refer to |gp.nvim-custom-instructions| for
+more details. - Supports display targeting subcommands similar to `GpChatNew`.
+- `:GpContext vsplit` Open `.gp.md` in a vertical split window. - `:GpContext
+split` Open `.gp.md` in a horizontal split window. - `:GpContext tabnew` Open
+`.gp.md` in a new tab. - `:GpContext popup` Open `.gp.md` in a popup window.
+
+
+SPEECH COMMANDS                                *gp.nvim-usage-speech-commands*
+
+
+:GpWhisper                                                        *:GpWhisper*
+
+Transcription replaces the current line, visual selection or range in the
+current buffer. Use your mouth to ask a question in a chat buffer instead of
+writing it by hand, dictate some comments for the code, notes or even your next
+novel..
+
+For the rest of the whisper commands, the transcription is used as an editable
+prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates
+instructions for `GpRewrite` etc.).
+
+
+:GpWhisperRewrite                                          *:GpWhisperRewrite*
+
+Similar to `:GpRewrite`, but the prompt instruction dialog uses transcribed
+spoken instructions.
+
+
+:GpWhisperAppend                                            *:GpWhisperAppend*
+
+Similar to `:GpAppend`, but the prompt instruction dialog uses transcribed
+spoken instructions for adding content after the current line, visual
+selection, or range.
+
+
+:GpWhisperPrepend                                          *:GpWhisperPrepend*
+
+Similar to `:GpPrepend`, but the prompt instruction dialog uses transcribed
+spoken instructions for adding content before the current line, selection, or
+range.
+
+
+:GpWhisperEnew                                                *:GpWhisperEnew*
+
+Similar to `:GpEnew`, but the prompt instruction dialog uses transcribed spoken
+instructions for opening content in a new buffer within the current window.
+
+
+:GpWhisperNew                                                  *:GpWhisperNew*
+
+Similar to `:GpNew`, but the prompt instruction dialog uses transcribed spoken
+instructions for opening content in a new horizontal split window.
+
+
+:GpWhisperVnew                                                *:GpWhisperVnew*
+
+Similar to `:GpVnew`, but the prompt instruction dialog uses transcribed spoken
+instructions for opening content in a new vertical split window.
+
+
+:GpWhisperTabnew                                            *:GpWhisperTabnew*
+
+Similar to `:GpTabnew`, but the prompt instruction dialog uses transcribed
+spoken instructions for opening content in a new tab.
+
+
+:GpWhisperPopup                                              *:GpWhisperPopup*
+
+Similar to `:GpPopup`, but the prompt instruction dialog uses transcribed
+spoken instructions for displaying content in a pop-up window.
+
+
+AGENT COMMANDS                                  *gp.nvim-usage-agent-commands*
+
+
+:GpNextAgent                                                    *:GpNextAgent*
+
+Cycles between available agents based on the current buffer (chat agents if
+current buffer is a chat and command agents otherwise).
+
+
+:GpAgent                                                            *:GpAgent*
+
+Displays currently used agents for chat and command instructions.
+
+
+:GpAgent XY                                                      *:GpAgent-XY*
+
+Choose a new agent based on its name, listing options based on the current
+buffer (chat agents if current buffer is a chat and command agents otherwise).
 
 
 OTHER COMMANDS                                  *gp.nvim-usage-other-commands*
 
--                                                               *`:GpContext`*
-    `:GpContext`                           Provides custom context per repository by opening `.gp.md` file for a given repository in a toggleable window. If used with selection/range, it appends it to the context file. Supports display targeting subcommands just like `GpChatNew`.
--                                                   *Agent-Switching-Commands*
-    Agent Switching Commands               Commands to switch between configured agents (model + persona), including `:GpNextAgent` to cycle between available agents, `:GpAgent` to display currently used agents, and `:GpAgent XY` to choose a new agent.
--                                  *Voice-Commands-Transcribed-by-Whisper-API*
-    Voice Commands Transcribed by Whisper APIIncludes `:GpWhisper` for transcriptions, as well as other `GpWhisper` commands that act as editable prompts for their equivalent non-whisper commands (`GpWhisperRewrite`, `GpWhisperAppend`, etc.).
--                                                                  *`:GpStop`*
-    `:GpStop`                              To stop the stream of a currently running GPT response.
--                                                         *`:GpInspectPlugin`*
-    `:GpInspectPlugin`                     Inspect GPT prompt plugin object.
-- Provide custom context per repository with`:GpContext`
-    - opens`.gp.md` file for given repository in toggable window
-    - if used with selection/range it appends it to the context file
-    - supports display targeting subcommands just like `GpChatNew`
-    - see |gp.nvim-custom-instructions| section
-- Switch between configured agents (model + persona):
-    - `:GpNextAgent` - cycle between available agents
-    - `:GpAgent` - display currently used agents for chat and command instructions
-    - `:GpAgent XY` - choose new agent based on its name
-    commands are context aware (they switch chat or command agent based on the
-    current buffer)
-- Voice commands transcribed by Whisper API:
-    - `:GpWhisper` - transcription replaces the current line, visual selection or range in the current buffer (use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel)
-        for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
-    - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
-    - `:GpWhisperAppend` - answers after the current line, visual selection or range
-    - `:GpWhisperPrepend` - answers before the current line, selection or range
-    - `:GpWhisperEnew` - answers into new buffer in the current window
-    - `:GpWhisperNew` - answers into new horizontal split
-    - `:GpWhisperVnew` - answers into new vertical split
-    - `:GpWhisperTabnew` - answers into new tab
-    - `:GpWhisperPopup` - answers into pop up window
-- To stop the stream of currently running gpt response you can use `:GpStop`
-- Run your own custom hook commands:
-    - `:GpInspectPlugin` - inspect GPT prompt plugin object
+
+:GpStop                                                              *:GpStop*
+
+Stops all currently running responses and jobs.
+
+
+:GpInspectPlugin                                            *:GpInspectPlugin*
+
+Inspects the GPT prompt plugin object in a new scratch buffer.
 
 
 GPDONE AUTOCOMMAND                          *gp.nvim-usage-gpdone-autocommand*
