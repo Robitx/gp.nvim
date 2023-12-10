@@ -24,8 +24,8 @@ Table of Contents                                  *gp.nvim-table-of-contents*
 5. Extend functionality                         |gp.nvim-extend-functionality|
 
 
-_ChatGPT like sessions, Instructable text/code operations, Speech to text and
-Image generation in your favorite editor._
+**ChatGPT like sessions, Instructable text/code operations, Speech to text and
+Image generation in your favorite editor.**
 
 
 
@@ -48,7 +48,7 @@ reusing and integrating well with the natural features of (Neo)vim.
     - properly working undo (response can be undone with a single `u`)
 - **Infinitely extensible** via hook functions specified as part of the config
     - hooks have access to everything in the plugin and are automatically registered as commands
-    - see |gp.nvim-configuration| and |gp.nvim-extend-functionality| sections for details
+    - see |gp.nvim-4.-configuration| and |gp.nvim-extend-functionality| sections for details
 - **Minimum dependencies** (`neovim`, `curl`, `grep` and optionally `sox`)
     - zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
@@ -112,7 +112,7 @@ Snippets for your preferred package manager:
 
 Make sure you have OpenAI API key. Get one here
 <https://platform.openai.com/account/api-keys> and use it in the
-|gp.nvim-config|. Also consider setting up usage limits
+|gp.nvim-4.-configuration|. Also consider setting up usage limits
 <https://platform.openai.com/account/billing/limits> so you won’t get
 suprised at the end of the month.
 
