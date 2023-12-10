@@ -7,8 +7,8 @@ Table of Contents                                  *gp.nvim-table-of-contents*
   - Install                                                  |gp.nvim-install|
   - Commands                                                |gp.nvim-commands|
   - Extend functionality                        |gp.nvim-extend-functionality|
-
-ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.*ChatGPT-like-sessions,-Instructable-text/code-operations,-Speech-to-text-and-Image-generation-in-your-favorite-editor.*
+**ChatGPT like sessions, Instructable text/code operations, Speech to text and
+Image generation in your favorite editor.**
 
 
 
