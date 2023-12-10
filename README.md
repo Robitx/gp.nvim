@@ -94,13 +94,13 @@ Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/ac
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
-| Method             | Example                                                        | Security Level |
-|--------------------|----------------------------------------------------------------|----------------|
-| hardcoded string   | `openai_api_key: "sk-...",`                                    | Low            |
-| default env var    | set `OPENAI_API_KEY` environment variable in shell config      | Medium         |
-| custom env var     | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),`               | Medium         |
-| read from file     | `openai_api_key = { "cat", "path_to_api_key" },`               | Medium-High    |
-| password manager   | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },` | High           |
+| Method                 | Example                                                        | Security Level |
+|------------------------|----------------------------------------------------------------|----------------|
+| hardcoded string       | `openai_api_key: "sk-...",`                                    | Low            |
+| default env var        | set `OPENAI_API_KEY` environment variable in shell config      | Medium         |
+| custom env var         | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),`               | Medium         |
+| read from file         | `openai_api_key = { "cat", "path_to_api_key" },`               | Medium-High    |
+| password manager       | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },` | High           |
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
@@ -124,10 +124,10 @@ https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/
 ## Commands
 
 ### Chat
-- `:GpChatNew`
+- **:GpChatNew**
     : Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
 
-    - `:GpChatNew vsplit`
+    - :GpChatNew vsplit`
         : Open a fresh chat in a vertical split window.
 
     - `:GpChatNew split`
@@ -139,7 +139,7 @@ https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/
     - `:GpChatNew popup`
         : Open a fresh chat in a popup window.
 
-- `:GpChatPaste`
+- :GpChatPaste
     : Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
 
     - `:GpChatPaste vsplit`
