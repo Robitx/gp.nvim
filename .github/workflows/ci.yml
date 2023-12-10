@@ -16,6 +16,7 @@ jobs:
           vimdoc: gp.nvim
           demojify: true
           treesitter: true
+          docmapping: true
       - name: Push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
