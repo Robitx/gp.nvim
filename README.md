@@ -12,6 +12,8 @@
 
 <!-- panvimdoc-ignore-end -->
 
+<br />
+
 **ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.**
 
 <p align="left">
@@ -56,7 +58,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
 
 # Install
 
-## 1. Install the plugin <!-- {doc=gp.nvim-install-the-plugin}  -->
+## 1. Install the plugin
 
 Snippets for your preferred package manager:
 ```lua
@@ -89,7 +91,7 @@ use({
 })
 ```
 
-## 2. OpenAI API key  <!-- {doc=gp.nvim-openai-api-key}  -->
+## 2. OpenAI API key
 
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
@@ -105,7 +107,7 @@ The OpenAI API key can be passed to the plugin in multiple ways:
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
-## 3. Dependencies <!-- {doc=gp.nvim-dependencies}  -->
+## 3. Dependencies
 
 The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux, BSD and Mac OS should be covered.
 
@@ -117,14 +119,14 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 - Redhat/CentOS: `yum install sox`
 - NixOS: `nix-env -i sox`
 
-## 4. Configuration  <!-- {doc=gp.nvim-configuration}  -->
+## 4. Configuration
 
 Bellow are the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/lua/gp/config.lua#L8-L350
 
 # Usage
 
-## Chat commands  <!-- {doc=gp.nvim-chat-commands}  -->
+## Chat commands
 
 #### `:GpChatNew` <!-- {doc=:GpChatNew}  -->
 Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
@@ -159,7 +161,7 @@ Request a new GPT response for the current chat. Usin`:GpChatRespond N` request 
 #### `:GpChatDelete` <!-- {doc=:GpChatDelete}  -->
 Delete the current chat. By default requires confirmation before delete, which can be disabled in config using `chat_confirm_delete = false,`.
 
-## Text/Code operation commands  <!-- {doc=gp.nvim-text-code-operation-commands}  -->
+## Text/Code commands
 - `:GpRewrite`<a id="gprewrite"></a>
     : Opens a dialog for entering a prompt. After providing prompt instructions into the dialog, the generated response replaces the current line in the normal/insert mode, selected lines in visual mode, or the specified range (for example `:%GpRewrite` would apply the rewrite to the entire buffer).
 
@@ -237,7 +239,7 @@ Delete the current chat. By default requires confirmation before delete, which c
 - Run your own custom hook commands:
   - `:GpInspectPlugin` - inspect GPT prompt plugin object
 
-## GpDone autocommand <!-- {doc=gp.nvim-gpdone-autocommand}  -->
+## GpDone autocommand
 
 Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event `GpDone`, so you can define autocmd (like auto formating) to run when gp finishes:
 
@@ -252,8 +254,7 @@ Commands like `GpRewrite`, `GpAppend` etc. run asynchronously and generate event
     })
 ```
 
-## Custom instructions <!-- {doc=gp.nvim-custom-instructions}  -->
-
+## Custom instructions
 
 By calling `:GpContext` you can make `.gp.md` markdown file in a root of a repository. Commands such as `:GpRewrite`, `:GpAppend` etc. will respect instructions provided in this file (works better with gpt4, gpt 3.5 doesn't always listen to system commands). For example:
 
@@ -266,7 +267,7 @@ Use Early return/Guard Clauses pattern to avoid excessive nesting.
 
 Here is [another example](https://github.com/Robitx/gp.nvim/blob/main/.gp.md).
 
-## Scripting <!-- {doc=gp.nvim-scripting}  -->
+## Scripting
 
 `GpDone` event + `.gp.md` custom instructions provide a possibility to run gp.nvim using headless (neo)vim from terminal or shell script. So you can let gp run edits accross many files if you put it in a loop.
 
