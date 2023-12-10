@@ -1,4 +1,4 @@
-# Gp (GPT prompt) plugin for Neovim
+# Gp.nvim
 
 <a href="https://github.com/Robitx/gp.nvim/blob/main/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/robitx/gp.nvim"></a>
 <a href="https://github.com/Robitx/gp.nvim/stargazers"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Robitx/gp.nvim"></a>
@@ -7,16 +7,16 @@
 <a href="https://github.com/Robitx/gp.nvim/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors-anon/Robitx/gp.nvim"></a>
 <a href="https://github.com/search?q=%2F%5E%5B%5Cs%5D*require%5C%28%5B%27%22%5Dgp%5B%27%22%5D%5C%29%5C.setup%2F+language%3ALua&type=code&p=1"><img alt="Static Badge" src="https://img.shields.io/badge/Use%20in%20the%20Wild-8A2BE2"></a>
 
-Gp.nvim provides you ChatGPT like sessions and instructable text/code operations in your favorite editor.
+Gp (GPT prompt) provides you ChatGPT like sessions and instructable text/code operations in your favorite editor.
 
 <p align="left">
 <img src="https://github.com/Robitx/gp.nvim/assets/8431097/cb288094-2308-42d6-9060-4eb21b3ba74c" width="49%">
 <img src="https://github.com/Robitx/gp.nvim/assets/8431097/c538f0a2-4667-444e-8671-13f8ea261be1" width="49%">
 </p>
 
-### [5 minute demo from December 2023](https://www.youtube.com/watch?v=X-cT7s47PLo)
-
-#### [Older 5 minute demo (screen capture, no sound)](https://www.youtube.com/watch?v=wPDcBnQgNCc)
+### Youtube demos
+- [5-min-demo](https://www.youtube.com/watch?v=X-cT7s47PLo) (December 2023)
+- [older-5-min-demo](https://www.youtube.com/watch?v=wPDcBnQgNCc)  (screen capture, no sound)
 
 ## Goals and Features
 
@@ -88,13 +88,14 @@ use({
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [config](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 The OpenAI API key can be passed to the plugin in multiple ways:
-| Method                                                                                    | Example                                                         | Security Level |
-|---------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------------|
-| hardcoded string                                                       | `openai_api_key: "sk-...",`                   | Low            |
-| default env var                                             | set `OPENAI_API_KEY` environment variable in shell config                     | Medium         |
-| custom env var                          | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),` | Medium         |
-| read from file                          | `openai_api_key = { "cat", "path_to_api_key" },` | Medium-High    |
-| password manager                        | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },`| High           |
+
+| Method           | Example                                                        | Security Level |
+|------------------|----------------------------------------------------------------|----------------|
+| hardcoded string | `openai_api_key: "sk-...",`                                    | Low            |
+| default env var  | set `OPENAI_API_KEY` environment variable in shell config      | Medium         |
+| custom env var   | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),`               | Medium         |
+| read from file   | `openai_api_key = { "cat", "path_to_api_key" },`               | Medium-High    |
+| password manager | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },` | High           |
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
