@@ -8,7 +8,7 @@ Table of Contents                                  *gp.nvim-table-of-contents*
   - Commands                                                |gp.nvim-commands|
   - Extend functionality                        |gp.nvim-extend-functionality|
 
-CHATGPT LIKE SESSIONS, INSTRUCTABLE TEXT/CODE OPERATIONS, SPEECH TO TEXT AND IMAGE GENERATION IN YOUR FAVORITE EDITOR.
+ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.*gp.nvim-ChatGPT-like-sessions,-Instructable-text/code-operations,-Speech-to-text-and-Image-generation-in-your-favorite-editor.*
 
 
 
@@ -146,7 +146,7 @@ COMMANDS                                                    *gp.nvim-commands*
 CHAT ~
 
 
-:GPCHATNEW 
+:GpChatNew                                                *gp.nvim-:GpChatNew*
 
 Open a fresh chat in the current window. It can be either empty or include the
 visual selection or specified range as context. This command also supports
@@ -156,7 +156,7 @@ horizontal split window. - `:GpChatNew tabnew` Open a fresh chat in a new tab.
 - `:GpChatNew popup` Open a fresh chat in a popup window.
 
 
-:GPCHATPASTE 
+:GpChatPaste                                            *gp.nvim-:GpChatPaste*
 
 >
     : Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
@@ -347,7 +347,7 @@ There are no default global shortcuts to mess with your own config. Bellow are
 examples for you to adjust or just use directly.
 
 
-NATIVE
+Native                                                        *gp.nvim-Native*
 
 You can use the good old `vim.keymap.set` and paste the following after
 `require("gp").setup(conf)` call (or anywhere you keep shortcuts if you want
@@ -434,7 +434,7 @@ them at one place).
 <
 
 
-WHICHKEY
+Whichkey                                                    *gp.nvim-Whichkey*
 
 Or go more fancy by using which-key.nvim
 <https://github.com/folke/which-key.nvim> plugin:
