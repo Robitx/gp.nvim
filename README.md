@@ -1,4 +1,3 @@
-
 <!-- panvimdoc-ignore-start -->
 
 <a href="https://github.com/Robitx/gp.nvim/blob/main/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/robitx/gp.nvim"></a>
@@ -22,8 +21,9 @@
 </p>
 
 ### Youtube demos
+
 - [5-min-demo](https://www.youtube.com/watch?v=X-cT7s47PLo) (December 2023)
-- [older-5-min-demo](https://www.youtube.com/watch?v=wPDcBnQgNCc)  (screen capture, no sound)
+- [older-5-min-demo](https://www.youtube.com/watch?v=wPDcBnQgNCc) (screen capture, no sound)
 
 # Goals and Features
 
@@ -63,6 +63,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
 ## 1. Install the plugin
 
 Snippets for your preferred package manager:
+
 ```lua
 -- lazy.nvim
 {
@@ -99,15 +100,13 @@ Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/ac
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
-
-| Method                 | Example                                                        | Security Level |
-|------------------------|----------------------------------------------------------------|----------------|
-| hardcoded string       | `openai_api_key: "sk-...",`                                    | Low            |
-| default env var        | set `OPENAI_API_KEY` environment variable in shell config      | Medium         |
-| custom env var         | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),`               | Medium         |
-| read from file         | `openai_api_key = { "cat", "path_to_api_key" },`               | Medium-High    |
-| password manager       | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },` | High           |
-
+| Method           | Example                                                        | Security Level |
+| ---------------- | -------------------------------------------------------------- | -------------- |
+| hardcoded string | `openai_api_key: "sk-...",`                                    | Low            |
+| default env var  | set `OPENAI_API_KEY` environment variable in shell config      | Medium         |
+| custom env var   | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),`               | Medium         |
+| read from file   | `openai_api_key = { "cat", "path_to_api_key" },`               | Medium-High    |
+| password manager | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },` | High           |
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
@@ -127,13 +126,14 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 
 Bellow is a linked snippet with the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 
-https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/lua/gp/config.lua#L8-L350
+https://github.com/Robitx/gp.nvim/blob/d90816b2e9185202d72f7b1346b6d33b36350886/lua/gp/config.lua#L8-L355
 
 # Usage
 
 ## Chat commands
 
 #### `:GpChatNew` <!-- {doc=:GpChatNew}  -->
+
 Open a fresh chat in the current window. It can be either empty or include the visual selection or specified range as context. This command also supports subcommands for layout specification:
 
 - `:GpChatNew vsplit` Open a fresh chat in a vertical split window.
@@ -142,6 +142,7 @@ Open a fresh chat in the current window. It can be either empty or include the v
 - `:GpChatNew popup` Open a fresh chat in a popup window.
 
 #### `:GpChatPaste` <!-- {doc=:GpChatPaste}  -->
+
 Paste the selection or specified range into the latest chat, simplifying the addition of code from multiple files into a single chat buffer. This command also supports subcommands for layout specification:
 
 - `:GpChatPaste vsplit` Paste into the latest chat in a vertical split window.
@@ -150,6 +151,7 @@ Paste the selection or specified range into the latest chat, simplifying the add
 - `:GpChatPaste popup` Paste into the latest chat in a popup window.
 
 #### `:GpChatToggle` <!-- {doc=:GpChatToggle}  -->
+
 Open chat in a toggleable popup window, showing the last active chat or a fresh one with selection or a range as a context. This command also supports subcommands for layout specification:
 
 - `:GpChatToggle vsplit` Toggle chat in a vertical split window.
@@ -158,117 +160,148 @@ Open chat in a toggleable popup window, showing the last active chat or a fresh 
 - `:GpChatToggle popup` Toggle chat in a popup window.
 
 #### `:GpChatFinder` <!-- {doc=:GpChatFinder}  -->
+
 Open a dialog to search through chats.
 
 #### `:GpChatRespond` <!-- {doc=:GpChatRespond}  -->
+
 Request a new GPT response for the current chat. Usin`:GpChatRespond N` request a new GPT response with only the last N messages as context, using everything from the end up to the Nth instance of `🗨:..` (N=1 is like asking a question in a new chat).
 
 #### `:GpChatDelete` <!-- {doc=:GpChatDelete}  -->
+
 Delete the current chat. By default requires confirmation before delete, which can be disabled in config using `chat_confirm_delete = false,`.
 
 ## Text/Code commands
 
 #### `:GpRewrite`<!-- {doc=:GpRewrite}  -->
+
 Opens a dialog for entering a prompt. After providing prompt instructions into the dialog, the generated response replaces the current line in normal/insert mode, selected lines in visual mode, or the specified range (e.g., `:%GpRewrite` applies the rewrite to the entire buffer).
 
 `:GpRewrite {prompt}` Executes directly with specified `{prompt}` instructions, bypassing the dialog. Suitable for mapping repetitive tasks to keyboard shortcuts or for automation using headless Neovim via terminal or shell scripts.
 
 #### `:GpAppend` <!-- {doc=:GpAppend}  -->
+
 Similar to `:GpRewrite`, but the answer is added after the current line, visual selection, or range.
 
 #### `:GpPrepend` <!-- {doc=:GpPrepend}  -->
+
 Similar to `:GpRewrite`, but the answer is added before the current line, visual selection, or range.
 
 #### `:GpEnew` <!-- {doc=:GpEnew}  -->
+
 Similar to `:GpRewrite`, but the answer is added into a new buffer in the current window.
 
 #### `:GpNew` <!-- {doc=:GpNew}  -->
+
 Similar to `:GpRewrite`, but the answer is added into a new horizontal split window.
 
 #### `:GpVnew` <!-- {doc=:GpVnew}  -->
+
 Similar to `:GpRewrite`, but the answer is added into a new vertical split window.
 
 #### `:GpTabnew` <!-- {doc=:GpTabnew}  -->
+
 Similar to `:GpRewrite`, but the answer is added into a new tab.
 
 #### `:GpPopup` <!-- {doc=:GpPopup}  -->
+
 Similar to `:GpRewrite`, but the answer is added into a pop-up window.
 
 #### `:GpImplement` <!-- {doc=:GpImplement}  -->
+
 Example hook command to develop code from comments in a visual selection or specified range.
 
 #### `:GpContext`<!-- {doc=:GpContext}  -->
+
 Provides custom context per repository:
 
 - opens `.gp.md` file for a given repository in a toggable window.
 - appends selection/range to the context file when used in visual/range mode.
 - also supports subcommands for layout specification:
 
-	- `:GpContext vsplit` Open `.gp.md` in a vertical split window.
-	- `:GpContext split` Open `.gp.md` in a horizontal split window.
-	- `:GpContext tabnew` Open `.gp.md` in a new tab.
-	- `:GpContext popup` Open `.gp.md` in a popup window.
+  - `:GpContext vsplit` Open `.gp.md` in a vertical split window.
+  - `:GpContext split` Open `.gp.md` in a horizontal split window.
+  - `:GpContext tabnew` Open `.gp.md` in a new tab.
+  - `:GpContext popup` Open `.gp.md` in a popup window.
 
 - refer to [Custom Instructions](#custom-instructions) for more details.
+
 ## Speech commands
 
 #### `:GpWhisper` <!-- {doc=:GpWhisper}  -->
-Transcription replaces the current line, visual selection or range in the current buffer. Use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel..  
+
+Transcription replaces the current line, visual selection or range in the current buffer. Use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel..
 
 For the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command - `GpWhisperRewrite` dictates instructions for `GpRewrite` etc.
 
 #### `:GpWhisperRewrite` <!-- {doc=:GpWhisperRewrite}  -->
+
 Similar to `:GpRewrite`, but the prompt instruction dialog uses transcribed spoken instructions.
 
 #### `:GpWhisperAppend` <!-- {doc=:GpWhisperAppend}  -->
+
 Similar to `:GpAppend`, but the prompt instruction dialog uses transcribed spoken instructions for adding content after the current line, visual selection, or range.
 
 #### `:GpWhisperPrepend` <!-- {doc=:GpWhisperPrepend}  -->
+
 Similar to `:GpPrepend`, but the prompt instruction dialog uses transcribed spoken instructions for adding content before the current line, selection, or range.
 
 #### `:GpWhisperEnew` <!-- {doc=:GpWhisperEnew}  -->
+
 Similar to `:GpEnew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new buffer within the current window.
 
 #### `:GpWhisperNew` <!-- {doc=:GpWhisperNew}  -->
+
 Similar to `:GpNew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new horizontal split window.
 
 #### `:GpWhisperVnew` <!-- {doc=:GpWhisperVnew}  -->
+
 Similar to `:GpVnew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new vertical split window.
 
 #### `:GpWhisperTabnew` <!-- {doc=:GpWhisperTabnew}  -->
+
 Similar to `:GpTabnew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new tab.
 
 #### `:GpWhisperPopup` <!-- {doc=:GpWhisperPopup}  -->
+
 Similar to `:GpPopup`, but the prompt instruction dialog uses transcribed spoken instructions for displaying content in a pop-up window.
 
 ## Agent commands
 
 #### `:GpNextAgent` <!-- {doc=:GpNextAgent}  -->
+
 Cycles between available agents based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
 
 #### `:GpAgent` <!-- {doc=:GpAgent}  -->
+
 Displays currently used agents for chat and command instructions.
 
 #### `:GpAgent XY` <!-- {doc=:GpAgent-XY}  -->
+
 Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
 
 ## Image commands
 
 #### `:GpImage` <!-- {doc=:GpImage}  -->
+
 Opens a dialog for entering a prompt describing wanted images. When the generation is done it opens dialog for storing the image to the disk.
 
 #### `:GpImageAgent` <!-- {doc=:GpImageAgent}  -->
+
 Displays currently used image agent (configuration).
 
 #### `:GpImageAgent XY` <!-- {doc=:GpImageAgent-XY}  -->
+
 Choose a new "image agent" based on its name. In the context of images, agent is basically a configuration for model, image size, quality and so on. The agent setting is persisted on disk across Neovim instances.
 
 ## Other commands
 
 #### `:GpStop` <!-- {doc=:GpStop}  -->
+
 Stops all currently running responses and jobs.
 
 #### `:GpInspectPlugin` <!-- {doc=:GpInspectPlugin}  -->
+
 Inspects the GPT prompt plugin object in a new scratch buffer.
 
 ## GpDone autocommand
