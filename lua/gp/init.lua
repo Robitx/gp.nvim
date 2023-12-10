@@ -2789,6 +2789,20 @@ M.Whisper = function(callback)
 			},
 			exit_code = 1,
 		},
+		ffmpeg = {
+			cmd = "ffmpeg",
+			opts = {
+				"-y",
+				"-f",
+				"avfoundation",
+				"-i",
+				":0",
+				"-t",
+				"3600",
+				M.config.whisper_dir .. "/rec.wav",
+			},
+			exit_code = 255,
+		},
 	}
 
 	if not M.valid_api_key() then
@@ -2922,16 +2936,33 @@ M.Whisper = function(callback)
 	end
 
 	local rec_cmd = "sox"
+	if vim.fn.executable("ffmpeg") == 1 then
+		local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
+		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+		if devices == "1" then
+			rec_cmd = "ffmpeg"
+		end
+	end
 	if vim.fn.executable("arecord") == 1 then
 		rec_cmd = "arecord"
 	end
 
 	local cmd = rec_options[rec_cmd]
-	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, _, _)
+	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, stdout, stderr)
 		close()
 
 		if code and code ~= cmd.exit_code then
-			M.error("Sox exited with code and signal: " .. code .. " " .. signal)
+			M.error(
+				rec_cmd
+					.. " exited with code and signal:\ncode: "
+					.. code
+					.. ", signal: "
+					.. signal
+					.. "\nstdout: "
+					.. vim.inspect(stdout)
+					.. "\nstderr: "
+					.. vim.inspect(stderr)
+			)
 			return
 		end
 
