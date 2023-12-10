@@ -3,29 +3,29 @@
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
 
-1. Gp (GPT prompt) plugin for Neovim|gp.nvim-gp-(gpt-prompt)-plugin-for-neovim|
-  - Goals and Features|gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-goals-and-features|
-  - Install                |gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-install|
-  - Usage                    |gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-usage|
-  - Extend functionality|gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-extend-functionality|
+1. Gp.nvim                                                   |gp.nvim-gp.nvim|
+  - Goals and Features                    |gp.nvim-gp.nvim-goals-and-features|
+  - Install                                          |gp.nvim-gp.nvim-install|
+  - Usage                                              |gp.nvim-gp.nvim-usage|
+  - Extend functionality                |gp.nvim-gp.nvim-extend-functionality|
 
 ==============================================================================
-1. Gp (GPT prompt) plugin for Neovim*gp.nvim-gp-(gpt-prompt)-plugin-for-neovim*
+1. Gp.nvim                                                   *gp.nvim-gp.nvim*
 
 
 
-Gp.nvim provides you ChatGPT like sessions and instructable text/code
+Gp (GPT prompt) provides you ChatGPT like sessions and instructable text/code
 operations in your favorite editor.
 
 
 
-5 MINUTE DEMO FROM DECEMBER 2023 ~
+YOUTUBE DEMOS ~
+
+- 5-min-demo <https://www.youtube.com/watch?v=X-cT7s47PLo> (December 2023)
+- older-5-min-demo <https://www.youtube.com/watch?v=wPDcBnQgNCc> (screen capture, no sound)
 
 
-OLDER 5 MINUTE DEMO (SCREEN CAPTURE, NO SOUND)
-
-
-GOALS AND FEATURES*gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-goals-and-features*
+GOALS AND FEATURES                        *gp.nvim-gp.nvim-goals-and-features*
 
 The goal is to extend Neovim with the **power of GPT models in a simple
 unobtrusive extensible way.** Trying to keep things as native as possible -
@@ -58,7 +58,7 @@ reusing and integrating well with the natural features of (Neo)vim.
         (dicating comments and notes, asking gpt questions, giving instructions for code operations, ..)
 
 
-INSTALL                    *gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-install*
+INSTALL                                              *gp.nvim-gp.nvim-install*
 
 
 1. INSTALL THE PLUGIN WITH YOUR PREFERRED PACKAGE MANAGER: ~
@@ -102,16 +102,27 @@ Make sure you have OpenAI API key. Get one here
 <https://platform.openai.com/account/billing/limits> so you won’t get
 suprised at the end of the month.
 
-The OpenAI API key can be passed to the plugin in multiple ways: | Method |
-Example | Security Level |
-|—————————————————————————————————|—————————————————————–|—————-|
-| hardcoded string | `openai_api_key: "sk-...",` | Low | | default env var |
-set `OPENAI_API_KEY` environment variable in shell config | Medium | | custom
-env var | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),` | Medium | | read
-from file | `openai_api_key = { "cat", "path_to_api_key" },` | Medium-High | |
-password manager | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY"
-},`| High |
+The OpenAI API key can be passed to the plugin in multiple ways:
 
+  ------------------------------------------------------------------------------------------
+  Method        Example                                                        Security
+                                                                               Level
+  ------------- -------------------------------------------------------------- -------------
+  hardcoded     openai_api_key: "sk-...",                                      Low
+  string                                                                       
+
+  default env   set OPENAI_API_KEY environment variable in shell config        Medium
+  var                                                                          
+
+  custom env    openai_api_key = os.getenv("CUSTOM_ENV_NAME"),                 Medium
+  var                                                                          
+
+  read from     openai_api_key = { "cat", "path_to_api_key" },                 Medium-High
+  file                                                                         
+
+  password      openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },   High
+  manager                                                                      
+  ------------------------------------------------------------------------------------------
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking
 Neovim (password managers can take a second or two).
 
@@ -141,7 +152,7 @@ your needs.
 https://github.com/Robitx/gp.nvim/blob/7d802f54fb503f27fc9722656efddb05a533f4cf/lua/gp/config.lua#L8-L350
 
 
-USAGE                        *gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-usage*
+USAGE                                                  *gp.nvim-gp.nvim-usage*
 
 
 COMMANDS ~
@@ -545,7 +556,7 @@ Or go more fancy by using which-key.nvim
 <
 
 
-EXTEND FUNCTIONALITY*gp.nvim-gp-(gpt-prompt)-plugin-for-neovim-extend-functionality*
+EXTEND FUNCTIONALITY                    *gp.nvim-gp.nvim-extend-functionality*
 
 You can extend/override the plugin functionality with your own, by putting
 functions into `config.hooks`. Hooks have access to everything (see
