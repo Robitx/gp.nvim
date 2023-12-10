@@ -12,9 +12,9 @@
 
 <!-- panvimdoc-ignore-end -->
 
-<br />
+<br>
 
-**ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor.**
+_ChatGPT like sessions, Instructable text/code operations, Speech to text and Image generation in your favorite editor._
 
 <p align="left">
 <img src="https://github.com/Robitx/gp.nvim/assets/8431097/cb288094-2308-42d6-9060-4eb21b3ba74c" width="49%">
@@ -97,6 +97,7 @@ Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/ac
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
+
 | Method                 | Example                                                        | Security Level |
 |------------------------|----------------------------------------------------------------|----------------|
 | hardcoded string       | `openai_api_key: "sk-...",`                                    | Low            |
@@ -104,6 +105,7 @@ The OpenAI API key can be passed to the plugin in multiple ways:
 | custom env var         | `openai_api_key = os.getenv("CUSTOM_ENV_NAME"),`               | Medium         |
 | read from file         | `openai_api_key = { "cat", "path_to_api_key" },`               | Medium-High    |
 | password manager       | `openai_api_key = { "bw", "get", "password", "OAI_API_KEY" },` | High           |
+
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
@@ -162,82 +164,96 @@ Request a new GPT response for the current chat. Usin`:GpChatRespond N` request 
 Delete the current chat. By default requires confirmation before delete, which can be disabled in config using `chat_confirm_delete = false,`.
 
 ## Text/Code commands
-- `:GpRewrite`<a id="gprewrite"></a>
-    : Opens a dialog for entering a prompt. After providing prompt instructions into the dialog, the generated response replaces the current line in the normal/insert mode, selected lines in visual mode, or the specified range (for example `:%GpRewrite` would apply the rewrite to the entire buffer).
 
-    - `:GpRewrite {prompt}`
-        : Executes directly with specified `{prompt}` instructions, bypassing the dialog. Suitable mapping repetitive tasks to keyboard shortcuts or for automation using headless Neovim via terminal or shell scripts.
-   
-- `:GpAppend`<a id="gpappend"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added after the current line, visual selection, or range.
+#### `:GpRewrite`<!-- {doc=:GpRewrite}  -->
+Opens a dialog for entering a prompt. After providing prompt instructions into the dialog, the generated response replaces the current line in normal/insert mode, selected lines in visual mode, or the specified range (e.g., `:%GpRewrite` applies the rewrite to the entire buffer).
 
-- `:GpPrepend`<a id="gpprepend"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added before the current line, visual selection, or range.
+`:GpRewrite {prompt}` Executes directly with specified `{prompt}` instructions, bypassing the dialog. Suitable for mapping repetitive tasks to keyboard shortcuts or for automation using headless Neovim via terminal or shell scripts.
 
-- `:GpEnew`<a id="gpenew"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added into a new buffer in the current window.
+#### `:GpAppend` <!-- {doc=:GpAppend}  -->
+Similar to [:GpRewrite](#gprewrite), but the answer is added after the current line, visual selection, or range.
 
-- `:GpNew`<a id="gpnew"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added into a new horizontal split window.
+#### `:GpPrepend` <!-- {doc=:GpPrepend}  -->
+Similar to `:GpRewrite`, but the answer is added before the current line, visual selection, or range.
 
-- `:GpVnew`<a id="gpvnew"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added into a new vertical split window.
+#### `:GpEnew` <!-- {doc=:GpEnew}  -->
+Similar to `:GpRewrite`, but the answer is added into a new buffer in the current window.
 
-- `:GpTabnew`<a id="gptabnew"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added into a new tab.
+#### `:GpNew` <!-- {doc=:GpNew}  -->
+Similar to `:GpRewrite`, but the answer is added into a new horizontal split window.
 
-- `:GpPopup`<a id="gppopup"></a>
-    : Behaves like [GpRewrite](#gprewrite), but the answer is added into a pop-up window.
+#### `:GpVnew` <!-- {doc=:GpVnew}  -->
+Similar to `:GpRewrite`, but the answer is added into a new vertical split window.
 
-- `:GpImplement`<a id="gpimplement"></a>
-    : Example hook command for finishing the code based on comments provided in the visual selection or specified range.
+#### `:GpTabnew` <!-- {doc=:GpTabnew}  -->
+Similar to `:GpRewrite`, but the answer is added into a new tab.
+
+#### `:GpPopup` <!-- {doc=:GpPopup}  -->
+Similar to `:GpRewrite`, but the answer is added into a pop-up window.
+
+#### `:GpImplement` <!-- {doc=:GpImplement}  -->
+Example hook command to develop code from comments in a visual selection or specified range.
+
+#### `:GpContext`<!-- {doc=:GpContext}  -->
+Provides custom context per repository:
+- Opens `.gp.md` file for a given repository in a toggable window.
+- Appends selection/range to the context file when used in visual/range mode.
+- Refer to [Custom Instructions](#custom-instructions) for more details.
+- Supports display targeting subcommands similar to `GpChatNew`.
+	- `:GpContext vsplit` Open `.gp.md` in a vertical split window.
+	- `:GpContext split` Open `.gp.md` in a horizontal split window.
+	- `:GpContext tabnew` Open `.gp.md` in a new tab.
+	- `:GpContext popup` Open `.gp.md` in a popup window.
+
+## Speech commands
+
+#### `:GpWhisper` <!-- {doc=:GpWhisper}  -->
+Transcription replaces the current line, visual selection or range in the current buffer. Use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel..  
+
+For the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.).
+
+#### `:GpWhisperRewrite` <!-- {doc=:GpWhisperRewrite}  -->
+Similar to `:GpRewrite`, but the prompt instruction dialog uses transcribed spoken instructions.
+
+#### `:GpWhisperAppend` <!-- {doc=:GpWhisperAppend}  -->
+Similar to `:GpAppend`, but the prompt instruction dialog uses transcribed spoken instructions for adding content after the current line, visual selection, or range.
+
+#### `:GpWhisperPrepend` <!-- {doc=:GpWhisperPrepend}  -->
+Similar to `:GpPrepend`, but the prompt instruction dialog uses transcribed spoken instructions for adding content before the current line, selection, or range.
+
+#### `:GpWhisperEnew` <!-- {doc=:GpWhisperEnew}  -->
+Similar to `:GpEnew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new buffer within the current window.
+
+#### `:GpWhisperNew` <!-- {doc=:GpWhisperNew}  -->
+Similar to `:GpNew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new horizontal split window.
+
+#### `:GpWhisperVnew` <!-- {doc=:GpWhisperVnew}  -->
+Similar to `:GpVnew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new vertical split window.
+
+#### `:GpWhisperTabnew` <!-- {doc=:GpWhisperTabnew}  -->
+Similar to `:GpTabnew`, but the prompt instruction dialog uses transcribed spoken instructions for opening content in a new tab.
+
+#### `:GpWhisperPopup` <!-- {doc=:GpWhisperPopup}  -->
+Similar to `:GpPopup`, but the prompt instruction dialog uses transcribed spoken instructions for displaying content in a pop-up window.
+
+## Agent commands
+
+#### `:GpNextAgent` <!-- {doc=:GpNextAgent}  -->
+Cycles between available agents based on the current buffer (chat agents if current buffer is a chat and command agents otherwise).
+
+#### `:GpAgent` <!-- {doc=:GpAgent}  -->
+Displays currently used agents for chat and command instructions.
+
+#### `:GpAgent XY` <!-- {doc=:GpAgent-XY}  -->
+Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise).
 
 ## Other commands
 
-- `:GpContext`
-    : Provides custom context per repository by opening `.gp.md` file for a given repository in a toggleable window. If used with selection/range, it appends it to the context file. Supports display targeting subcommands just like `GpChatNew`.
+#### `:GpStop` <!-- {doc=:GpStop}  -->
+Stops all currently running responses and jobs.
 
-- Agent Switching Commands
-    : Commands to switch between configured agents (model + persona), including `:GpNextAgent` to cycle between available agents, `:GpAgent` to display currently used agents, and `:GpAgent XY` to choose a new agent.
-
-- Voice Commands Transcribed by Whisper API
-    : Includes `:GpWhisper` for transcriptions, as well as other `GpWhisper` commands that act as editable prompts for their equivalent non-whisper commands (`GpWhisperRewrite`, `GpWhisperAppend`, etc.).
-
-- `:GpStop`
-    : To stop the stream of a currently running GPT response.
-
-- `:GpInspectPlugin`
-    : Inspect GPT prompt plugin object.
-
-- Provide custom context per repository with`:GpContext`:
-
-  - opens `.gp.md` file for given repository in toggable window
-  - if used with selection/range it appends it to the context file
-  - supports display targeting subcommands just like `GpChatNew`
-  - see [Custom instructions](#custom-instructions-per-repository) section
-
-- Switch between configured agents (model + persona):
-
-  - `:GpNextAgent` - cycle between available agents
-  - `:GpAgent` - display currently used agents for chat and command instructions
-  - `:GpAgent XY` - choose new agent based on its name
-
-  commands are context aware (they switch chat or command agent based on the current buffer)
-
-- Voice commands transcribed by Whisper API:
-  - `:GpWhisper` - transcription replaces the current line, visual selection or range in the current buffer (use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel)  
-    for the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command (`GpWhisperRewrite` dictates instructions for `GpRewrite` etc.):
-  - `:GpWhisperRewrite` - answer replaces the current line, visual selection or range
-  - `:GpWhisperAppend` - answers after the current line, visual selection or range
-  - `:GpWhisperPrepend` - answers before the current line, selection or range
-  - `:GpWhisperEnew` - answers into new buffer in the current window
-  - `:GpWhisperNew` - answers into new horizontal split
-  - `:GpWhisperVnew` - answers into new vertical split
-  - `:GpWhisperTabnew` - answers into new tab
-  - `:GpWhisperPopup` - answers into pop up window
-- To stop the stream of currently running gpt response you can use `:GpStop`
-- Run your own custom hook commands:
-  - `:GpInspectPlugin` - inspect GPT prompt plugin object
+#### `:GpInspectPlugin` <!-- {doc=:GpInspectPlugin}  -->
+Inspects the GPT prompt plugin object in a new scratch buffer.
 
 ## GpDone autocommand
 
