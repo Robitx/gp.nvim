@@ -147,7 +147,7 @@ Paste the selection or specified range into the latest chat, simplifying the add
 
 - `:GpChatPaste vsplit` Paste into the latest chat in a vertical split window.
 - `:GpChatPaste split` Paste into the latest chat in a horizontal split window.
-- `:GpChatPaste tab` Paste into the latest chat in a new tab.
+- `:GpChatPaste tabnew` Paste into the latest chat in a new tab.
 - `:GpChatPaste popup` Paste into the latest chat in a popup window.
 
 #### `:GpChatToggle` <!-- {doc=:GpChatToggle}  -->
@@ -156,7 +156,7 @@ Open chat in a toggleable popup window, showing the last active chat or a fresh 
 
 - `:GpChatToggle vsplit` Toggle chat in a vertical split window.
 - `:GpChatToggle split` Toggle chat in a horizontal split window.
-- `:GpChatToggle tab` Toggle chat in a new tab.
+- `:GpChatToggle tabnew` Toggle chat in a new tab.
 - `:GpChatToggle popup` Toggle chat in a popup window.
 
 #### `:GpChatFinder` <!-- {doc=:GpChatFinder}  -->
