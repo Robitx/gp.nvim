@@ -1357,7 +1357,7 @@ M.prep_md = function(buf)
 	-- better text wrapping
 	vim.api.nvim_command("setlocal wrap linebreak")
 	-- auto save on TextChanged, TextChangedI
-	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer> silent! write")
+	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer=" .. buf .. "> silent! write")
 
 	-- register shortcuts local to this buffer
 	buf = buf or vim.api.nvim_get_current_buf()
