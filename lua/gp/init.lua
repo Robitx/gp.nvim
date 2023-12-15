@@ -1395,6 +1395,10 @@ M.prep_chat = function(buf, file_name)
 		return
 	end
 
+	if buf ~= vim.api.nvim_get_current_buf() then
+		return
+	end
+
 	M.prep_md(buf)
 
 	-- setup chat specific commands
@@ -1453,6 +1457,10 @@ end
 
 M.prep_context = function(buf, file_name)
 	if not _H.ends_with(file_name, ".gp.md") then
+		return
+	end
+
+	if buf ~= vim.api.nvim_get_current_buf() then
 		return
 	end
 
