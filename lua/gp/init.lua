@@ -3156,4 +3156,128 @@ function M.generate_image(prompt, model, quality, style, size)
 	end)
 end
 
+M.cmd.LspCompletion = function(params)
+	local buf = vim.api.nvim_get_current_buf()
+	local win = vim.api.nvim_get_current_win()
+
+	local pparams = vim.lsp.util.make_position_params(win)
+	-- pparams.position.character = 0
+	-- print(vim.inspect(pparams))
+	vim.lsp.buf_request_all(buf, "textDocument/completion", pparams, function(results)
+		local res = {}
+		print(vim.inspect(res))
+		-- TODO: filter default items
+		for _, r in pairs(results) do
+			for _, item in ipairs(r.result.items) do
+				item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
+				-- item.data = nil
+				if item.kind ~= "Snippet" then
+					if not res[item.kind] then
+						res[item.kind] = {}
+					end
+					local label = item.label
+					if item.detail then
+						label = label .. "|" .. item.detail
+					end
+					table.insert(res[item.kind], label)
+				end
+			end
+		end
+
+		local bufnr = vim.api.nvim_create_buf(false, true)
+		local text = ""
+		for kind, items in pairs(res) do
+			text = text .. "\n\n" .. kind .. ":"
+			for _, item in ipairs(items) do
+				text = text .. "\n" .. item
+			end
+		end
+		vim.api.nvim_buf_set_lines(
+			bufnr,
+			0,
+			-1,
+			false,
+			vim.split(vim.inspect(results) .. "\n" .. vim.inspect(res) .. "\n" .. text, "\n")
+		)
+		vim.api.nvim_win_set_buf(0, bufnr)
+	end)
+end
+
+M.cmd.LspSymbols = function(params)
+	local buf = vim.api.nvim_get_current_buf()
+	local win = vim.api.nvim_get_current_win()
+	local lparams = vim.lsp.util.make_given_range_params({ params.line1, 0 }, { params.line2, 0 }, buf)
+	local MAX_LEVEL = 1
+	local function resolve(items, level)
+		if level > MAX_LEVEL then
+			return {}
+		end
+		items = items or {}
+		local res = {}
+		for _, item in ipairs(items) do
+			local ikind = vim.lsp.protocol.SymbolKind[item.kind]
+			res[ikind] = res[ikind] or {}
+			local kids = {}
+			local new_level = level + 1
+			--
+			if ikind == "Function" or ikind == "Method" then
+				new_level = MAX_LEVEL + 1
+			end
+			for kind, childs in pairs(resolve(item.children, new_level)) do
+				kids[kind] = kids[kind] or {}
+				for _, child in ipairs(childs) do
+					table.insert(kids[kind], child)
+				end
+			end
+
+			local iname = item.name
+			if item.detail then
+				iname = iname .. "|" .. item.detail
+			end
+			if vim.tbl_isempty(kids) then
+				table.insert(res[ikind], iname)
+			else
+				table.insert(res[ikind], { name = iname, kids = kids })
+			end
+		end
+		return res
+	end
+
+	local function pretty_print(res, items, level)
+		for key, vals in pairs(items) do
+			-- if key == "name" then
+			--     table.insert(res, string.rep(" ", level) .. vals)
+			if type(vals) == "table" then
+				table.insert(res, string.rep(" ", level) .. key .. ":")
+				pretty_print(res, vals, level + 1)
+			else
+				table.insert(res, string.rep(" ", level) .. vals)
+			end
+		end
+	end
+	vim.lsp.buf_request_all(buf, "textDocument/documentSymbol", lparams, function(results)
+		local res = {}
+		for _, r in pairs(results) do
+			for kind, childs in pairs(resolve(r.result, 0)) do
+				res[kind] = res[kind] or {}
+				for _, child in ipairs(childs) do
+					table.insert(res[kind], child)
+				end
+			end
+		end
+		local flat = vim.tbl_flatten(res)
+		local bufnr = vim.api.nvim_create_buf(false, true)
+		local lines = {}
+		pretty_print(lines, res, 0)
+		vim.api.nvim_buf_set_lines(
+			bufnr,
+			0,
+			-1,
+			false,
+			vim.split(vim.inspect(results) .. "\n" .. vim.inspect(res) .. "\n" .. vim.inspect(flat) .. "\n", "\n")
+		)
+		vim.api.nvim_win_set_buf(0, bufnr)
+	end)
+end
+
 return M
