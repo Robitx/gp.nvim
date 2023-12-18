@@ -1939,7 +1939,7 @@ M.chat_respond = function(params)
 	M.query(
 		buf,
 		M.prepare_payload(messages, headers.model, agent.model),
-		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", false),
+		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
 			if not qt then
