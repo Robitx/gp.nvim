@@ -728,13 +728,13 @@ M.setup = function(opts)
 
 	-- make sure _dirs exists
 	for k, v in pairs(M.config) do
-		-- strip trailing slash
 		if k:match("_dir$") and type(v) == "string" then
-			M.config[k] = v:gsub("/$", "")
-		end
-		if k:match("_dir$") and vim.fn.isdirectory(v) == 0 then
-			M.info("creating directory " .. v)
-			vim.fn.mkdir(v, "p")
+			local dir = v:gsub("/$", "")
+			M.config[k] = dir
+			if vim.fn.isdirectory(dir) == 0 then
+				M.info("creating directory " .. dir)
+				vim.fn.mkdir(dir, "p")
+			end
 		end
 	end
 
