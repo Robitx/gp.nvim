@@ -3160,46 +3160,68 @@ M.cmd.LspCompletion = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	local pparams = vim.lsp.util.make_position_params(win)
-	-- pparams.position.character = 0
-	-- print(vim.inspect(pparams))
-	vim.lsp.buf_request_all(buf, "textDocument/completion", pparams, function(results)
-		local res = {}
-		print(vim.inspect(res))
-		-- TODO: filter default items
-		for _, r in pairs(results) do
-			for _, item in ipairs(r.result.items) do
-				item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
-				-- item.data = nil
-				if item.kind ~= "Snippet" then
-					if not res[item.kind] then
-						res[item.kind] = {}
-					end
-					local label = item.label
-					if item.detail then
-						label = label .. "|" .. item.detail
-					end
-					table.insert(res[item.kind], label)
-				end
+	local text = ""
+	local items = {}
+
+	local function done()
+		local bufnr = vim.api.nvim_create_buf(false, true)
+		local results = {}
+		for _, i in ipairs(items) do
+			local item = i.item
+			item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
+			if results[item.kind] == nil then
+				results[item.kind] = {}
+			end
+			if item.detail then
+				table.insert(results[item.kind], item.label .. "|" .. item.detail)
+			else
+				table.insert(results[item.kind], item.label)
 			end
 		end
 
-		local bufnr = vim.api.nvim_create_buf(false, true)
-		local text = ""
-		for kind, items in pairs(res) do
-			text = text .. "\n\n" .. kind .. ":"
-			for _, item in ipairs(items) do
-				text = text .. "\n" .. item
+		text = text .. "\n" .. vim.inspect(results) .. "\n" .. vim.inspect(items) .. "\n"
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(text, "\n"))
+		vim.api.nvim_win_set_buf(0, bufnr)
+	end
+
+	local function resolve(index)
+		if index > #items then
+			done()
+			return
+		end
+		local item = items[index]
+
+		if vim.lsp.protocol.CompletionItemKind[item.kind] == "Snippet" then
+			resolve(index + 1)
+			return
+		end
+
+		if item.item.detail == nil and item.item.data ~= nil then
+			local client = vim.lsp.get_client_by_id(item.cid)
+			client.request("completionItem/resolve", item.item, function(error, results, _, _)
+				if error then
+					M.error("Error resolving completion item: " .. vim.inspect(error))
+					return
+				end
+				if results and results.detail then
+					item.item = results
+				end
+				resolve(index + 1)
+			end, buf)
+		else
+			resolve(index + 1)
+		end
+	end
+
+	local pparams = vim.lsp.util.make_position_params(win)
+	vim.lsp.buf_request_all(buf, "textDocument/completion", pparams, function(results)
+		-- text = vim.inspect(results) .. "\n" .. "-------------------" .. "\n" .. text
+		for cid, r in pairs(results) do
+			for _, item in ipairs(r.result.items) do
+				table.insert(items, { cid = cid, item = item })
 			end
 		end
-		vim.api.nvim_buf_set_lines(
-			bufnr,
-			0,
-			-1,
-			false,
-			vim.split(vim.inspect(results) .. "\n" .. vim.inspect(res) .. "\n" .. text, "\n")
-		)
-		vim.api.nvim_win_set_buf(0, bufnr)
+		resolve(1)
 	end)
 end
 
@@ -3278,6 +3300,14 @@ M.cmd.LspSymbols = function(params)
 		)
 		vim.api.nvim_win_set_buf(0, bufnr)
 	end)
+end
+
+M.cmd.LspHover = function(params)
+	require("gp.lsp").hover()
+end
+
+M.cmd.LspNewCompletion = function(params)
+	require("gp.lsp").completion()
 end
 
 return M
