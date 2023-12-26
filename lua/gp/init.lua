@@ -1762,7 +1762,27 @@ M.cmd.ChatPaste = function(params)
 	local target = M.resolve_buf_target(params)
 
 	last = vim.fn.resolve(last)
-	local buf = M.open_buf(last, target, M._toggle_kind.chat, true)
+	local buf = M._H.get_buffer(last)
+	if buf then
+		-- last is open in a buffer
+		local win_found = false
+		for _, w in ipairs(vim.api.nvim_list_wins()) do
+			if vim.api.nvim_win_get_buf(w) == buf then
+				-- last is open in a window
+				win_found = true
+				vim.api.nvim_set_current_win(w)
+				vim.api.nvim_set_current_buf(buf)
+				break
+			end
+		end
+		if not win_found then
+			-- last is open in a buffer but not in a window
+			buf = M.open_buf(last, target, M._toggle_kind.chat, true)
+		end
+	else
+		-- last is not open in any buffer
+		buf = M.open_buf(last, target, M._toggle_kind.chat, true)
+	end
 
 	M.append_selection(params, cbuf, buf)
 	M._H.feedkeys("G", "x")
