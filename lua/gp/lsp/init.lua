@@ -15,87 +15,34 @@ local M = {}
 
 ---@param filetype string
 ---@return table 
-M.complete_ignored_root_items = function(filetype)
+M.get_ignored_items = function(filetype)
 	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
 	---@diagnostic disable-next-line: undefined-field
-	if status and data and data.root_ignore then
+	if status and data and data.ignore then
 		---@diagnostic disable-next-line: undefined-field
-		return data.root_ignore
+		return data.ignore
 	end
     return {}
 end
 
 ---@param filetype string
-M.probe_template = function(filetype)
-	local probes = {
-		lua = {
-			"local function gp_probe()",
-			"  ",
-			"end",
-		},
-		go = vim.split(require("gp.lsp.ft.go").template, "\n"),
-		python = {
-			"def gp_probe():",
-			"  ",
-		},
-		javascript = {
-			"function gp_probe() {",
-			"  ",
-			"}",
-		},
-		rust = {
-			"fn gp_probe() {",
-			"  ",
-			"}",
-		},
-		c = {
-			"void gp_probe() {",
-			"  ",
-			"}",
-		},
-		h = {
-			"void gp_probe() {",
-			"  ",
-			"}",
-		},
-		java = {
-			"void gp_probe() {",
-			"  ",
-			"}",
-		},
-		kotlin = {
-			"fun gp_probe() {",
-			"  ",
-			"}",
-		},
-		php = {
-			"function gp_probe() {",
-			"  ",
-			"}",
-		},
-		csharp = {
-			"void gp_probe() {",
-			"  ",
-			"}",
-		},
-		cpp = {
-			"void gp_probe() {",
-			"  ",
-			"}",
-		},
-		ruby = {
-			"def gp_probe()",
-			"  ",
-			"end",
-		},
-		typescript = {
-			"function gp_probe() {",
-			"  ",
-			"}",
-		},
-	}
-	local result = probes[filetype] or {}
-	return result
+---@return string|nil
+M.get_probe_template = function(filetype)
+    local status, data = pcall(require, "gp.lsp.ft." .. filetype)
+    if status and data and data.template then
+        return data.template
+    end
+    return nil
+end
+
+---@param filetype string
+---@return table|nil
+M.get_suffixes = function(filetype)
+	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
+	if status and data and data.suffixes then
+		return data.suffixes
+	end
+	return nil
 end
 
 ---@param lines string[]|nil lines of text
@@ -139,15 +86,14 @@ M.make_given_position_param = function(row, col, bufnr, offset_encoding)
 	return { textDocument = params.textDocument, position = params.range.start }
 end
 
----@param buf integer|nil buffer handle or 0 for current, defaults to current
----@param win integer|nil window handle or 0 for current, defaults to current
 ---@param row integer|nil mark-indexed line number, defaults to current line
 ---@param col integer|nil mark-indexed column number, defaults to current column
+---@param bufnr integer|nil buffer handle or 0 for current, defaults to current
 ---@param callback function | nil receives hover result
-M.hover = function(buf, win, row, col, callback)
-	local params = M.make_given_position_param(row, col, buf)
+M.hover = function(row, col, bufnr, callback)
+	local params = M.make_given_position_param(row, col, bufnr)
 
-	vim.lsp.buf_request_all(buf, "textDocument/hover", params, function(results)
+	vim.lsp.buf_request_all(bufnr, "textDocument/hover", params, function(results)
 		local contents = {}
 		for _, r in pairs(results) do
 			if r.result and r.result.contents then
@@ -157,23 +103,11 @@ M.hover = function(buf, win, row, col, callback)
 				end
 			end
 		end
-		if #contents == 0 then
-			return
-		end
 		local snippet_lines = M.first_snippet(contents) or {}
 
 		if callback then
 			callback(snippet_lines)
 		end
-
-		table.insert(contents, "$$$$$$$$$$$$$$$$")
-		for _, line in ipairs(snippet_lines) do
-			table.insert(contents, line)
-		end
-
-		local bufnr = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, contents)
-		vim.api.nvim_win_set_buf(0, bufnr)
 	end)
 end
 
@@ -201,6 +135,7 @@ M.completion = function(row, col, bufnr, callback, filtered)
 				item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
 				if
 					item.kind ~= "Snippet"
+                    and item.kind ~= "Text"
 					and not (filtered and filtered[item.kind] and filtered[item.kind][item.label])
 				then
 					items[item.kind] = items[item.kind] or {}

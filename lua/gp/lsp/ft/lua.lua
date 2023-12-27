@@ -1,7 +1,9 @@
 return {
 	template = "function gp_lsp_probe() {\n  \n}",
-    suffixes = { ". " },
-	root_ignore = {
+	suffixes = {
+		Variable = ". ",
+	},
+	ignore = {
 		Enum = {
 			_VERSION = "",
 		},
@@ -27,6 +29,7 @@ return {
 			["error(message, level)"] = "",
 			["getfenv(f)"] = "",
 			["getmetatable(object)"] = "",
+			["gp_lsp_probe()"] = "",
 			["ipairs(t)"] = "",
 			["load(chunk, chunkname, mode, env)"] = "",
 			["loadfile(filename, mode, env)"] = "",

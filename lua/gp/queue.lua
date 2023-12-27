@@ -8,13 +8,17 @@ function TaskQueue.create(onAllTasksComplete)
 	}
 
 	---@param taskFunction function
-	function self.addTask(taskFunction)
+	---@param data any
+	function self.addTask(taskFunction, data)
 		if not self.canceled then
-			table.insert(self.tasks, taskFunction)
+			table.insert(self.tasks, {
+				fn = taskFunction,
+				data = data,
+			})
 		end
 	end
 
-	---@return function | nil
+	---@return table | nil
 	function self.getNextTask()
 		if self.canceled then
 			self.tasks = {}
@@ -28,8 +32,8 @@ function TaskQueue.create(onAllTasksComplete)
 		end
 
 		local taskFunction = self.getNextTask()
-		if taskFunction then
-			taskFunction(self.runNextTask)
+		if taskFunction and taskFunction.fn then
+			taskFunction.fn(taskFunction.data)
 		elseif self.onAllTasksComplete then
 			self.onAllTasksComplete()
 		end

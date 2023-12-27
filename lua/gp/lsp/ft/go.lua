@@ -1,7 +1,11 @@
 return {
 	template = "func gp_lsp_probe() {\n  \n}",
-    suffixes = { ". " },
-	root_ignore = {
+	suffixes = {
+		Class = ". ",
+		Variable = ". ",
+		Struct = ". ",
+	},
+	ignore = {
 		Class = {
 			bool = "",
 			byte = "",

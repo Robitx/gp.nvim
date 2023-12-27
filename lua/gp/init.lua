@@ -3167,75 +3167,6 @@ function M.generate_image(prompt, model, quality, style, size)
 	end)
 end
 
-M.cmd.LspCompletion = function(params)
-	local buf = vim.api.nvim_get_current_buf()
-	local win = vim.api.nvim_get_current_win()
-
-	local text = ""
-	local items = {}
-
-	local function done()
-		local bufnr = vim.api.nvim_create_buf(false, true)
-		local results = {}
-		for _, i in ipairs(items) do
-			local item = i.item
-			item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
-			if results[item.kind] == nil then
-				results[item.kind] = {}
-			end
-			if item.detail then
-				table.insert(results[item.kind], item.label .. "|" .. item.detail)
-			else
-				table.insert(results[item.kind], item.label)
-			end
-		end
-
-		text = text .. "\n" .. vim.inspect(results) .. "\n" .. vim.inspect(items) .. "\n"
-		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(text, "\n"))
-		vim.api.nvim_win_set_buf(0, bufnr)
-	end
-
-	local function resolve(index)
-		if index > #items then
-			done()
-			return
-		end
-		local item = items[index]
-
-		if vim.lsp.protocol.CompletionItemKind[item.kind] == "Snippet" then
-			resolve(index + 1)
-			return
-		end
-
-		if item.item.detail == nil and item.item.data ~= nil then
-			local client = vim.lsp.get_client_by_id(item.cid)
-			client.request("completionItem/resolve", item.item, function(error, results, _, _)
-				if error then
-					M.error("Error resolving completion item: " .. vim.inspect(error))
-					return
-				end
-				if results and results.detail then
-					item.item = results
-				end
-				resolve(index + 1)
-			end, buf)
-		else
-			resolve(index + 1)
-		end
-	end
-
-	local pparams = vim.lsp.util.make_position_params(win)
-	vim.lsp.buf_request_all(buf, "textDocument/completion", pparams, function(results)
-		-- text = vim.inspect(results) .. "\n" .. "-------------------" .. "\n" .. text
-		for cid, r in pairs(results) do
-			for _, item in ipairs(r.result.items) do
-				table.insert(items, { cid = cid, item = item })
-			end
-		end
-		resolve(1)
-	end)
-end
-
 M.cmd.LspSymbols = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
@@ -3314,11 +3245,19 @@ M.cmd.LspSymbols = function(params)
 end
 
 M.cmd.LspHover = function(params)
-	require("gp.lsp").hover()
+	require("gp.lsp").hover(nil, nil, nil, function(contents)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, contents)
+		vim.api.nvim_win_set_buf(0, tbuf)
+	end)
 end
 
-M.cmd.LspNewCompletion = function(params)
-	require("gp.lsp").completion()
+M.cmd.LspCompletion = function(params)
+	require("gp.lsp").completion(nil, nil, nil, function(kinds)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(kinds), "\n"))
+		vim.api.nvim_win_set_buf(0, tbuf)
+	end, {})
 end
 
 M.cmd.LspProbe = function(params)
@@ -3326,7 +3265,19 @@ M.cmd.LspProbe = function(params)
 
 	local buf = vim.api.nvim_get_current_buf()
 	local filetype = vim.api.nvim_buf_get_option(buf, "filetype")
-	print(filetype)
+
+	local probe_template = lsp.get_probe_template(filetype)
+	if not probe_template then
+		M.warning(
+			"No probe template for filetype: "
+				.. filetype
+				.. ". Please report this via link below:\n"
+				.. "https://github.com/Robitx/gp.nvim/issues/new?title=add%20LSP%20filetype:%20"
+				.. filetype
+		)
+		return
+	end
+
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 
 	local ns_id = vim.api.nvim_create_namespace("GpProbe_" .. M._H.uuid())
@@ -3342,29 +3293,75 @@ M.cmd.LspProbe = function(params)
 
 	local first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
 
-	M.spinner.start_spinner("Runnig LSP...")
+	local results = {}
+
 	local cleanup = function()
 		vim.schedule(function()
-			local fl = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+			first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
 			-- delete everything after the fl
 			M._H.undojoin(buf)
-			vim.api.nvim_buf_set_lines(buf, fl + 1, -1, false, {})
+			vim.api.nvim_buf_set_lines(buf, first_line + 1, -1, false, {})
 			vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
+
 			M.spinner.stop_spinner()
+
+			local tbuf = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(results), "\n"))
+			vim.api.nvim_win_set_buf(0, tbuf)
 		end)
 	end
 	local queue = require("gp.queue").create(cleanup)
 
+	M.spinner.start_spinner("Resolving LSP...")
+
+	local ignored_items = lsp.get_ignored_items(filetype)
+
 	-- write probe template
 	M._H.undojoin(buf)
-	vim.api.nvim_buf_set_lines(buf, first_line + 1, first_line + 1, false, lsp.probe_template(filetype))
+	vim.api.nvim_buf_set_lines(buf, first_line + 1, first_line + 1, false, vim.split(probe_template, "\n"))
+	local offset = 1
 
-	lsp.completion(first_line + 1, 0, buf, function(items)
-		local tbuf = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(items), "\n"))
-		vim.api.nvim_win_set_buf(0, tbuf)
+	lsp.completion(first_line + 1, 0, buf, function(kinds)
+		local suffixes = lsp.get_suffixes(filetype) or {}
+		for kind, items in pairs(kinds) do
+			local suffix = suffixes[kind]
+			results[kind] = results[kind] or {}
+			if suffix then
+				for item, detail in pairs(items) do
+					results[kind][item] = { detail = detail }
+					local line = "  " .. item .. suffix
+					offset = offset + 1
+					first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+					M._H.undojoin(buf)
+					vim.api.nvim_buf_set_lines(buf, first_line + offset, first_line + offset, false, { line })
+
+					queue.addTask(function(data)
+						lsp.completion(first_line + 3, #line, buf, function(item_kinds)
+							results[data.kind][data.item].completion = item_kinds
+							queue.runNextTask()
+						end, ignored_items)
+					end, { kind = kind, item = item, detail = detail })
+
+					queue.addTask(function(data)
+						first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+						lsp.hover(first_line + 3, #line - #suffix, buf, function(contents)
+							results[data.kind][data.item].hover = table.concat(contents, "\n")
+							queue.runNextTask()
+						end)
+					end, { kind = kind, item = item, detail = detail })
+
+					queue.addTask(function()
+						first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+						M._H.undojoin(buf)
+						vim.api.nvim_buf_set_lines(buf, first_line + 2, first_line + 3, false, {})
+						queue.runNextTask()
+					end)
+				end
+			end
+		end
+
 		queue.runNextTask()
-	end, lsp.complete_ignored_root_items(filetype))
+	end, ignored_items)
 end
 
 return M
