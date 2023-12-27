@@ -1198,7 +1198,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local skip_first_undojoin = not first_undojoin
 
 	local hl_handler_group = "GpHandlerStandout"
-	vim.cmd("highlight default link " .. hl_handler_group .. " Search")
+	vim.cmd("highlight default link " .. hl_handler_group .. " search")
 
 	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M._H.uuid())
 
@@ -2520,8 +2520,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		selection = table.concat(lines, "\n")
 
 		if selection == "" then
-			M.warning("Please select some text to rewrite")
-			return
+			M.warning("Empty selection")
 		end
 	end
 
@@ -3308,6 +3307,52 @@ end
 
 M.cmd.LspNewCompletion = function(params)
 	require("gp.lsp").completion()
+end
+
+M.cmd.LspProbe = function(params)
+	local lsp = require("gp.lsp")
+
+	local buf = vim.api.nvim_get_current_buf()
+	local filetype = vim.api.nvim_buf_get_option(buf, "filetype")
+	print(filetype)
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+	local ns_id = vim.api.nvim_create_namespace("GpProbe_" .. M._H.uuid())
+
+	-- create extmark at the end of the buffer
+	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, #lines - 1, 0, {
+		strict = false,
+		right_gravity = false,
+		-- for debug
+		virt_text = { { "GpProbe" } },
+		virt_text_pos = "overlay",
+	})
+
+	local first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+
+	M.spinner.start_spinner("Runnig LSP...")
+	local cleanup = function()
+		vim.schedule(function()
+			local fl = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+			-- delete everything after the fl
+			M._H.undojoin(buf)
+			vim.api.nvim_buf_set_lines(buf, fl + 1, -1, false, {})
+			vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
+			M.spinner.stop_spinner()
+		end)
+	end
+	local queue = require("gp.queue").create(cleanup)
+
+	-- write probe template
+	M._H.undojoin(buf)
+	vim.api.nvim_buf_set_lines(buf, first_line + 1, first_line + 1, false, lsp.probe_template(filetype))
+
+	lsp.completion(first_line + 1, 0, buf, function(items)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(items), "\n"))
+		vim.api.nvim_win_set_buf(0, tbuf)
+		queue.runNextTask()
+	end, lsp.complete_ignored_root_items(filetype))
 end
 
 return M
