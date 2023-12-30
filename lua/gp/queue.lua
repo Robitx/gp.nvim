@@ -33,7 +33,10 @@ function TaskQueue.create(onAllTasksComplete)
 
 		local taskFunction = self.getNextTask()
 		if taskFunction and taskFunction.fn then
-			taskFunction.fn(taskFunction.data)
+			vim.defer_fn(function()
+				taskFunction.fn(taskFunction.data)
+			end, 0)
+			-- taskFunction.fn(taskFunction.data)
 		elseif self.onAllTasksComplete then
 			self.onAllTasksComplete()
 		end

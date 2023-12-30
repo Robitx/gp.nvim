@@ -1,9 +1,9 @@
 return {
 	template = "function gp_lsp_probe() {\n  \n}",
-	suffixes = {
-		Class = ". ",
-		Variable = ". ",
-		Struct = ". ",
+	affixes = {
+		Class = { { prefix = "  ", suffix = ". " } },
+		Variable = { { prefix = "  ", suffix = ". " } },
+		Struct = { { prefix = "  ", suffix = ". " } },
 	},
 	ignore = {
 		Class = {

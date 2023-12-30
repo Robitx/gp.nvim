@@ -1,9 +1,30 @@
 return {
 	template = "func gp_lsp_probe() {\n  \n}",
-	suffixes = {
-		Class = ". ",
-		Variable = ". ",
-		Struct = ". ",
+	affixes = {
+		Class = { { prefix = "  (*", suffix = "). " }, { prefix = "  ", suffix = ". " } },
+		Variable = { { prefix = "  (*", suffix = "). " }, { prefix = "  ", suffix = ". " } },
+		Struct = { { prefix = "  (*", suffix = "). " }, { prefix = "  ", suffix = ". " } },
+		Module = { { prefix = "  ", suffix = ". " } },
+		Interface = { { prefix = "  ", suffix = ". " } },
+		Field = { { prefix = "  ", suffix = ". " } },
+	},
+	no_complete = {
+		Module = {
+			fmt = "",
+			time = "",
+			context = "",
+			strings = "",
+			sort = "",
+			sync = "",
+			rand = "",
+			json = "",
+			http = "",
+			testing = "",
+			regexp = "",
+			os = "",
+			reflect = "",
+			log = "",
+		},
 	},
 	ignore = {
 		Class = {

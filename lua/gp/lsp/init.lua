@@ -14,7 +14,7 @@ local M = {}
 --------------------------------------------------------------------------------
 
 ---@param filetype string
----@return table 
+---@return table
 M.get_ignored_items = function(filetype)
 	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
 	---@diagnostic disable-next-line: undefined-field
@@ -22,25 +22,37 @@ M.get_ignored_items = function(filetype)
 		---@diagnostic disable-next-line: undefined-field
 		return data.ignore
 	end
-    return {}
+	return {}
+end
+
+---@param filetype string
+---@return table
+M.get_no_complete_items = function(filetype)
+	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
+	---@diagnostic disable-next-line: undefined-field
+	if status and data and data.no_complete then
+		---@diagnostic disable-next-line: undefined-field
+		return data.no_complete
+	end
+	return {}
 end
 
 ---@param filetype string
 ---@return string|nil
 M.get_probe_template = function(filetype)
-    local status, data = pcall(require, "gp.lsp.ft." .. filetype)
-    if status and data and data.template then
-        return data.template
-    end
-    return nil
+	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
+	if status and data and data.template then
+		return data.template
+	end
+	return nil
 end
 
 ---@param filetype string
 ---@return table|nil
-M.get_suffixes = function(filetype)
+M.get_affixes = function(filetype)
 	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
-	if status and data and data.suffixes then
-		return data.suffixes
+	if status and data and data.affixes then
+		return data.affixes
 	end
 	return nil
 end
@@ -103,10 +115,9 @@ M.hover = function(row, col, bufnr, callback)
 				end
 			end
 		end
-		local snippet_lines = M.first_snippet(contents) or {}
 
 		if callback then
-			callback(snippet_lines)
+			callback(M.first_snippet(contents))
 		end
 	end)
 end
@@ -135,13 +146,16 @@ M.completion = function(row, col, bufnr, callback, filtered)
 				item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
 				if
 					item.kind ~= "Snippet"
-                    and item.kind ~= "Text"
+					and item.kind ~= "Text"
 					and not (filtered and filtered[item.kind] and filtered[item.kind][item.label])
 				then
 					items[item.kind] = items[item.kind] or {}
 					items[item.kind][item.label] = item.detail or ""
 				end
 			end
+		end
+		if next(items) == nil then
+			items = nil
 		end
 		if callback then
 			callback(items)

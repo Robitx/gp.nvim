@@ -49,6 +49,7 @@ function M.stop_spinner()
 		M._spinner_timer:stop()
 		M._spinner_timer:close()
 		M._spinner_timer = nil
+        vim.api.nvim_echo({ { " ", "Normal" } }, false, {})
 	end
 end
 
