@@ -2252,7 +2252,7 @@ M.cmd.ChatFinder = function()
 	end, gid)
 
 	-- when command buffer is written, execute it
-	_H.autocmd({ "TextChanged", "InsertLeave", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
 		vim.api.nvim_win_set_cursor(picker_win, { 1, 0 })
 		refresh_picker()
 	end, gid)
