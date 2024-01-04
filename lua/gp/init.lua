@@ -1356,8 +1356,8 @@ M.prep_md = function(buf)
 	vim.api.nvim_command("setlocal noswapfile")
 	-- better text wrapping
 	vim.api.nvim_command("setlocal wrap linebreak")
-	-- auto save on TextChanged, TextChangedI
-	vim.api.nvim_command("autocmd TextChanged,TextChangedI <buffer=" .. buf .. "> silent! write")
+	-- auto save on TextChanged, InsertLeave
+	vim.api.nvim_command("autocmd TextChanged,InsertLeave <buffer=" .. buf .. "> silent! write")
 
 	-- register shortcuts local to this buffer
 	buf = buf or vim.api.nvim_get_current_buf()
@@ -2252,7 +2252,7 @@ M.cmd.ChatFinder = function()
 	end, gid)
 
 	-- when command buffer is written, execute it
-	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+	_H.autocmd({ "TextChanged", "InsertLeave", "TextChangedP", "TextChangedT" }, { command_buf }, function()
 		vim.api.nvim_win_set_cursor(picker_win, { 1, 0 })
 		refresh_picker()
 	end, gid)
