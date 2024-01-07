@@ -1,5 +1,5 @@
 return {
-	template = "function gp_lsp_probe() {\n  \n}",
+	template = "\n\nfunction gp_lsp_probe() {\n  \n}",
 	affixes = {
 		Class = { { prefix = "  ", suffix = ". " } },
 		Variable = { { prefix = "  ", suffix = ". " } },

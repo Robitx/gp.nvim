@@ -3260,14 +3260,45 @@ M.cmd.LspCompletion = function(params)
 	end, {})
 end
 
-M.cmd.LspProbe = function(params)
+local function simplify_structure(table)
+	-- Function to merge two tables
+	local function merge_tables(t1, t2)
+		for k, v in pairs(t2) do
+			if type(v) == "table" and type(t1[k] or false) == "table" then
+				merge_tables(t1[k], v)
+			else
+				t1[k] = v
+			end
+		end
+	end
+
+	-- Recursive function to simplify the structure
+	local function simplify(t)
+		if t["completion"] then
+			merge_tables(t, t["completion"])
+			t["completion"] = nil
+		end
+		for k, v in pairs(t) do
+			if type(v) == "table" then
+				simplify(v)
+			end
+		end
+	end
+
+	simplify(table)
+end
+
+---@param callback function receives the LSP probe result
+---@param max_recursion number
+---@param resolve_imports boolean
+M.lspProbe = function(callback, max_recursion, resolve_imports)
 	local lsp = require("gp.lsp")
 
 	local buf = vim.api.nvim_get_current_buf()
 	local filetype = vim.api.nvim_buf_get_option(buf, "filetype")
 
-	local probe_template = lsp.get_probe_template(filetype)
-	if not probe_template then
+	local template = lsp.get_probe_template(filetype)
+	if not template then
 		M.warning(
 			"No probe template for filetype: "
 				.. filetype
@@ -3305,16 +3336,11 @@ M.cmd.LspProbe = function(params)
 
 			M.spinner.stop_spinner()
 
-			local tbuf = vim.api.nvim_create_buf(false, true)
-			-- vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.json.encode(results), "\n"))
-			vim.api.nvim_buf_set_lines(
-				tbuf,
-				0,
-				-1,
-				false,
-				vim.split(vim.inspect(results) .. "\n\n" .. vim.json.encode(results), "\n")
-			)
-			vim.api.nvim_win_set_buf(0, tbuf)
+			-- simplify_structure(results)
+
+			if callback then
+				callback(results)
+			end
 		end)
 	end
 	local queue = require("gp.queue").create(cleanup)
@@ -3324,13 +3350,11 @@ M.cmd.LspProbe = function(params)
 	local ignored_items = lsp.get_ignored_items(filetype)
 	local no_complete = lsp.get_no_complete_items(filetype)
 
-	print(vim.inspect(no_complete))
-
 	M._H.undojoin(buf)
-	vim.api.nvim_buf_set_lines(buf, first_line + 1, first_line + 1, false, vim.split(probe_template, "\n"))
+	vim.api.nvim_buf_set_lines(buf, first_line + 1, first_line + 1, false, template.lines)
 
 	local function completion_handler(kinds, root, output, level)
-		if level > 2 then
+		if not kinds or level > max_recursion then
 			queue.runNextTask()
 			return
 		end
@@ -3355,44 +3379,66 @@ M.cmd.LspProbe = function(params)
 
 					queue.addTask(function(data)
 						first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
-						lsp.hover(first_line + 3, #line - #affix.suffix, buf, function(contents)
+						lsp.hover(first_line + template.insert_line, #line - #affix.suffix, buf, function(contents)
 							if contents then
-								output[data.kind][data.item].detail = contents[1]:gsub("{.*", ""):gsub("[ ]*$", "")
-								-- results[data.kind][data.item].detail = contents
+								local _kind_pattern = "^." .. data.kind:lower() .. ".%s*"
+								output[data.kind][data.item].detail =
+									contents[1]:gsub("{.*", ""):gsub("[ ]*$", ""):gsub(_kind_pattern, "")
 							end
 							queue.runNextTask()
 						end)
 					end, { kind = kind, item = item, detail = detail })
 
 					if affix.suffix ~= "" and not (no_complete[kind] and no_complete[kind][item]) then
-						queue.addTask(function(data)
-							lsp.completion(first_line + 3, #line, buf, function(item_kinds)
+						queue.addTask(function(d)
+							if not resolve_imports and d.kind == "Module" then
+								queue.runNextTask()
+								return
+							end
+							lsp.completion(first_line + template.insert_line, #line, buf, function(item_kinds)
 								if item_kinds then
-									if not output[data.kind][data.item].completion then
-										output[data.kind][data.item].completion = item_kinds
-										output[data.kind][data.item].completion_line = data.line
-										queue.runNextTask()
-										return
+									if not output[d.kind][d.item].completion then
+										output[d.kind][d.item].completion = item_kinds
+										output[d.kind][d.item].prefix = d.line
+									else
+										-- keep only the longest completion
+										local ilen = #vim.json.encode(item_kinds)
+										local clen = #vim.json.encode(output[d.kind][d.item].completion)
+										local cprefix = #vim.json.encode(output[d.kind][d.item].prefix)
+										if ilen > clen or (ilen == clen and #d.line < cprefix) then
+											output[d.kind][d.item].completion = item_kinds
+											output[d.kind][d.item].prefix = d.line
+										end
 									end
 
-									-- keep only the longest completion
-									local ilen = #vim.json.encode(item_kinds)
-									local clen = #vim.json.encode(output[data.kind][data.item].completion)
-									local cline = #vim.json.encode(output[data.kind][data.item].completion_line)
-									if ilen > clen or (ilen == clen and #data.line < cline) then
-										output[data.kind][data.item].completion = item_kinds
-										output[data.kind][data.item].completion_line = data.line
+									local cl = output[d.kind][d.item].completion
+									if cl[d.kind] then
+										cl[d.kind][d.item] = nil
+										if next(cl[d.kind]) == nil then
+											cl[d.kind] = nil
+										end
 									end
 								end
 								queue.runNextTask()
 							end, ignored_items)
-						end, { kind = kind, item = item, detail = detail, line = line:gsub("^%s*(.-)%s*$", "%1") })
+						end, {
+							kind = kind,
+							item = item,
+							detail = detail,
+							line = line:gsub("^%s*(.-)%s*$", "%1"),
+						})
 					end
 
 					queue.addTask(function()
 						first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
 						M._H.undojoin(buf)
-						vim.api.nvim_buf_set_lines(buf, first_line + 2, first_line + 3, false, {})
+						vim.api.nvim_buf_set_lines(
+							buf,
+							first_line + template.insert_line - 1,
+							first_line + template.insert_line,
+							false,
+							{}
+						)
 						queue.runNextTask()
 					end)
 				end
@@ -3400,10 +3446,10 @@ M.cmd.LspProbe = function(params)
 				queue.addTask(function(data)
 					local i = output[data.kind][data.item]
 					if type(i) == "table" then
-						if i.completion and i.completion_line then
+						if i.completion and i.prefix then
 							completion_handler(
 								i.completion,
-								{ prefix = i.completion_line, kind = data.kind },
+								{ prefix = i.prefix, kind = data.kind, item = data.item },
 								i.completion,
 								level + 1
 							)
@@ -3423,9 +3469,24 @@ M.cmd.LspProbe = function(params)
 		queue.runNextTask()
 	end
 
-	lsp.completion(first_line + 1, 0, buf, function(kinds)
-		completion_handler(kinds, { prefix = "", kind = "" }, results, 1)
+	lsp.completion(first_line + template.insert_line, 0, buf, function(kinds)
+		completion_handler(kinds, { prefix = "", kind = "", item = "" }, results, 1)
 	end, ignored_items)
+end
+
+M.cmd.LspProbe = function(params)
+	M.lspProbe(function(results)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		-- vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.json.encode(results), "\n"))
+		vim.api.nvim_buf_set_lines(
+			tbuf,
+			0,
+			-1,
+			false,
+			vim.split(vim.inspect(results) .. "\n\n" .. vim.json.encode(results), "\n")
+		)
+		vim.api.nvim_win_set_buf(0, tbuf)
+	end, 2, false)
 end
 
 return M

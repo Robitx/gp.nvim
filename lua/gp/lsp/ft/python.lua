@@ -1,12 +1,28 @@
 return {
-	template = "def gp_lsp_probe():\n  \n",
+	template = "\n\ndef gp_lsp_probe():\n  \n",
 	affixes = {
 		Class = { { prefix = "  ", suffix = ". " } },
 		Variable = { { prefix = "  ", suffix = ". " } },
 		Module = { { prefix = "  ", suffix = ". " } },
 		Function = { { prefix = "  ", suffix = "" } },
-        Method = { { prefix = "  ", suffix = "" } },
-        Constant = { { prefix = "  ", suffix = "" } },
+		Method = { { prefix = "  ", suffix = "" } },
+		Constant = { { prefix = "  ", suffix = "" } },
+	},
+	no_complete = {
+		Module = {
+			-- sys = "",
+			os = "",
+			time = "",
+			random = "",
+			json = "",
+			requests = "",
+			logging = "",
+			subprocess = "",
+			multiprocessing = "",
+			threading = "",
+			datetime = "",
+			re = "",
+		},
 	},
 	ignore = {
 		Method = {
@@ -293,6 +309,7 @@ return {
 			tuple = "",
 			type = "",
 			zip = "",
+			Flask = "",
 		},
 		Function = {
 			__build_class__ = "",

@@ -38,13 +38,27 @@ M.get_no_complete_items = function(filetype)
 end
 
 ---@param filetype string
----@return string|nil
+---@return table|nil { lines = {string, ..}, insert_line = number }
 M.get_probe_template = function(filetype)
+	local lines = nil
 	local status, data = pcall(require, "gp.lsp.ft." .. filetype)
-	if status and data and data.template then
-		return data.template
+	if not (status and data and data.template) then
+		return nil
 	end
-	return nil
+	lines = vim.split(data.template, "\n")
+
+	local insert_line = 0
+	for i, line in ipairs(lines) do
+		if insert_line > 0 and line:match("^%s*$") then
+			insert_line = i
+			break
+		elseif not line:match("^%s*$") then
+			insert_line = i
+		end
+	end
+
+	-- lines are put after extmark => + 1
+	return { lines = lines, insert_line = insert_line + 1 }
 end
 
 ---@param filetype string
@@ -143,14 +157,15 @@ M.completion = function(row, col, bufnr, callback, filtered)
 				result = r.result.items and r.result.items or r.result
 			end
 			for _, item in ipairs(result) do
+				local label = item.label:match("^[%s•]*(.-)[%s•]*$")
 				item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
 				if
 					item.kind ~= "Snippet"
 					and item.kind ~= "Text"
-					and not (filtered and filtered[item.kind] and filtered[item.kind][item.label])
+					and not (filtered and filtered[item.kind] and filtered[item.kind][label])
 				then
 					items[item.kind] = items[item.kind] or {}
-					items[item.kind][item.label] = item.detail or ""
+					items[item.kind][label] = item.detail or ""
 				end
 			end
 		end
