@@ -3486,7 +3486,31 @@ M.cmd.LspProbe = function(params)
 			vim.split(vim.inspect(results) .. "\n\n" .. vim.json.encode(results), "\n")
 		)
 		vim.api.nvim_win_set_buf(0, tbuf)
-	end, 2, false)
+	end, 2, true)
+end
+
+M.cmd.LspWorkspaceSymbols = function(params)
+	local lsp = require("gp.lsp")
+
+	local buf = vim.api.nvim_get_current_buf()
+
+	lsp.workspace_symbols(buf, "", function(results)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(results), "\n"))
+		vim.api.nvim_win_set_buf(0, tbuf)
+	end)
+end
+
+M.cmd.LspDocumentSymbols = function(params)
+	local lsp = require("gp.lsp")
+
+	local buf = vim.api.nvim_get_current_buf()
+
+	lsp.root_document_symbols(buf, function(results)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(results), "\n"))
+		vim.api.nvim_win_set_buf(0, tbuf)
+	end)
 end
 
 return M

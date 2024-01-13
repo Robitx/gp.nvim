@@ -37,6 +37,15 @@ return {
 		Function = {
 			["gp_lsp_probe()"] = "void",
 		},
+		Module = {
+			std = {},
+		},
+		Struct = {
+			["std::uses_allocator<typename, typename>"] = {},
+		},
+		Class = {
+			["std::uniform_int_distribution<typename IntType>"] = {},
+		},
 		Interface = {
 			Class = {},
 			FILE = {},

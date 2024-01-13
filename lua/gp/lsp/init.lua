@@ -177,4 +177,45 @@ M.completion = function(row, col, bufnr, callback, filtered)
 		end
 	end)
 end
+
+---@param bufnr integer|nil buffer handle or 0 for current, defaults to current
+---@param callback function | nil receives document symbol result
+---@param filtered table | nil filtered out items with given label
+M.root_document_symbols = function(bufnr, callback, filtered)
+	local params = M.make_given_position_param(0, 0, bufnr)
+
+	vim.lsp.buf_request_all(
+		bufnr,
+		"textDocument/documentSymbol",
+		{ textDocument = params.textDocument },
+		function(results)
+			local items = {}
+			for _, r in pairs(results) do
+				local result = r.result and r.result or {}
+				for _, item in ipairs(result) do
+					local kind = vim.lsp.protocol.SymbolKind[item.kind] or ""
+					local label = item.name:match("^[%s•]*(.-)[%s•]*$")
+					local detail = item.detail or ""
+					if not (filtered and filtered[kind] and filtered[kind][label]) then
+						items[kind] = items[kind] or {}
+						items[kind][label] = detail or ""
+					end
+				end
+			end
+			if callback then
+				callback(items)
+			end
+		end
+	)
+end
+
+M.workspace_symbols = function(bufnr, query, callback)
+	local params = { query = query or "" }
+	vim.lsp.buf_request_all(bufnr, "workspace/symbol", params, function(results)
+		if callback then
+			callback(results)
+		end
+	end)
+end
+
 return M
