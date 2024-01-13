@@ -732,7 +732,9 @@ M.setup = function(opts)
 			local dir = v:gsub("/$", "")
 			M.config[k] = dir
 			if vim.fn.isdirectory(dir) == 0 then
-				M.info("creating directory " .. dir)
+				if k ~= "whisper_dir" and k ~= "image_dir" then
+					M.info("creating directory " .. dir)
+				end
 				vim.fn.mkdir(dir, "p")
 			end
 		end
