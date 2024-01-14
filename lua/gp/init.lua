@@ -2718,14 +2718,25 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 				vim.cmd("tabnew")
 				win = vim.api.nvim_get_current_win()
 			end
-			-- create a new buffer
-			buf = vim.api.nvim_create_buf(true, false)
-			-- set the created buffer as the current buffer
+
+			buf = vim.api.nvim_create_buf(true, true)
 			vim.api.nvim_set_current_buf(buf)
-			-- set the filetype
+
+			local group = M._H.create_augroup("GpScratchSave" .. _H.uuid(), { clear = true })
+			vim.api.nvim_create_autocmd({ "BufWritePre" }, {
+				buffer = buf,
+				group = group,
+				callback = function(ctx)
+					vim.api.nvim_buf_set_option(ctx.buf, "buftype", "")
+					vim.api.nvim_buf_set_name(ctx.buf, ctx.file)
+					vim.api.nvim_command("w!")
+					vim.api.nvim_del_augroup_by_id(ctx.group)
+				end,
+			})
+
 			local ft = target.filetype or filetype
 			vim.api.nvim_buf_set_option(buf, "filetype", ft)
-			-- prepare handler
+
 			handler = M.create_handler(buf, win, 0, false, "", cursor)
 		end
 
