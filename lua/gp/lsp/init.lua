@@ -95,7 +95,46 @@ M.first_snippet = function(lines)
 			non_empty_encountered = true
 		end
 	end
-	return snippet_started and snippet_lines or nil
+	return snippet_started and snippet_lines or lines
+end
+
+---@param kind string
+---@param label string
+---@param lines string[] | nil
+---@return string
+M.first_line = function(kind, label, lines)
+	lines = lines or { "" }
+	if kind == "Function" or kind == "Method" then
+		local line = ""
+		for _, l in ipairs(lines) do
+			line = line .. l:gsub("^%s*(.-)%s*$", " %1")
+			line = line:gsub("%s%s", " ")
+		end
+		lines = { line }
+	end
+	local patterns = {
+		{ "^%s*", "" },
+		{ "^" .. kind:lower() .. "%s*", "" },
+		{ "^." .. kind:lower() .. ".%s*", "" },
+		{ "^.field.%s*", "" },
+		{ "%s*.property.$", "" },
+		{ "{%s*$", "" },
+		{ "[ ]*$", "" },
+		{ "^" .. label .. ": ", "" },
+		{ "^" .. label .. ":$", "" },
+		{ "^" .. label .. "%(%)$", "" },
+		{ "%(%s*", "(" },
+		{ "%s*%)", ")" },
+		{ "%s*$", "" },
+	}
+	local line = lines[1]
+	if #lines > 1 then
+		line = line .. lines[2]
+	end
+	for _, pattern in ipairs(patterns) do
+		line = line:gsub(pattern[1], pattern[2])
+	end
+	return line
 end
 
 ---@param row integer|nil mark-indexed line number, defaults to current line
@@ -142,31 +181,19 @@ end
 ---@see https://microsoft.github.io/language-server-protocol/specifications/specification-current/#completionParams
 ---@param callback function | nil receives completion result
 ---@param filtered table | nil filtered out items with given label
+---@return table queue of tasks for possible cancellation
 M.completion = function(row, col, bufnr, callback, filtered)
 	bufnr = bufnr or vim.api.nvim_get_current_buf()
 	row = row or vim.api.nvim_win_get_cursor(0)[1]
 	col = col or vim.api.nvim_win_get_cursor(0)[2]
 	local params = M.make_given_position_param(row, col, bufnr)
 
-	vim.lsp.buf_request_all(bufnr, "textDocument/completion", params, function(results)
-		local items = {}
-		for _, r in pairs(results) do
-			local result = {}
-			if r.result then
-				-- CompletionItem[] | CompletionList => CompletionItem[]
-				result = r.result.items and r.result.items or r.result
-			end
-			for _, item in ipairs(result) do
-				local label = item.label:match("^[%s•]*(.-)[%s•]*$")
-				item.kind = vim.lsp.protocol.CompletionItemKind[item.kind]
-				if
-					item.kind ~= "Snippet"
-					and item.kind ~= "Text"
-					and not (filtered and filtered[item.kind] and filtered[item.kind][label])
-				then
-					items[item.kind] = items[item.kind] or {}
-					items[item.kind][label] = item.detail or ""
-				end
+	local items = {}
+	local queue = require("gp.queue").create(function()
+		for kind, labels in pairs(items) do
+			for label, detail in pairs(labels) do
+				local d = detail.value and detail.value or detail
+				items[kind][label] = M.first_line(kind, label, M.first_snippet(vim.split(d, "\n")))
 			end
 		end
 		if next(items) == nil then
@@ -176,6 +203,45 @@ M.completion = function(row, col, bufnr, callback, filtered)
 			callback(items)
 		end
 	end)
+
+	vim.lsp.buf_request_all(bufnr, "textDocument/completion", params, function(results)
+		for client_id, r in pairs(results) do
+			local result = {}
+			if r.result then
+				-- CompletionItem[] | CompletionList => CompletionItem[]
+				result = r.result.items and r.result.items or r.result
+			end
+			for _, item in ipairs(result) do
+				local label = item.label:match("^[%s•]*(.-)[%s•]*$")
+				local item_kind = vim.lsp.protocol.CompletionItemKind[item.kind]
+				if
+					item_kind ~= "Snippet"
+					and item_kind ~= "Keyword"
+					and item_kind ~= "Text"
+					and not (filtered and filtered[item_kind] and filtered[item_kind][label])
+				then
+					items[item_kind] = items[item_kind] or {}
+					if not item.documentation and not item.detail then
+						queue.addTask(function(data)
+							local client = vim.lsp.get_client_by_id(data.client_id)
+							if not client then
+								queue.runNextTask()
+								return
+							end
+							client.request("completionItem/resolve", data.item, function(_, resolved)
+								items[data.kind][data.label] = resolved.detail or resolved.documentation or ""
+								queue.runNextTask()
+							end, data.bufnr)
+						end, { client_id = client_id, item = item, kind = item_kind, bufnr = bufnr, label = label })
+					else
+						items[item_kind][label] = item.detail or item.documentation or ""
+					end
+				end
+			end
+		end
+		queue.runNextTask()
+	end)
+	return queue
 end
 
 ---@param bufnr integer|nil buffer handle or 0 for current, defaults to current
@@ -209,6 +275,29 @@ M.root_document_symbols = function(bufnr, callback, filtered)
 	)
 end
 
+M.full_semantic_tokens = function(bufnr, callback)
+	local params = M.make_given_position_param(0, 0, bufnr)
+
+	vim.lsp.buf_request_all(
+		bufnr,
+		"textDocument/semanticTokens/full",
+		{ textDocument = params.textDocument },
+		function(response)
+			if callback then
+				callback(response)
+			end
+		end
+	)
+end
+
+M.completion_item_resolve = function(item, bufnr, callback)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	vim.lsp.buf_request_all(bufnr, "completionItem/resolve", item, function(response)
+		if callback then
+			callback(response)
+		end
+	end)
+end
 M.workspace_symbols = function(bufnr, query, callback)
 	local params = { query = query or "" }
 	vim.lsp.buf_request_all(bufnr, "workspace/symbol", params, function(results)

@@ -3391,12 +3391,14 @@ M.lspProbe = function(callback, max_recursion, resolve_imports)
 					vim.api.nvim_buf_set_lines(buf, last_line - 1, last_line - 1, false, { line })
 
 					queue.addTask(function(data)
+						if data.detail and data.detail ~= "" then
+							queue.runNextTask()
+							return
+						end
 						first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
 						lsp.hover(first_line + template.insert_line, #line - #affix.suffix, buf, function(contents)
 							if contents then
-								local _kind_pattern = "^." .. data.kind:lower() .. ".%s*"
-								output[data.kind][data.item].detail =
-									contents[1]:gsub("{.*", ""):gsub("[ ]*$", ""):gsub(_kind_pattern, "")
+								output[data.kind][data.item].detail = lsp.first_line(data.kind, data.item, contents)
 							end
 							queue.runNextTask()
 						end)
@@ -3523,6 +3525,34 @@ M.cmd.LspDocumentSymbols = function(params)
 		local tbuf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(results), "\n"))
 		vim.api.nvim_win_set_buf(0, tbuf)
+	end)
+end
+
+M.cmd.LspFullSemanticTokens = function(params)
+	local lsp = require("gp.lsp")
+
+	local buf = vim.api.nvim_get_current_buf()
+
+	lsp.full_semantic_tokens(buf, function(tokens)
+		local tbuf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(tokens), "\n"))
+		vim.api.nvim_win_set_buf(0, tbuf)
+	end)
+end
+
+M.cmd.LspCompletionItemResolve = function(params)
+	local lsp = require("gp.lsp")
+
+	local buf = vim.api.nvim_get_current_buf()
+	vim.ui.input({ prompt = "Enter completion item label: " }, function(label)
+		if not label or label == "" then
+			return
+		end
+		lsp.completion_item_resolve(label, buf, function(result)
+			local tbuf = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_buf_set_lines(tbuf, 0, -1, false, vim.split(vim.inspect(result), "\n"))
+			vim.api.nvim_win_set_buf(0, tbuf)
+		end)
 	end)
 end
 
