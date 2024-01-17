@@ -19,7 +19,37 @@ local config = {
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
 	-- api endpoint (you can change this to azure endpoint)
 	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
-	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
+    --- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
+
+    -- at least one working provider is required
+    -- provider needs to have endpoint
+    providers = {
+        -- secrets can be strings or tables with command and arguments
+        -- secret = { "cat", "path_to/openai_api_key" },
+        -- secret = { "bw", "get", "password", "OPENAI_API_KEY" },
+        -- secret : "sk-...",
+        -- secret = os.getenv("env_name.."),
+        openai = {
+            endpoint = "https://api.openai.com/v1/chat/completions",
+            secret = os.getenv("OPENAI_API_KEY"),
+        },
+        azure = {
+            -- endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
+            -- secret = os.getenv("AZURE_API_KEY"),
+        },
+        copilot = {
+            endpoint = "https://copilot-proxy.githubusercontent.com/v1/chat/completions",
+            secret = {
+                "bash",
+                "-c",
+                "cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//",
+            },
+        },
+        ollama = {
+            -- endpoint = "http://localhost:8000/v1/chat/completions",
+        },
+    },
+
 	-- prefix for all commands
 	cmd_prefix = "Gp",
 	-- optional curl parameters (for proxy, etc.)
@@ -36,6 +66,7 @@ local config = {
 	-- agents = {  { name = "ChatGPT4" }, ... },
 	agents = {
 		{
+            provider = "openai",
 			name = "ChatGPT4",
 			chat = true,
 			command = false,
@@ -53,6 +84,7 @@ local config = {
 				.. "- Take a deep breath; You've got this!\n",
 		},
 		{
+            provider = "openai",
 			name = "ChatGPT3-5",
 			chat = true,
 			command = false,
@@ -70,6 +102,7 @@ local config = {
 				.. "- Take a deep breath; You've got this!\n",
 		},
 		{
+            provider = "openai",
 			name = "CodeGPT4",
 			chat = false,
 			command = true,
@@ -81,6 +114,7 @@ local config = {
 				.. "START AND END YOUR ANSWER WITH:\n\n```",
 		},
 		{
+            provider = "openai",
 			name = "CodeGPT3-5",
 			chat = false,
 			command = true,
