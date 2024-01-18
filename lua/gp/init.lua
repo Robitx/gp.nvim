@@ -655,6 +655,51 @@ M.append_selection = function(params, origin_buf, target_buf)
 	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
+function M.refresh_copilot_bearer()
+    if not M.providers.copilot or not M.providers.copilot.secret then
+        return
+    end
+    local secret = M.providers.copilot.secret
+
+	local bearer = M._state.copilot_bearer or {}
+	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
+		return
+	end
+
+	local curl_params = vim.deepcopy(M.config.curl_params or {})
+	local args = {
+		"-s",
+		"-v",
+		"https://api.github.com/copilot_internal/v2/token",
+		"-H",
+		"Content-Type: application/json",
+		"-H",
+		"accept: */*",
+		"-H",
+		"authorization: token " .. secret,
+		"-H",
+		"editor-version: vscode/1.85.1",
+		"-H",
+		"editor-plugin-version: copilot-chat/0.12.2023120701",
+		"-H",
+		"user-agent: GitHubCopilotChat/0.12.2023120701",
+	}
+
+	for _, arg in ipairs(args) do
+		table.insert(curl_params, arg)
+	end
+
+	M._H.process(nil, "curl", curl_params, function(code, signal, stdout, stderr)
+		if code ~= 0 then
+			M.error(string.format("Copilot bearer resolve exited: %d, %d", code, signal))
+			return
+		end
+
+		M._state.copilot_bearer = vim.json.decode(stdout)
+		M.refresh_state()
+	end, nil, nil)
+end
+
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
@@ -674,12 +719,12 @@ M.setup = function(opts)
 	M.config = vim.deepcopy(config)
 
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents", "image_agents" }
+	local mergeTables = { "hooks", "agents", "image_agents", "providers" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
 		for k, v in pairs(M.config[tbl]) do
-			if tbl == "hooks" then
+			if tbl == "hooks" or tbl == "providers" then
 				M[tbl][k] = v
 			elseif tbl == "agents" or tbl == "image_agents" then
 				M[tbl][v.name] = v
@@ -689,7 +734,7 @@ M.setup = function(opts)
 
 		opts[tbl] = opts[tbl] or {}
 		for k, v in pairs(opts[tbl]) do
-			if tbl == "hooks" then
+			if tbl == "hooks" or tbl == "providers" then
 				M[tbl][k] = v
 			elseif tbl == "agents" or tbl == "image_agents" then
 				M[tbl][v.name] = v
@@ -750,6 +795,13 @@ M.setup = function(opts)
 	for name, agent in pairs(M.image_agents) do
 		if type(agent) ~= "table" or not agent.model then
 			M.image_agents[name] = nil
+		end
+	end
+
+	-- remove invalid providers
+	for name, provider in pairs(M.providers) do
+		if type(provider) ~= "table" or not provider.endpoint then
+			M.providers[name] = nil
 		end
 	end
 
@@ -828,9 +880,29 @@ M.setup = function(opts)
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	if type(M.config.openai_api_key) == "table" then
+	for name, _ in pairs(M.providers) do
+		M.resolve_secret(name)
+	end
+
+	-- M.resolve_secret(M.config, "openai_api_key")
+	-- M.valid_api_key()
+end
+
+---@provider string # provider name
+function M.resolve_secret(provider)
+	local post_process = function(name)
+		local p = M.providers[name]
+		if p.secret and type(p.secret) == "string" then
+			p.secret = p.secret:gsub("^%s*(.-)%s*$", "%1")
+		end
+
+        M.refresh_copilot_bearer()
+	end
+
+	local secret = M.providers[provider].secret
+	if secret and type(secret) == "table" then
 		---@diagnostic disable-next-line: param-type-mismatch
-		local copy = vim.deepcopy(M.config.openai_api_key)
+		local copy = vim.deepcopy(secret)
 		---@diagnostic disable-next-line: param-type-mismatch
 		local cmd = table.remove(copy, 1)
 		local args = copy
@@ -840,18 +912,23 @@ M.setup = function(opts)
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
 					M.warning(
-						"response from the config.openai_api_key command "
-							.. vim.inspect(M.config.openai_api_key)
+						"response from the config.providers."
+							.. provider
+							.. ".secret command "
+							.. vim.inspect(secret)
 							.. " is empty"
 					)
 					return
 				end
-				M.config.openai_api_key = content
+				M.providers[provider].secret = content
+				post_process(provider)
 			else
 				M.warning(
-					"config.openai_api_key command "
-						.. vim.inspect(M.config.openai_api_key)
-						.. " to retrieve openai_api_key failed:\ncode: "
+					"config.providers."
+						.. provider
+						.. ".secret command "
+						.. vim.inspect(secret)
+						.. " to retrieve the secret failed:\ncode: "
 						.. code
 						.. ", signal: "
 						.. signal
@@ -863,7 +940,7 @@ M.setup = function(opts)
 			end
 		end)
 	else
-		M.valid_api_key()
+		post_process(provider)
 	end
 end
 
@@ -902,6 +979,8 @@ M.refresh_state = function()
 	if not M._state.image_agent == nil or not M.image_agents[M._state.image_agent] then
 		M._state.image_agent = M._image_agents[1]
 	end
+
+	M._state.copilot_bearer = M._state.copilot_bearer or state.copilot_bearer or nil
 
 	M.table_to_file(M._state, state_file)
 
