@@ -38,11 +38,11 @@ local config = {
             -- secret = os.getenv("AZURE_API_KEY"),
         },
         copilot = {
-            endpoint = "https://copilot-proxy.githubusercontent.com/v1/chat/completions",
+            endpoint = "https://api.githubcopilot.com/chat/completions",
             secret = {
                 "bash",
                 "-c",
-                "cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//",
+                "cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
             },
         },
         ollama = {
