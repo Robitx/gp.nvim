@@ -185,6 +185,8 @@ local config = {
 	whisper_tempo = "1.75",
 	-- The language of the input audio, in ISO-639-1 format.
 	whisper_language = "en",
+	-- Override command to use for recording (does not support options)
+	whisper_rec_cmd = nil,
 
 	-- image generation settings
 	-- image prompt prefix for asking user for input (supports {{agent}} template variable)
