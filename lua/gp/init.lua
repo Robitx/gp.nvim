@@ -2968,16 +2968,24 @@ M.Whisper = function(callback)
 		end)
 	end
 
-	local rec_cmd = "sox"
-	if vim.fn.executable("ffmpeg") == 1 then
-		local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
-		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
-		if devices == "1" then
-			rec_cmd = "ffmpeg"
+	local rec_cmd = M.config.whisper_rec_cmd
+	-- if rec_cmd not set explicitly, try to autodetect
+	if not rec_cmd then
+		rec_cmd = "sox"
+		if vim.fn.executable("ffmpeg") == 1 then
+			local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
+			devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+			if devices == "1" then
+				rec_cmd = "ffmpeg"
+			end
+		end
+		if vim.fn.executable("arecord") == 1 then
+			rec_cmd = "arecord"
 		end
 	end
-	if vim.fn.executable("arecord") == 1 then
-		rec_cmd = "arecord"
+	if not rec_options[rec_cmd] then
+		M.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
+		return
 	end
 
 	local cmd = rec_options[rec_cmd]
