@@ -657,10 +657,10 @@ M.append_selection = function(params, origin_buf, target_buf)
 end
 
 function M.refresh_copilot_bearer()
-    if not M.providers.copilot or not M.providers.copilot.secret then
-        return
-    end
-    local secret = M.providers.copilot.secret
+	if not M.providers.copilot or not M.providers.copilot.secret then
+		return
+	end
+	local secret = M.providers.copilot.secret
 
 	local bearer = M._state.copilot_bearer or {}
 	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
@@ -897,7 +897,7 @@ function M.resolve_secret(provider)
 			p.secret = p.secret:gsub("^%s*(.-)%s*$", "%1")
 		end
 
-        M.refresh_copilot_bearer()
+		M.refresh_copilot_bearer()
 	end
 
 	local secret = M.providers[provider].secret
