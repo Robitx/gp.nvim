@@ -213,12 +213,21 @@ local config = {
 	-- decrease this number to pick up only louder sounds as possible speech
 	-- you can disable silence trimming by setting this a very high number (like 1000.0)
 	whisper_silence = "1.75",
-	-- whisper max recording time (mm:ss)
-	whisper_max_time = "05:00",
 	-- whisper tempo (1.0 is normal speed)
 	whisper_tempo = "1.75",
 	-- The language of the input audio, in ISO-639-1 format.
 	whisper_language = "en",
+	-- command to use for recording can be nil (unset) for automatic selection
+	-- string ("sox", "arecord", "ffmpeg") or table with command and arguments:
+	-- sox is the most universal, but can have start/end cropping issues caused by latency
+	-- arecord is linux only, but has no cropping issues and is faster
+	-- ffmpeg in the default configuration is macos only, but can be used on any platform
+	-- (see https://trac.ffmpeg.org/wiki/Capture/Desktop for more info)
+	-- below is the default configuration for all three commands:
+	-- whisper_rec_cmd = {"sox", "-c", "1", "--buffer", "32", "-d", "rec.wav", "trim", "0", "60:00"},
+	-- whisper_rec_cmd = {"arecord", "-c", "1", "-f", "S16_LE", "-r", "48000", "-d", "3600", "rec.wav"},
+	-- whisper_rec_cmd = {"ffmpeg", "-y", "-f", "avfoundation", "-i", ":0", "-t", "3600", "rec.wav"},
+	whisper_rec_cmd = nil,
 
 	-- image generation settings
 	-- image prompt prefix for asking user for input (supports {{agent}} template variable)
