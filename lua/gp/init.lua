@@ -17,6 +17,7 @@ local deprecated = {
 	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
 	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
 		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
+	whisper_max_time = "`whisper_max_time`\nPlease use fully customizable `whisper_rec_cmd`",
 }
 
 --------------------------------------------------------------------------------
@@ -2784,41 +2785,35 @@ M.Whisper = function(callback)
 		return
 	end
 
+	local rec_file = M.config.whisper_dir .. "/rec.wav"
 	local rec_options = {
 		sox = {
 			cmd = "sox",
 			opts = {
-				-- single channel
 				"-c",
 				"1",
-				-- small buffer
 				"--buffer",
 				"32",
 				"-d",
-				-- output file
-				M.config.whisper_dir .. "/rec.wav",
-				-- max recording time
+				"rec.wav",
 				"trim",
 				"0",
-				M.config.whisper_max_time,
+				"3600",
 			},
 			exit_code = 0,
 		},
 		arecord = {
 			cmd = "arecord",
 			opts = {
-				-- single channel
 				"-c",
 				"1",
 				"-f",
 				"S16_LE",
 				"-r",
 				"48000",
-				-- max recording time
 				"-d",
 				3600,
-				-- output file
-				M.config.whisper_dir .. "/rec.wav",
+				"rec.wav",
 			},
 			exit_code = 1,
 		},
@@ -2832,7 +2827,7 @@ M.Whisper = function(callback)
 				":0",
 				"-t",
 				"3600",
-				M.config.whisper_dir .. "/rec.wav",
+				"rec.wav",
 			},
 			exit_code = 255,
 		},
@@ -2968,25 +2963,48 @@ M.Whisper = function(callback)
 		end)
 	end
 
-	local rec_cmd = "sox"
-	if vim.fn.executable("ffmpeg") == 1 then
-		local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
-		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
-		if devices == "1" then
-			rec_cmd = "ffmpeg"
+	local cmd = {}
+
+	local rec_cmd = M.config.whisper_rec_cmd
+	-- if rec_cmd not set explicitly, try to autodetect
+	if not rec_cmd then
+		rec_cmd = "sox"
+		if vim.fn.executable("ffmpeg") == 1 then
+			local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
+			devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+			if devices == "1" then
+				rec_cmd = "ffmpeg"
+			end
+		end
+		if vim.fn.executable("arecord") == 1 then
+			rec_cmd = "arecord"
 		end
 	end
-	if vim.fn.executable("arecord") == 1 then
-		rec_cmd = "arecord"
+
+	if type(rec_cmd) == "table" and rec_cmd[1] and rec_options[rec_cmd[1]] then
+		rec_cmd = vim.deepcopy(rec_cmd)
+		cmd.cmd = table.remove(rec_cmd, 1)
+		cmd.exit_code = rec_options[cmd.cmd].exit_code
+		cmd.opts = rec_cmd
+	elseif type(rec_cmd) == "string" and rec_options[rec_cmd] then
+		cmd = rec_options[rec_cmd]
+	else
+		M.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
+		close()
+		return
+	end
+	for i, v in ipairs(cmd.opts) do
+		if v == "rec.wav" then
+			cmd.opts[i] = rec_file
+		end
 	end
 
-	local cmd = rec_options[rec_cmd]
 	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, stdout, stderr)
 		close()
 
 		if code and code ~= cmd.exit_code then
 			M.error(
-				rec_cmd
+				cmd.cmd
 					.. " exited with code and signal:\ncode: "
 					.. code
 					.. ", signal: "
