@@ -17,7 +17,7 @@ local deprecated = {
 	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
 	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
 		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
-	whisper_max_time = "`whisper_max_time`\nPlease use fully cusomizable `whisper_rec_cmd`",
+	whisper_max_time = "`whisper_max_time`\nPlease use fully customizable `whisper_rec_cmd`",
 }
 
 --------------------------------------------------------------------------------
