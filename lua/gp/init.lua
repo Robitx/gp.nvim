@@ -2990,7 +2990,7 @@ M.Whisper = function(callback)
 		cmd = rec_options[rec_cmd]
 	else
 		M.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
-        close()
+		close()
 		return
 	end
 	for i, v in ipairs(cmd.opts) do
