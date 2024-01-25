@@ -1201,7 +1201,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local skip_first_undojoin = not first_undojoin
 
 	local hl_handler_group = "GpHandlerStandout"
-	vim.cmd("highlight default link " .. hl_handler_group .. " Search")
+	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
 
 	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M._H.uuid())
 
