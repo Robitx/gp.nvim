@@ -1366,7 +1366,9 @@ M.prep_md = function(buf)
 	buf = buf or vim.api.nvim_get_current_buf()
 
 	-- move cursor to a new line at the end of the file
-	M._H.feedkeys("G", "x")
+	if M.config.jump_to_bottom then
+		M._H.feedkeys("G", "x")
+	end
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")

@@ -121,6 +121,8 @@ local config = {
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
+	-- control whether to type G whenever the chat buffer is focused
+	jump_to_bottom = true,
 
 	-- how to display GpChatToggle or GpContext: popup / split / vsplit / tabnew
 	toggle_target = "vsplit",
