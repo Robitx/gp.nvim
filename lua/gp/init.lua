@@ -18,6 +18,16 @@ local deprecated = {
 	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
 		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
 	whisper_max_time = "`whisper_max_time`\nPlease use fully customizable `whisper_rec_cmd`",
+
+	openai_api_endpoint = "`openai_api_endpoint`\n\n"
+		.. "If you're using the `https://api.openai.com/v1/chat/completions` endpoint,\n"
+		.. "just drop `openai_api_endpoint` in your config and you're done."
+		.. "\n\nOtherwise sorry for probably breaking your setup, "
+		.. "please use `endpoint` and `secret` fields in:\n\nproviders "
+		.. "= {\n  openai = {\n    endpoint = '...',\n    secret = '...'\n   },"
+		.. "\n  -- azure = {...},\n  -- copilot = {...},\n  -- ollama = {...},\n},\n"
+		.. "\nThe `openai_api_key` is still supported for backwards compatibility,\n"
+		.. "and automatically converted to `providers.openai.secret` if the new config is not set.",
 }
 
 --------------------------------------------------------------------------------
@@ -740,8 +750,16 @@ M.setup = function(opts)
 
 		opts[tbl] = opts[tbl] or {}
 		for k, v in pairs(opts[tbl]) do
-			if tbl == "hooks" or tbl == "providers" then
+			if tbl == "hooks" then
 				M[tbl][k] = v
+			elseif tbl == "providers" then
+				M[tbl][k] = M[tbl][k] or {}
+				for pk, pv in pairs(v) do
+					M[tbl][k][pk] = pv
+				end
+				if next(v) == nil then
+					M[tbl][k] = nil
+				end
 			elseif tbl == "agents" or tbl == "image_agents" then
 				M[tbl][v.name] = v
 			end
@@ -813,11 +831,19 @@ M.setup = function(opts)
 	M._chat_agents = {}
 	M._command_agents = {}
 	for name, agent in pairs(M.agents) do
-		if agent.command then
-			table.insert(M._command_agents, name)
+		if not M.agents[name].provider then
+			M.agents[name].provider = "openai"
 		end
-		if agent.chat then
-			table.insert(M._chat_agents, name)
+
+		if M.providers[M.agents[name].provider] then
+			if agent.command then
+				table.insert(M._command_agents, name)
+			end
+			if agent.chat then
+				table.insert(M._chat_agents, name)
+			end
+		else
+			M.agents[name] = nil
 		end
 	end
 	table.sort(M._chat_agents)
@@ -887,13 +913,16 @@ M.setup = function(opts)
 	for name, _ in pairs(M.providers) do
 		M.resolve_secret(name)
 	end
-
-	-- M.resolve_secret(M.config, "openai_api_key")
-	-- M.valid_api_key()
+	if not M.providers.openai then
+		M.providers.openai = {}
+		M.resolve_secret("openai", function()
+			M.providers.openai = nil
+		end)
+	end
 end
 
 ---@provider string # provider name
-function M.resolve_secret(provider)
+function M.resolve_secret(provider, callback)
 	local post_process = function()
 		local p = M.providers[provider]
 		if p.secret and type(p.secret) == "string" then
@@ -903,6 +932,20 @@ function M.resolve_secret(provider)
 		if provider == "copilot" then
 			M.refresh_copilot_bearer()
 		end
+
+		-- backwards compatibility
+		if provider == "openai" then
+			M.config.openai_api_key = M.providers[provider].secret
+		end
+
+		if callback then
+			callback()
+		end
+	end
+
+	-- backwards compatibility
+	if provider == "openai" then
+		M.providers[provider].secret = M.providers[provider].secret or M.config.openai_api_key
 	end
 
 	local secret = M.providers[provider].secret
@@ -950,7 +993,7 @@ function M.resolve_secret(provider)
 	end
 end
 
---TODO: obsolete
+-- TODO: obsolete
 M.valid_api_key = function()
 	local api_key = M.config.openai_api_key
 
@@ -1264,17 +1307,38 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		end
 	end
 
-	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.providers[provider].endpoint, "{{model}}", payload.model)
+	---TODO: this could be moved to a separate function returning endpoint and headers
+	local endpoint = M.providers[provider].endpoint
 	local bearer = M.providers[provider].secret
 	local headers = {}
+
 	if provider == "copilot" and M._state.copilot_bearer then
 		---@diagnostic disable-next-line: undefined-field
 		bearer = M._state.copilot_bearer.token or ""
 		headers = {
 			"-H",
 			"editor-version: vscode/1.85.1",
+			"-H",
+			"Authorization: Bearer " .. bearer,
 		}
+	end
+
+	if provider == "openai" then
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+			-- backwards compatibility
+			"-H",
+			"api-key: " .. bearer,
+		}
+	end
+
+	if provider == "azure" then
+		headers = {
+			"-H",
+			"api-key: " .. bearer,
+		}
+		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
 	end
 
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
@@ -1284,11 +1348,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		endpoint,
 		"-H",
 		"Content-Type: application/json",
-		-- api-key is for azure, authorization is for openai
-		"-H",
-		"Authorization: Bearer " .. bearer,
-		"-H",
-		"api-key: " .. M.config.openai_api_key,
 		"-d",
 		vim.json.encode(payload),
 		--[[ "--doesnt_exist" ]]
@@ -2537,20 +2596,24 @@ M.cmd.NextAgent = function()
 		agent_list = M._command_agents
 	end
 
+	local set_agent = function(agent_name)
+		if is_chat then
+			M._state.chat_agent = agent_name
+			M.info("Chat agent: " .. agent_name)
+		else
+			M._state.command_agent = agent_name
+			M.info("Command agent: " .. agent_name)
+		end
+		M.refresh_state()
+	end
+
 	for i, agent_name in ipairs(agent_list) do
 		if agent_name == current_agent then
-			local next_agent = agent_list[i % #agent_list + 1]
-			if is_chat then
-				M._state.chat_agent = next_agent
-				M.info("Chat agent: " .. next_agent)
-			else
-				M._state.command_agent = next_agent
-				M.info("Command agent: " .. next_agent)
-			end
-			M.refresh_state()
+			set_agent(agent_list[i % #agent_list + 1])
 			return
 		end
 	end
+	set_agent(agent_list[1])
 end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }
