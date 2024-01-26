@@ -1318,7 +1318,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local skip_first_undojoin = not first_undojoin
 
 	local hl_handler_group = "GpHandlerStandout"
-	vim.cmd("highlight default link " .. hl_handler_group .. " Search")
+	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
 
 	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M._H.uuid())
 
@@ -1482,9 +1482,6 @@ M.prep_md = function(buf)
 	-- register shortcuts local to this buffer
 	buf = buf or vim.api.nvim_get_current_buf()
 
-	-- move cursor to a new line at the end of the file
-	M._H.feedkeys("G", "x")
-
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
 	M._H.feedkeys("<esc>", "x")
@@ -1520,6 +1517,14 @@ M.prep_chat = function(buf, file_name)
 	end
 
 	M.prep_md(buf)
+
+	if M.config.chat_prompt_buf_type then
+		vim.api.nvim_buf_set_option(buf, "buftype", "prompt")
+		vim.fn.prompt_setprompt(buf, "")
+		vim.fn.prompt_setcallback(buf, function()
+			M.cmd.ChatRespond({ args = "" })
+		end)
+	end
 
 	-- setup chat specific commands
 	local range_commands = {
