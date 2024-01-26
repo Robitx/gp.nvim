@@ -17,12 +17,9 @@ local config = {
 	-- openai_api_key: "sk-...",
 	-- openai_api_key = os.getenv("env_name.."),
 	openai_api_key = os.getenv("OPENAI_API_KEY"),
-	-- api endpoint (you can change this to azure endpoint)
-	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
-	--- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
 
 	-- at least one working provider is required
-	-- provider needs to have endpoint
+	-- to disable a provider set it to empty table like openai = {}
 	providers = {
 		-- secrets can be strings or tables with command and arguments
 		-- secret = { "cat", "path_to/openai_api_key" },
@@ -31,7 +28,7 @@ local config = {
 		-- secret = os.getenv("env_name.."),
 		openai = {
 			endpoint = "https://api.openai.com/v1/chat/completions",
-			secret = os.getenv("OPENAI_API_KEY"),
+			-- secret = os.getenv("OPENAI_API_KEY"),
 		},
 		azure = {
 			-- endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
@@ -66,12 +63,11 @@ local config = {
 	-- agents = {  { name = "ChatGPT4" }, ... },
 	agents = {
 		{
-			provider = "openai",
 			name = "ChatGPT4",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+			model = { model = "gpt-4-turbo-preview", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.\n\n"
 				.. "The user provided the additional info about how they would like you to respond:\n\n"
@@ -89,7 +85,7 @@ local config = {
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+			model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.\n\n"
 				.. "The user provided the additional info about how they would like you to respond:\n\n"
@@ -125,7 +121,7 @@ local config = {
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-4-1106-preview", temperature = 0.8, top_p = 1 },
+			model = { model = "gpt-4-turbo-preview", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are an AI working as a code editor.\n\n"
 				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
@@ -137,7 +133,7 @@ local config = {
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-3.5-turbo-1106", temperature = 0.8, top_p = 1 },
+			model = { model = "gpt-3.5-turbo", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are an AI working as a code editor.\n\n"
 				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
@@ -365,6 +361,12 @@ local config = {
 			local copy = vim.deepcopy(plugin)
 			local key = copy.config.openai_api_key
 			copy.config.openai_api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
+			for provider, _ in pairs(copy.providers) do
+				local s = copy.providers[provider].secret
+				if s and type(s) == "string" then
+					copy.providers[provider].secret = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
+				end
+			end
 			local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(copy))
 			local params_info = string.format("Command params:\n%s", vim.inspect(params))
 			local lines = vim.split(plugin_info .. "\n" .. params_info, "\n")
