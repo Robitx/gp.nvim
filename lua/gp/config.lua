@@ -45,9 +45,9 @@ local config = {
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
 		},
-        lmsudio = {
-            endpoint = "http://localhost:1234/v1/chat/completions"
-        }
+		lmsudio = {
+			endpoint = "http://localhost:1234/v1/chat/completions",
+		},
 	},
 
 	-- prefix for all commands
