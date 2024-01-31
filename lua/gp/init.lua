@@ -1142,10 +1142,10 @@ end
 ---@param messages table
 ---@param model string | table | nil
 ---@param default_model string | table
-M.prepare_payload = function(messages, model, default_model)
+---@param provider string | nil
+M.prepare_payload = function(messages, model, default_model, provider)
 	model = model or default_model
 
-	-- if model is a string
 	if type(model) == "string" then
 		return {
 			model = model,
@@ -1154,7 +1154,23 @@ M.prepare_payload = function(messages, model, default_model)
 		}
 	end
 
-	-- if model is a table
+    if provider == "ollama" then
+        local options = {}
+        for k, v in pairs(model) do
+            if k ~= "provider" and k ~= "model" then
+                options[k] = v
+            end
+        end
+        options.temperature = math.max(0, math.min(2, options.temperature or 1))
+        options.top_p = math.max(0, math.min(1, options.top_p or 1))
+        return {
+            model = model.model,
+            stream = true,
+            messages = messages,
+            options = options,
+        }
+    end
+
 	return {
 		model = model.model,
 		stream = true,
@@ -1198,7 +1214,7 @@ end
 -- gpt query
 ---@param buf number | nil # buffer number
 ---@param provider string # provider name
----@param payload table # payload for openai api
+---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 M.query = function(buf, provider, payload, handler, on_exit)
@@ -1248,15 +1264,24 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
+				local content = ""
 				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
 					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
-						local content = line.choices[1].delta.content
-						if content and type(content) == "string" then
-							qt.response = qt.response .. content
-							handler(qid, content)
-						end
+						content = line.choices[1].delta.content
 					end
+				end
+
+				if provider == "ollama" and line:match("message") and line:match("content") then
+					line = vim.json.decode(line)
+					if line.message and line.message.content then
+						content = line.message.content
+					end
+				end
+
+				if content and type(content) == "string" then
+					qt.response = qt.response .. content
+					handler(qid, content)
 				end
 			end
 		end
@@ -1269,7 +1294,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 			end
 
 			if err then
-				M.error("OpenAI query stdout error: " .. vim.inspect(err))
+				M.error(qt.provider .. " query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -1289,7 +1314,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 				end
 
 				if qt.response == "" then
-					M.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
+					M.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
@@ -2135,7 +2160,7 @@ M.chat_respond = function(params)
 	M.query(
 		buf,
 		agent.provider,
-		M.prepare_payload(messages, headers.model, agent.model),
+		M.prepare_payload(messages, headers.model, agent.model, agent.provider),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
@@ -2178,7 +2203,7 @@ M.chat_respond = function(params)
 				M.query(
 					nil,
 					agent.provider,
-					M.prepare_payload(messages, nil, M.config.chat_topic_gen_model),
+					M.prepare_payload(messages, nil, agent.model, agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2947,7 +2972,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		M.query(
 			buf,
 			provider,
-			M.prepare_payload(messages, model, agent.model),
+			M.prepare_payload(messages, model, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)

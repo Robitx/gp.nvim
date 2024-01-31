@@ -43,8 +43,11 @@ local config = {
 			},
 		},
 		ollama = {
-			-- endpoint = "http://localhost:8000/v1/chat/completions",
+			endpoint = "http://localhost:11434/api/chat",
 		},
+        lmsudio = {
+            endpoint = "http://localhost:1234/v1/chat/completions"
+        }
 	},
 
 	-- prefix for all commands
@@ -116,6 +119,38 @@ local config = {
 				.. "- Take a deep breath; You've got this!\n",
 		},
 		{
+			provider = "ollama",
+			name = "ChatOllama",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = {
+				model = "mistral:7b-instruct-v0.2-q4_K_M",
+				temperature = 1.97,
+				top_p = 1,
+				num_ctx = 8192,
+				min_p = 0.05,
+			},
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.",
+		},
+		{
+			provider = "lmsudio",
+			name = "ChatLMStudio",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = {
+				model = "dummy",
+				temperature = 0.97,
+				top_p = 1,
+				num_ctx = 8192,
+				min_p = 0.05,
+			},
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.",
+		},
+		{
 			provider = "openai",
 			name = "CodeGPT4",
 			chat = false,
@@ -151,6 +186,25 @@ local config = {
 				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
 				.. "START AND END YOUR ANSWER WITH:\n\n```",
 		},
+		{
+			provider = "ollama",
+			name = "CodeOllamaDeepSeek",
+			chat = false,
+			command = true,
+			-- string with the Copilot engine name or table with engine name and parameters if applicable
+			model = {
+				model = "mistral:7b-instruct-v0.2-q4_K_M",
+				temperature = 1.9,
+				top_p = 1,
+				num_ctx = 8192,
+				min_p = 0.05,
+			},
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are an AI working as a code editor providing answers.\n\n"
+				.. "Use 4 SPACES FOR INDENTATION.\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
 	},
 
 	-- directory for storing chat files
@@ -166,7 +220,6 @@ local config = {
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
 		.. " in two or three words. Respond only with those words.",
 	-- chat topic model (string with model name or table with model name and parameters)
-	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
 	-- conceal model parameters in chat
