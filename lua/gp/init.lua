@@ -887,7 +887,10 @@ end
 M.refresh_state = function()
 	local state_file = M.config.state_dir .. "/state.json"
 
-	local state = M.file_to_table(state_file) or {}
+	local state = {}
+	if vim.fn.filereadable(state_file) ~= 0 then
+		state = M.file_to_table(state_file) or {}
+	end
 
 	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
 	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
