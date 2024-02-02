@@ -531,7 +531,7 @@ end
 M._log = function(msg, kind, history)
 	vim.schedule(function()
 		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", kind },
+			{ M._Name .. ": " .. msg, kind },
 		}, history, {})
 	end)
 end
