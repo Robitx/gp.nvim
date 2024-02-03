@@ -541,7 +541,7 @@ end
 M._log = function(msg, kind, history)
 	vim.schedule(function()
 		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", kind },
+			{ M._Name .. ": " .. msg, kind },
 		}, history, {})
 	end)
 end
@@ -1014,7 +1014,10 @@ end
 M.refresh_state = function()
 	local state_file = M.config.state_dir .. "/state.json"
 
-	local state = M.file_to_table(state_file) or {}
+	local state = {}
+	if vim.fn.filereadable(state_file) ~= 0 then
+		state = M.file_to_table(state_file) or {}
+	end
 
 	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
 	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
@@ -1568,7 +1571,7 @@ M.prep_md = function(buf)
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
-	M._H.feedkeys("<esc>", "x")
+	M._H.feedkeys("<esc>", "xn")
 end
 
 M.is_chat = function(buf, file_name)
@@ -1633,7 +1636,7 @@ M.prep_chat = function(buf, file_name)
 					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
 					-- go to normal mode
 					vim.api.nvim_command("stopinsert")
-					M._H.feedkeys("<esc>", "x")
+					M._H.feedkeys("<esc>", "xn")
 				end, rc.comment)
 			else
 				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
@@ -1771,7 +1774,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent file " .. file_name)
 		else
 			-- move cursor to the beginning of the file and scroll to the end
-			M._H.feedkeys("ggG", "x")
+			M._H.feedkeys("ggG", "xn")
 		end
 
 		-- delete whitespace lines at the end of the file
@@ -1900,7 +1903,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	if params.range == 2 then
 		M.append_selection(params, cbuf, buf)
 	end
-	M._H.feedkeys("G", "x")
+	M._H.feedkeys("G", "xn")
 	return buf
 end
 
@@ -1986,7 +1989,7 @@ M.cmd.ChatPaste = function(params)
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	M.append_selection(params, cbuf, buf)
-	M._H.feedkeys("G", "x")
+	M._H.feedkeys("G", "xn")
 end
 
 M.cmd.ChatDelete = function()
@@ -2700,7 +2703,7 @@ M.cmd.Context = function(params)
 		M.append_selection(params, cbuf, buf)
 	end
 
-	M._H.feedkeys("G", "x")
+	M._H.feedkeys("G", "xn")
 end
 
 M.Prompt = function(params, target, prompt, model, template, system_template, whisper, provider)
@@ -2878,7 +2881,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
-		M._H.feedkeys("<esc>", "x")
+		M._H.feedkeys("<esc>", "xn")
 
 		local cursor = true
 		if not M.config.command_auto_select_response then
