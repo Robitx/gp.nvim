@@ -1367,7 +1367,7 @@ M.prep_md = function(buf)
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
-	M._H.feedkeys("<esc>", "x")
+	M._H.feedkeys("<esc>", "xn")
 end
 
 M.is_chat = function(buf, file_name)
@@ -1432,7 +1432,7 @@ M.prep_chat = function(buf, file_name)
 					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
 					-- go to normal mode
 					vim.api.nvim_command("stopinsert")
-					M._H.feedkeys("<esc>", "x")
+					M._H.feedkeys("<esc>", "xn")
 				end, rc.comment)
 			else
 				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
@@ -1570,7 +1570,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent file " .. file_name)
 		else
 			-- move cursor to the beginning of the file and scroll to the end
-			M._H.feedkeys("ggG", "x")
+			M._H.feedkeys("ggG", "xn")
 		end
 
 		-- delete whitespace lines at the end of the file
@@ -1699,7 +1699,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	if params.range == 2 then
 		M.append_selection(params, cbuf, buf)
 	end
-	M._H.feedkeys("G", "x")
+	M._H.feedkeys("G", "xn")
 	return buf
 end
 
@@ -1785,7 +1785,7 @@ M.cmd.ChatPaste = function(params)
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	M.append_selection(params, cbuf, buf)
-	M._H.feedkeys("G", "x")
+	M._H.feedkeys("G", "xn")
 end
 
 M.cmd.ChatDelete = function()
@@ -2479,7 +2479,7 @@ M.cmd.Context = function(params)
 		M.append_selection(params, cbuf, buf)
 	end
 
-	M._H.feedkeys("G", "x")
+	M._H.feedkeys("G", "xn")
 end
 
 M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
@@ -2657,7 +2657,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
-		M._H.feedkeys("<esc>", "x")
+		M._H.feedkeys("<esc>", "xn")
 
 		local cursor = true
 		if not M.config.command_auto_select_response then
