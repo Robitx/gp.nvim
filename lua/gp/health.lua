@@ -69,7 +69,7 @@ function M.check()
 		end
 	end
 
-	if #gp._deprecated > 0 then
+	if gp._deprecated and #gp._deprecated > 0 then
 		local msg = "deprecated config option(s) in setup():"
 		for _, v in ipairs(gp._deprecated) do
 			msg = msg .. "\n\n- " .. v.msg

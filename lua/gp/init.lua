@@ -31,6 +31,7 @@ local M = {
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
+	_deprecated = {}, -- table of deprecated options
 	agents = {}, -- table of agents
 	image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
@@ -699,8 +700,6 @@ M.setup = function(opts)
 		opts[tbl] = nil
 	end
 
-	-- merge user opts to M.config
-	M._deprecated = {}
 	for k, v in pairs(opts) do
 		if deprecated[k] then
 			table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
