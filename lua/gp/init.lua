@@ -806,7 +806,7 @@ M.setup = function(opts)
 					if cmd == "Agent" then
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
-						if M.is_chat(buf, file_name) then
+						if M.not_chat(buf, file_name) == nil then
 							return M._chat_agents
 						end
 						return M._command_agents
@@ -1372,28 +1372,31 @@ M.prep_md = function(buf)
 	M._H.feedkeys("<esc>", "xn")
 end
 
-M.is_chat = function(buf, file_name)
+---@param buf number # buffer number
+---@param file_name string # file name
+---@return string | nil # reason for not being a chat or nil if it is a chat
+M.not_chat = function(buf, file_name)
 	if not _H.starts_with(file_name, M.config.chat_dir) then
-		return false
+		return "not in chat directory (" .. M.config.chat_dir .. ")"
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 	if #lines < 4 then
-		return false
+		return "file too short"
 	end
 
 	if not lines[1]:match("^# ") then
-		return false
+		return "missing topic header"
 	end
 
 	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
-		return false
+		return "missing file header"
 	end
-	return true
+	return nil
 end
 
 M.prep_chat = function(buf, file_name)
-	if not M.is_chat(buf, file_name) then
+	if M.not_chat(buf, file_name) then
 		return
 	end
 
@@ -1834,8 +1837,9 @@ M.chat_respond = function(params)
 
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	if not M.is_chat(buf, file_name) then
-		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
+	local reason = M.not_chat(buf, file_name)
+	if reason then
+		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
 		return
 	end
 
@@ -2374,7 +2378,7 @@ M.cmd.Agent = function(params)
 
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	local is_chat = M.is_chat(buf, file_name)
+	local is_chat = M.not_chat(buf, file_name) == nil
 	if is_chat and M.agents[agent_name].chat then
 		M._state.chat_agent = agent_name
 		M.info("Chat agent: " .. M._state.chat_agent)
@@ -2393,7 +2397,7 @@ end
 M.cmd.NextAgent = function()
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	local is_chat = M.is_chat(buf, file_name)
+	local is_chat = M.not_chat(buf, file_name) == nil
 	local current_agent, agent_list
 
 	if is_chat then
