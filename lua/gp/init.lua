@@ -41,6 +41,7 @@ local M = {
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
+	_deprecated = {}, -- table of deprecated options
 	agents = {}, -- table of agents
 	image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
@@ -342,7 +343,7 @@ end
 ---@param buf number | nil # buffer number
 ---@param title string # title of the popup
 ---@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
----@param opts table # options - gid=nul, on_leave=false, keep_buf=false
+---@param opts table # options - gid=nul, on_leave=false, persist=false
 ---@param style table # style - border="single"
 ---returns table with buffer, window, close function, resize function
 _H.create_popup = function(buf, title, size_func, opts, style)
@@ -351,7 +352,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 	local border = style.border or "single"
 
 	-- create buffer
-	buf = buf or vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
+	buf = buf or vim.api.nvim_create_buf(false, not opts.persist)
 
 	-- setting to the middle of the editor
 	local options = {
@@ -404,7 +405,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 			if win and vim.api.nvim_win_is_valid(win) then
 				vim.api.nvim_win_close(win, true)
 			end
-			if opts.keep_buf then
+			if opts.persist then
 				return
 			end
 			if vim.api.nvim_buf_is_valid(buf) then
@@ -766,8 +767,6 @@ M.setup = function(opts)
 		opts[tbl] = nil
 	end
 
-	-- merge user opts to M.config
-	M._deprecated = {}
 	for k, v in pairs(opts) do
 		if deprecated[k] then
 			table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
@@ -889,7 +888,7 @@ M.setup = function(opts)
 					if cmd == "Agent" then
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
-						if M.is_chat(buf, file_name) then
+						if M.not_chat(buf, file_name) == nil then
 							return M._chat_agents
 						end
 						return M._command_agents
@@ -1574,28 +1573,31 @@ M.prep_md = function(buf)
 	M._H.feedkeys("<esc>", "xn")
 end
 
-M.is_chat = function(buf, file_name)
+---@param buf number # buffer number
+---@param file_name string # file name
+---@return string | nil # reason for not being a chat or nil if it is a chat
+M.not_chat = function(buf, file_name)
 	if not _H.starts_with(file_name, M.config.chat_dir) then
-		return false
+		return "not in chat directory (" .. M.config.chat_dir .. ")"
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 	if #lines < 4 then
-		return false
+		return "file too short"
 	end
 
 	if not lines[1]:match("^# ") then
-		return false
+		return "missing topic header"
 	end
 
 	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
-		return false
+		return "missing file header"
 	end
-	return true
+	return nil
 end
 
 M.prep_chat = function(buf, file_name)
-	if not M.is_chat(buf, file_name) then
+	if M.not_chat(buf, file_name) then
 		return
 	end
 
@@ -1747,22 +1749,18 @@ M.open_buf = function(file_name, target, kind, toggle)
 	if target == M.BufTarget.popup then
 		local old_buf = M._H.get_buffer(file_name)
 
-		buf, win, close, _ = M._H.create_popup(
-			old_buf,
-			M._Name .. " Popup",
-			function(w, h)
-				local top = M.config.style_popup_margin_top or 2
-				local bottom = M.config.style_popup_margin_bottom or 8
-				local left = M.config.style_popup_margin_left or 1
-				local right = M.config.style_popup_margin_right or 1
-				local max_width = M.config.style_popup_max_width or 160
-				local ww = math.min(w - (left + right), max_width)
-				local wh = h - (top + bottom)
-				return ww, wh, top, (w - ww) / 2
-			end,
-			{ on_leave = false, escape = false, persist = true, keep_buf = true },
-			{ border = M.config.style_popup_border or "single" }
-		)
+		buf, win, close, _ = M._H.create_popup(old_buf, M._Name .. " Popup", function(w, h)
+			local top = M.config.style_popup_margin_top or 2
+			local bottom = M.config.style_popup_margin_bottom or 8
+			local left = M.config.style_popup_margin_left or 1
+			local right = M.config.style_popup_margin_right or 1
+			local max_width = M.config.style_popup_max_width or 160
+			local ww = math.min(w - (left + right), max_width)
+			local wh = h - (top + bottom)
+			return ww, wh, top, (w - ww) / 2
+		end, { on_leave = false, escape = false, persist = true }, {
+			border = M.config.style_popup_border or "single",
+		})
 
 		if not toggle then
 			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = close })
@@ -1813,6 +1811,8 @@ M.open_buf = function(file_name, target, kind, toggle)
 	if not toggle then
 		return buf
 	end
+
+	vim.api.nvim_buf_set_option(buf, "buflisted", false)
 
 	if target == M.BufTarget.split or target == M.BufTarget.vsplit then
 		close = function()
@@ -2038,8 +2038,9 @@ M.chat_respond = function(params)
 
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	if not M.is_chat(buf, file_name) then
-		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
+	local reason = M.not_chat(buf, file_name)
+	if reason then
+		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
 		return
 	end
 
@@ -2580,7 +2581,7 @@ M.cmd.Agent = function(params)
 
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	local is_chat = M.is_chat(buf, file_name)
+	local is_chat = M.not_chat(buf, file_name) == nil
 	if is_chat and M.agents[agent_name].chat then
 		M._state.chat_agent = agent_name
 		M.info("Chat agent: " .. M._state.chat_agent)
@@ -2599,7 +2600,7 @@ end
 M.cmd.NextAgent = function()
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	local is_chat = M.is_chat(buf, file_name)
+	local is_chat = M.not_chat(buf, file_name) == nil
 	local current_agent, agent_list
 
 	if is_chat then
