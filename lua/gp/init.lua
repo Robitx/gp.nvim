@@ -332,7 +332,7 @@ end
 ---@param buf number | nil # buffer number
 ---@param title string # title of the popup
 ---@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
----@param opts table # options - gid=nul, on_leave=false, keep_buf=false
+---@param opts table # options - gid=nul, on_leave=false, persist=false
 ---@param style table # style - border="single"
 ---returns table with buffer, window, close function, resize function
 _H.create_popup = function(buf, title, size_func, opts, style)
@@ -341,7 +341,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 	local border = style.border or "single"
 
 	-- create buffer
-	buf = buf or vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
+	buf = buf or vim.api.nvim_create_buf(false, not opts.persist)
 
 	-- setting to the middle of the editor
 	local options = {
@@ -394,7 +394,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 			if win and vim.api.nvim_win_is_valid(win) then
 				vim.api.nvim_win_close(win, true)
 			end
-			if opts.keep_buf then
+			if opts.persist then
 				return
 			end
 			if vim.api.nvim_buf_is_valid(buf) then
@@ -1559,7 +1559,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 				local wh = h - (top + bottom)
 				return ww, wh, top, (w - ww) / 2
 			end,
-			{ on_leave = false, escape = false, persist = true, keep_buf = true },
+			{ on_leave = false, escape = false, persist = true },
 			{ border = M.config.style_popup_border or "single" }
 		)
 
@@ -1612,6 +1612,8 @@ M.open_buf = function(file_name, target, kind, toggle)
 	if not toggle then
 		return buf
 	end
+
+	vim.api.nvim_buf_set_option(buf, "buflisted", false)
 
 	if target == M.BufTarget.split or target == M.BufTarget.vsplit then
 		close = function()
