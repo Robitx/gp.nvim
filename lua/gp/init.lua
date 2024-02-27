@@ -1545,22 +1545,18 @@ M.open_buf = function(file_name, target, kind, toggle)
 	if target == M.BufTarget.popup then
 		local old_buf = M._H.get_buffer(file_name)
 
-		buf, win, close, _ = M._H.create_popup(
-			old_buf,
-			M._Name .. " Popup",
-			function(w, h)
-				local top = M.config.style_popup_margin_top or 2
-				local bottom = M.config.style_popup_margin_bottom or 8
-				local left = M.config.style_popup_margin_left or 1
-				local right = M.config.style_popup_margin_right or 1
-				local max_width = M.config.style_popup_max_width or 160
-				local ww = math.min(w - (left + right), max_width)
-				local wh = h - (top + bottom)
-				return ww, wh, top, (w - ww) / 2
-			end,
-			{ on_leave = false, escape = false, persist = true },
-			{ border = M.config.style_popup_border or "single" }
-		)
+		buf, win, close, _ = M._H.create_popup(old_buf, M._Name .. " Popup", function(w, h)
+			local top = M.config.style_popup_margin_top or 2
+			local bottom = M.config.style_popup_margin_bottom or 8
+			local left = M.config.style_popup_margin_left or 1
+			local right = M.config.style_popup_margin_right or 1
+			local max_width = M.config.style_popup_max_width or 160
+			local ww = math.min(w - (left + right), max_width)
+			local wh = h - (top + bottom)
+			return ww, wh, top, (w - ww) / 2
+		end, { on_leave = false, escape = false, persist = true }, {
+			border = M.config.style_popup_border or "single",
+		})
 
 		if not toggle then
 			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = close })
