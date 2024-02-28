@@ -1515,6 +1515,8 @@ M.resolve_buf_target = function(params)
 		args = params
 	end
 
+	args = args:match("^%s*(.-)%s*$")
+
 	if args == "popup" then
 		return M.BufTarget.popup
 	elseif args == "split" then
