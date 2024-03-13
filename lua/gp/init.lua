@@ -1675,7 +1675,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	end
 
 	local template = string.format(
-		M.chat_template,
+		M.config.chat_template or M.chat_template,
 		string.match(filename, "([^/]+)$"),
 		model .. system_prompt,
 		M.config.chat_user_prefix,
