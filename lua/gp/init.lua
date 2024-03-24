@@ -1042,6 +1042,10 @@ M.refresh_state = function()
 	M.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
+
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	M.display_chat_agent(buf, file_name)
 end
 
 M.Target = {
@@ -1643,6 +1647,29 @@ M.not_chat = function(buf, file_name)
 	return nil
 end
 
+M.display_chat_agent = function(buf, file_name)
+	if M.not_chat(buf, file_name) then
+		return
+	end
+
+	if buf ~= vim.api.nvim_get_current_buf() then
+		return
+	end
+
+	local ns_id = vim.api.nvim_create_namespace("GpChatExt_" .. file_name)
+	vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
+
+	vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
+		strict = false,
+		right_gravity = true,
+		virt_text_pos = "right_align",
+		virt_text = {
+			{ "Current Agent: [" .. M._state.chat_agent .. "]", "DiagnosticHint" },
+		},
+		hl_mode = "combine",
+	})
+end
+
 M.prep_chat = function(buf, file_name)
 	if M.not_chat(buf, file_name) then
 		return
@@ -1741,7 +1768,20 @@ M.buf_handler = function()
 		local file_name = vim.api.nvim_buf_get_name(buf)
 
 		M.prep_chat(buf, file_name)
+		M.display_chat_agent(buf, file_name)
 		M.prep_context(buf, file_name)
+	end, gid)
+
+	_H.autocmd({ "WinEnter" }, nil, function(event)
+		local buf = event.buf
+
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
+
+		local file_name = vim.api.nvim_buf_get_name(buf)
+
+		M.display_chat_agent(buf, file_name)
 	end, gid)
 end
 
