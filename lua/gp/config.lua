@@ -45,7 +45,7 @@ local config = {
 		ollama = {
 			endpoint = "http://localhost:11434/v1/chat/completions",
 		},
-		lmsudio = {
+		lmstudio = {
 			endpoint = "http://localhost:1234/v1/chat/completions",
 		},
 		googleai = {
@@ -154,7 +154,7 @@ local config = {
 			system_prompt = "You are a general AI assistant.",
 		},
 		{
-			provider = "lmsudio",
+			provider = "lmstudio",
 			name = "ChatLMStudio",
 			chat = true,
 			command = false,
