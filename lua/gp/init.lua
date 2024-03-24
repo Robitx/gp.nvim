@@ -1211,11 +1211,35 @@ M.prepare_payload = function(messages, model, default_model, provider)
 			},
 			generationConfig = {
 				temperature = math.max(0, math.min(2, model.temperature or 1)),
-				maxOutputTokens = model.num_ctx or 8192,
+				maxOutputTokens = model.max_tokens or 8192,
 				topP = math.max(0, math.min(1, model.top_p or 1)),
 				topK = model.top_k or 100,
 			},
 			model = model.model,
+		}
+		return payload
+	end
+
+	if provider == "anthropic" then
+		local system = ""
+		local i = 1
+		while i < #messages do
+			if messages[i].role == "system" then
+				system = system .. messages[i].content .. "\n"
+				table.remove(messages, i)
+			else
+				i = i + 1
+			end
+		end
+
+		local payload = {
+			model = model.model,
+			stream = true,
+			messages = messages,
+			system = system,
+			max_tokens = model.max_tokens or 4096,
+			temperature = math.max(0, math.min(2, model.temperature or 1)),
+			top_p = math.max(0, math.min(1, model.top_p or 1)),
 		}
 		return payload
 	end
@@ -1321,6 +1345,18 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					end
 				end
 
+				if qt.provider == "anthropic" and line:match('"text":') then
+					if line:match("content_block_start") or line:match("content_block_delta") then
+						line = vim.json.decode(line)
+						if line.delta and line.delta.text then
+							content = line.delta.text
+						end
+						if line.content_block and line.content_block.text then
+							content = line.content_block.text
+						end
+					end
+				end
+
 				if qt.provider == "googleai" then
 					if line:match('"text":') then
 						content = vim.json.decode("{" .. line .. "}").text
@@ -1405,11 +1441,29 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		}
 	end
 
+	if provider == "pplx" then
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+		}
+	end
+
 	if provider == "googleai" then
 		headers = {}
 		endpoint = M._H.template_replace(endpoint, "{{secret}}", bearer)
 		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
 		payload.model = nil
+	end
+
+	if provider == "anthropic" then
+		headers = {
+			"-H",
+			"x-api-key: " .. bearer,
+			"-H",
+			"anthropic-version: 2023-06-01",
+			"-H",
+			"anthropic-beta: messages-2023-12-15",
+		}
 	end
 
 	if provider == "azure" then
