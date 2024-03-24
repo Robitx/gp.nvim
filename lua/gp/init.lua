@@ -1036,6 +1036,7 @@ M.refresh_state = function()
 	local bearer = M._state.copilot_bearer or state.copilot_bearer or nil
 	if bearer and bearer.expires_at and bearer.expires_at < os.time() then
 		bearer = nil
+		M.refresh_copilot_bearer()
 	end
 	M._state.copilot_bearer = bearer
 
@@ -1381,7 +1382,8 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	local bearer = M.providers[provider].secret
 	local headers = {}
 
-	if provider == "copilot" and M._state.copilot_bearer then
+	if provider == "copilot" then
+		M.refresh_copilot_bearer()
 		---@diagnostic disable-next-line: undefined-field
 		bearer = M._state.copilot_bearer.token or ""
 		headers = {
