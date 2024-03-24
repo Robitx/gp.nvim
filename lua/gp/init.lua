@@ -1215,6 +1215,7 @@ M.prepare_payload = function(messages, model, default_model, provider)
 				topP = math.max(0, math.min(1, model.top_p or 1)),
 				topK = model.top_k or 100,
 			},
+			model = model.model,
 		}
 		return payload
 	end
@@ -1407,6 +1408,8 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	if provider == "googleai" then
 		headers = {}
 		endpoint = M._H.template_replace(endpoint, "{{secret}}", bearer)
+		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
+		payload.model = nil
 	end
 
 	if provider == "azure" then

@@ -49,7 +49,7 @@ local config = {
 			endpoint = "http://localhost:1234/v1/chat/completions",
 		},
 		googleai = {
-			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={{secret}}",
+			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
 			secret = os.getenv("GOOGLEAI_API_KEY"),
 		},
 	},
@@ -128,7 +128,7 @@ local config = {
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "dummy", temperature = 1.1, top_p = 1 },
+			model = { model = "gemini-pro", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.\n\n"
 				.. "The user provided the additional info about how they would like you to respond:\n\n"
