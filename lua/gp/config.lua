@@ -52,6 +52,14 @@ local config = {
 			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
 			secret = os.getenv("GOOGLEAI_API_KEY"),
 		},
+		pplx = {
+			endpoint = "https://api.perplexity.ai/chat/completions",
+			secret = os.getenv("PPLX_API_KEY"),
+		},
+		anthropic = {
+			endpoint = "https://api.anthropic.com/v1/messages",
+			secret = os.getenv("ANTHROPIC_API_KEY"),
+		},
 	},
 
 	-- prefix for all commands
@@ -141,6 +149,42 @@ local config = {
 				.. "- Take a deep breath; You've got this!\n",
 		},
 		{
+			provider = "pplx",
+			name = "ChatPerplexityMixtral",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n",
+		},
+		{
+			provider = "anthropic",
+			name = "ChatClaude-3-Haiku",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n",
+		},
+		{
 			provider = "ollama",
 			name = "ChatOllama",
 			chat = true,
@@ -200,6 +244,39 @@ local config = {
 			-- string with the Copilot engine name or table with engine name and parameters if applicable
 			model = { model = "gpt-4", temperature = 0.8, top_p = 1, n = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+		{
+			provider = "googleai",
+			name = "CodeGemini",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "gemini-pro", temperature = 0.8, top_p = 1 },
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+		{
+			provider = "pplx",
+			name = "CodePerplexityMixtral",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
+			system_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```",
+		},
+		{
+			provider = "anthropic",
+			name = "CodeClaude-3-Haiku",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
 			system_prompt = "You are an AI working as a code editor.\n\n"
 				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
 				.. "START AND END YOUR ANSWER WITH:\n\n```",
