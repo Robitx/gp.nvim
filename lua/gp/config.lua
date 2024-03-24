@@ -43,7 +43,7 @@ local config = {
 			},
 		},
 		ollama = {
-			endpoint = "http://localhost:11434/api/chat",
+			endpoint = "http://localhost:11434/v1/chat/completions",
 		},
 		lmsudio = {
 			endpoint = "http://localhost:1234/v1/chat/completions",
@@ -128,7 +128,7 @@ local config = {
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
+			model = { model = "dummy", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.\n\n"
 				.. "The user provided the additional info about how they would like you to respond:\n\n"
@@ -148,10 +148,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = {
 				model = "mistral:7b-instruct-v0.2-q4_K_M",
-				temperature = 1.97,
-				top_p = 1,
 				num_ctx = 8192,
-				min_p = 0.05,
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.",
@@ -167,7 +164,6 @@ local config = {
 				temperature = 0.97,
 				top_p = 1,
 				num_ctx = 8192,
-				min_p = 0.05,
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.",
@@ -219,7 +215,6 @@ local config = {
 				temperature = 1.9,
 				top_p = 1,
 				num_ctx = 8192,
-				min_p = 0.05,
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are an AI working as a code editor providing answers.\n\n"
@@ -232,7 +227,7 @@ local config = {
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
 	-- chat user prompt prefix
-	chat_user_prefix = "🗨:",
+	chat_user_prefix = "💬:",
 	-- chat assistant prompt prefix (static string or a table {static, template})
 	-- first string has to be static, second string can contain template {{agent}}
 	-- just a static string is legacy and the [{{agent}}] element is added automatically

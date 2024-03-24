@@ -1156,22 +1156,63 @@ M.prepare_payload = function(messages, model, default_model, provider)
 		}
 	end
 
-    if provider == "ollama" then
-        local options = {}
-        for k, v in pairs(model) do
-            if k ~= "provider" and k ~= "model" then
-                options[k] = v
-            end
-        end
-        options.temperature = math.max(0, math.min(2, options.temperature or 1))
-        options.top_p = math.max(0, math.min(1, options.top_p or 1))
-        return {
-            model = model.model,
-            stream = true,
-            messages = messages,
-            options = options,
-        }
-    end
+	if provider == "googleai" then
+		for i, message in ipairs(messages) do
+			if message.role == "system" then
+				messages[i].role = "user"
+			end
+			if message.role == "assistant" then
+				messages[i].role = "model"
+			end
+			if message.content then
+				messages[i].parts = {
+					{
+						text = message.content,
+					},
+				}
+				messages[i].content = nil
+			end
+		end
+		local i = 1
+		while i < #messages do
+			if messages[i].role == messages[i + 1].role then
+				table.insert(messages[i].parts, {
+					text = messages[i + 1].parts[1].text,
+				})
+				table.remove(messages, i + 1)
+			else
+				i = i + 1
+			end
+		end
+		local payload = {
+			contents = messages,
+			safetySettings = {
+				{
+					category = "HARM_CATEGORY_HARASSMENT",
+					threshold = "BLOCK_NONE",
+				},
+				{
+					category = "HARM_CATEGORY_HATE_SPEECH",
+					threshold = "BLOCK_NONE",
+				},
+				{
+					category = "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+					threshold = "BLOCK_NONE",
+				},
+				{
+					category = "HARM_CATEGORY_DANGEROUS_CONTENT",
+					threshold = "BLOCK_NONE",
+				},
+			},
+			generationConfig = {
+				temperature = math.max(0, math.min(2, model.temperature or 1)),
+				maxOutputTokens = model.num_ctx or 8192,
+				topP = math.max(0, math.min(1, model.top_p or 1)),
+				topK = model.top_k or 100,
+			},
+		}
+		return payload
+	end
 
 	return {
 		model = model.model,
@@ -1274,10 +1315,9 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					end
 				end
 
-				if provider == "ollama" and line:match("message") and line:match("content") then
-					line = vim.json.decode(line)
-					if line.message and line.message.content then
-						content = line.message.content
+				if qt.provider == "googleai" then
+					if line:match('"text":') then
+						content = vim.json.decode("{" .. line .. "}").text
 					end
 				end
 
@@ -1356,6 +1396,11 @@ M.query = function(buf, provider, payload, handler, on_exit)
 			"-H",
 			"api-key: " .. bearer,
 		}
+	end
+
+	if provider == "googleai" then
+		headers = {}
+		endpoint = M._H.template_replace(endpoint, "{{secret}}", bearer)
 	end
 
 	if provider == "azure" then
