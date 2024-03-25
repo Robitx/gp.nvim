@@ -2267,12 +2267,17 @@ M.chat_respond = function(params)
 	---@diagnostic disable-next-line: cast-local-type
 	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
 
+	local old_default_user_prefix = "🗨:"
 	for index = start_index, end_index do
 		local line = lines[index]
 		if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "user"
 			content = line:sub(#M.config.chat_user_prefix + 1)
+		elseif line:sub(1, #old_default_user_prefix) == old_default_user_prefix then
+			table.insert(messages, { role = role, content = content })
+			role = "user"
+			content = line:sub(#old_default_user_prefix + 1)
 		elseif line:sub(1, #agent_prefix) == agent_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "assistant"
