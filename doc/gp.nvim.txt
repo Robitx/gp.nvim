@@ -1,4 +1,4 @@
-*gp.nvim.txt*           For NVIM v0.8.0          Last change: 2024 February 28
+*gp.nvim.txt*            For NVIM v0.8.0            Last change: 2024 March 26
 
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
@@ -108,6 +108,18 @@ Snippets for your preferred package manager:
             -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
         end,
     })
+<
+
+>lua
+    -- vim-plug
+    Plug 'robitx/gp.nvim'
+    
+    require("gp").setup()
+    
+    -- or setup with your own config (see Install > Configuration in Readme)
+    -- require("gp").setup(config)
+    
+    -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
 <
 
 
