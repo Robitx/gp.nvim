@@ -94,6 +94,17 @@ use({
 })
 ```
 
+```lua
+-- vim-plug
+Plug 'robitx/gp.nvim'
+
+require("gp").setup()
+
+-- or setup with your own config (see Install > Configuration in Readme)
+-- require("gp").setup(config)
+
+-- shortcuts might be setup here (see Usage > Shortcuts in Readme)
+```
 ## 2. OpenAI API key
 
 Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [4. Configuration](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
