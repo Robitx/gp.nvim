@@ -2221,10 +2221,12 @@ M.cmd.ChatFinder = function()
 			preview_lines = {}
 			local picker_lines = {}
 			for _, f in ipairs(results) do
-				table.insert(picker_files, dir .. "/" .. f.file)
-				local fline = string.format("%s:%s %s", f.file:sub(3, -11), f.lnum, f.line)
-				table.insert(picker_lines, fline)
-				table.insert(preview_lines, tonumber(f.lnum))
+				if f.line:len() > 0 then
+					table.insert(picker_files, dir .. "/" .. f.file)
+					local fline = string.format("%s:%s %s", f.file:sub(3, -11), f.lnum, f.line)
+					table.insert(picker_lines, fline)
+					table.insert(preview_lines, tonumber(f.lnum))
+				end
 			end
 
 			vim.api.nvim_buf_set_lines(picker_buf, 0, -1, false, picker_lines)
