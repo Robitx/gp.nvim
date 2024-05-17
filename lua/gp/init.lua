@@ -1466,7 +1466,17 @@ M.prep_chat = function(buf, file_name)
 	-- make last.md a symlink to the last opened chat file
 	local last = M.config.chat_dir .. "/last.md"
 	if file_name ~= last then
-		os.execute("ln -sf " .. file_name .. " " .. last)
+		local check_command = "if [[ -L " .. last .. " || ! -e " .. last .. " ]]; then echo 'ok'; else echo 'fail'; fi"
+		local handle = io.popen(check_command)
+		local result = handle:read("*a")
+		handle:close()
+		
+		if result:find("ok") then
+			os.remove(last)
+			os.execute("ln -sf " .. file_name .. " " .. last)
+		else
+			print("Error: 'last.md' exists and is not a symbolic link.")
+		end
 	end
 end
 
