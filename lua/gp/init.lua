@@ -2948,8 +2948,9 @@ M.Whisper = function(callback)
 			.. " && "
 			-- call openai
 			.. curl
-			.. " --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
-			.. '-H "Authorization: Bearer '
+			.. " --max-time 20 "
+			.. M.config.openai_transcriptions_api_endpoint
+			.. ' -s -H "Authorization: Bearer '
 			.. M.config.openai_api_key
 			.. '" -H "Content-Type: multipart/form-data" '
 			.. '-F model="whisper-1" -F language="'
