@@ -641,12 +641,26 @@ M.repo_instructions = function()
 	return table.concat(lines, "\n")
 end
 
+local function get_git_root()
+	local handle = io.popen("git rev-parse --show-toplevel 2>/dev/null")
+	local result = handle:read("*a"):gsub("\n", "")
+	handle:close()
+	return result ~= "" and result or nil
+end
+
+local function get_relative_path(full_path, git_root)
+	return git_root and full_path:sub(#git_root + 2) or full_path
+end
+
 M.template_render = function(template, command, selection, filetype, filename)
+	local git_root = get_git_root()
+	local relative_filename = get_relative_path(filename, git_root)
+	
 	local key_value_pairs = {
 		["{{command}}"] = command,
 		["{{selection}}"] = selection,
 		["{{filetype}}"] = filetype,
-		["{{filename}}"] = filename,
+		["{{filename}}"] = relative_filename,
 	}
 	return _H.template_render(template, key_value_pairs)
 end
