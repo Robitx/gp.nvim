@@ -622,12 +622,26 @@ M.repo_instructions = function()
 	return table.concat(lines, "\n")
 end
 
+local function get_git_root()
+	local handle = io.popen("git rev-parse --show-toplevel 2>/dev/null")
+	local result = handle:read("*a"):gsub("\n", "")
+	handle:close()
+	return result ~= "" and result or nil
+end
+
+local function get_relative_path(full_path, git_root)
+	return git_root and full_path:sub(#git_root + 2) or full_path
+end
+
 M.template_render = function(template, command, selection, filetype, filename)
+	local git_root = get_git_root()
+	local relative_filename = get_relative_path(filename, git_root)
+	
 	local key_value_pairs = {
 		["{{command}}"] = command,
 		["{{selection}}"] = selection,
 		["{{filetype}}"] = filetype,
-		["{{filename}}"] = filename,
+		["{{filename}}"] = relative_filename,
 	}
 	return _H.template_render(template, key_value_pairs)
 end
@@ -1466,7 +1480,17 @@ M.prep_chat = function(buf, file_name)
 	-- make last.md a symlink to the last opened chat file
 	local last = M.config.chat_dir .. "/last.md"
 	if file_name ~= last then
-		os.execute("ln -sf " .. file_name .. " " .. last)
+		local check_command = "if [[ -L " .. last .. " || ! -e " .. last .. " ]]; then echo 'ok'; else echo 'fail'; fi"
+		local handle = io.popen(check_command)
+		local result = handle:read("*a")
+		handle:close()
+		
+		if result:find("ok") then
+			os.remove(last)
+			os.execute("ln -sf " .. file_name .. " " .. last)
+		else
+			print("Error: 'last.md' exists and is not a symbolic link.")
+		end
 	end
 end
 
@@ -1677,7 +1701,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	end
 
 	local template = string.format(
-		M.chat_template,
+		M.config.chat_template or M.chat_template,
 		string.match(filename, "([^/]+)$"),
 		model .. system_prompt,
 		M.config.chat_user_prefix,
@@ -2274,7 +2298,7 @@ M.cmd.ChatFinder = function()
 	end, gid)
 
 	-- when command buffer is written, execute it
-	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+	_H.autocmd({ "TextChanged", "InsertLeave", "TextChangedP", "TextChangedT" }, { command_buf }, function()
 		vim.api.nvim_win_set_cursor(picker_win, { 1, 0 })
 		refresh_picker()
 	end, gid)
