@@ -1060,7 +1060,8 @@ end
 ---@param payload table # payload for openai api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
-M.query = function(buf, payload, handler, on_exit)
+---@param on_complete_callback function | nil # optional on_complete_callback handler
+M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		M.error(
@@ -1156,6 +1157,13 @@ M.query = function(buf, payload, handler, on_exit)
 							vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
 						end)
 					end
+				end
+
+				-- optional on_complete_callback handler
+				if type(on_complete_callback) == "function" then
+					vim.schedule(function()
+						on_complete_callback(qt.response)
+					end)
 				end
 			end
 		end
@@ -2496,7 +2504,7 @@ M.cmd.Context = function(params)
 	M._H.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
+M.Prompt = function(params, target, prompt, model, template, system_template, whisper, on_complete_callback)
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -2769,7 +2777,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
 				vim.cmd("doautocmd User GpDone")
-			end)
+			end),
+			on_complete_callback
 		)
 	end
 
