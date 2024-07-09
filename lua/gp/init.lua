@@ -694,11 +694,11 @@ function M.refresh_copilot_bearer()
 		"-H",
 		"authorization: token " .. secret,
 		"-H",
-		"editor-version: vscode/1.85.1",
+		"editor-version: vscode/1.90.2",
 		"-H",
-		"editor-plugin-version: copilot-chat/0.12.2023120701",
+		"editor-plugin-version: copilot-chat/0.17.2024062801",
 		"-H",
-		"user-agent: GitHubCopilotChat/0.12.2023120701",
+		"user-agent: GitHubCopilotChat/0.17.2024062801",
 	}
 
 	for _, arg in ipairs(args) do
