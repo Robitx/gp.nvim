@@ -15,6 +15,7 @@ function M.check()
 			vim.health.error("require('gp').setup() has not been called")
 		end
 
+		--TODO: obsolete
 		---@diagnostic disable-next-line: undefined-field
 		local api_key = gp.config.openai_api_key
 
