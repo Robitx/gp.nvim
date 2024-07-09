@@ -5,6 +5,20 @@
 -- Default config
 --------------------------------------------------------------------------------
 
+local default_chat_system_prompt = "You are a general AI assistant.\n\n"
+	.. "The user provided the additional info about how they would like you to respond:\n\n"
+	.. "- If you're unsure don't guess and say you don't know instead.\n"
+	.. "- Ask question if you need clarification to provide better answer.\n"
+	.. "- Think deeply and carefully from first principles step by step.\n"
+	.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+	.. "- Use Socratic method to improve your thinking and coding skills.\n"
+	.. "- Don't elide any code from your output if the answer requires coding.\n"
+	.. "- Take a deep breath; You've got this!\n"
+
+local default_code_system_prompt = "You are an AI working as a code editor.\n\n"
+	.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+	.. "START AND END YOUR ANSWER WITH:\n\n```"
+
 local config = {
 	-- Please start with minimal config possible.
 	-- Just openai_api_key if you don't have OPENAI_API_KEY env set up.
@@ -84,15 +98,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = default_chat_system_prompt,
 		},
 		{
 			provider = "openai",
@@ -102,15 +108,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = default_chat_system_prompt,
 		},
 		{
 			provider = "copilot",
@@ -120,15 +118,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = default_chat_system_prompt,
 		},
 		{
 			provider = "googleai",
@@ -138,15 +128,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gemini-pro", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = default_chat_system_prompt,
 		},
 		{
 			provider = "pplx",
@@ -156,15 +138,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = default_chat_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -174,15 +148,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = default_chat_system_prompt,
 		},
 		{
 			provider = "ollama",
@@ -220,9 +186,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = default_code_system_prompt,
 		},
 		{
 			provider = "openai",
@@ -232,9 +196,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-3.5-turbo", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = default_code_system_prompt,
 		},
 		{
 			provider = "copilot",
@@ -244,9 +206,7 @@ local config = {
 			-- string with the Copilot engine name or table with engine name and parameters if applicable
 			model = { model = "gpt-4", temperature = 0.8, top_p = 1, n = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = default_code_system_prompt,
 		},
 		{
 			provider = "googleai",
@@ -255,9 +215,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "gemini-pro", temperature = 0.8, top_p = 1 },
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = default_code_system_prompt,
 		},
 		{
 			provider = "pplx",
@@ -266,9 +224,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = default_code_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -277,9 +233,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = default_code_system_prompt,
 		},
 		{
 			provider = "ollama",
