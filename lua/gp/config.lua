@@ -49,30 +49,30 @@ local config = {
 			-- secret = os.getenv("AZURE_API_KEY"),
 		},
 		copilot = {
-			endpoint = "https://api.githubcopilot.com/chat/completions",
-			secret = {
-				"bash",
-				"-c",
-				"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
-			},
+			-- endpoint = "https://api.githubcopilot.com/chat/completions",
+			-- secret = {
+			-- 	"bash",
+			-- 	"-c",
+			-- 	"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+			-- },
 		},
 		ollama = {
-			endpoint = "http://localhost:11434/v1/chat/completions",
+			-- endpoint = "http://localhost:11434/v1/chat/completions",
 		},
 		lmstudio = {
-			endpoint = "http://localhost:1234/v1/chat/completions",
+			-- endpoint = "http://localhost:1234/v1/chat/completions",
 		},
 		googleai = {
-			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
-			secret = os.getenv("GOOGLEAI_API_KEY"),
+			-- endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
+			-- secret = os.getenv("GOOGLEAI_API_KEY"),
 		},
 		pplx = {
-			endpoint = "https://api.perplexity.ai/chat/completions",
-			secret = os.getenv("PPLX_API_KEY"),
+			-- endpoint = "https://api.perplexity.ai/chat/completions",
+			-- secret = os.getenv("PPLX_API_KEY"),
 		},
 		anthropic = {
-			endpoint = "https://api.anthropic.com/v1/messages",
-			secret = os.getenv("ANTHROPIC_API_KEY"),
+			-- endpoint = "https://api.anthropic.com/v1/messages",
+			-- secret = os.getenv("ANTHROPIC_API_KEY"),
 		},
 	},
 
@@ -152,12 +152,12 @@ local config = {
 		},
 		{
 			provider = "ollama",
-			name = "ChatOllama",
+			name = "ChatOllamaLlama3",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
 			model = {
-				model = "mistral:7b-instruct-v0.2-q4_K_M",
+				model = "llama3",
 				num_ctx = 8192,
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
@@ -237,12 +237,12 @@ local config = {
 		},
 		{
 			provider = "ollama",
-			name = "CodeOllamaDeepSeek",
+			name = "CodeOllamaLlama3",
 			chat = false,
 			command = true,
 			-- string with the Copilot engine name or table with engine name and parameters if applicable
 			model = {
-				model = "mistral:7b-instruct-v0.2-q4_K_M",
+				model = "llama3",
 				temperature = 1.9,
 				top_p = 1,
 				num_ctx = 8192,
