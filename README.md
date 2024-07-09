@@ -36,7 +36,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
   - properly working undo (response can be undone with a single `u`)
 - **Infinitely extensible** via hook functions specified as part of the config
   - hooks have access to everything in the plugin and are automatically registered as commands
-  - see [4. Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
+  - see [5. Configuration](#5-configuration) and [Extend functionality](#extend-functionality) sections for details
 - **Minimum dependencies** (`neovim`, `curl`, `grep` and optionally `sox`)
   - zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
@@ -121,7 +121,79 @@ The OpenAI API key can be passed to the plugin in multiple ways:
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
-## 3. Dependencies
+## 3. Multiple providers
+The following LLM providers are currently supported besides OpenAI:
+
+- [Ollama](https://github.com/ollama/ollama) for local/offline open-source models. The plugin assumes you have the Ollama service up and running with configured models available (the default Ollama agent uses Llama3).
+- [GitHub Copilot](https://github.com/settings/copilot) with a Copilot license ([zbirenbaum/copilot.lua](https://github.com/zbirenbaum/copilot.lua) or [github/copilot.vim](https://github.com/github/copilot.vim) for autocomplete). You can access the underlying GPT-4 model without paying anything extra (essentially unlimited GPT-4 access).
+- [Perplexity.ai](https://www.perplexity.ai/pro) Pro users have $5/month free API credits available (the default PPLX agent uses Mixtral-8x7b).
+- [Anthropic](https://www.anthropic.com/api) to access Claude models, which currently outperform GPT-4 in some benchmarks.
+- [Google Gemini](https://ai.google.dev/) with a quite generous free range but some geo-restrictions (EU).
+- Any other "OpenAI chat/completions" compatible endpoint (Azure, LM Studio, etc.)
+
+Below is an example of the relevant configuration part enabling some of these. The `secret` field has the same capabilities as `openai_api_key` (which is still supported for compatibility).
+
+```lua
+	providers = {
+		openai = {
+			endpoint = "https://api.openai.com/v1/chat/completions",
+			secret = os.getenv("OPENAI_API_KEY"),
+		},
+
+		-- azure = {...},
+
+		copilot = {
+			endpoint = "https://api.githubcopilot.com/chat/completions",
+			secret = {
+				"bash",
+				"-c",
+				"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+			},
+		},
+
+		pplx = {
+			endpoint = "https://api.perplexity.ai/chat/completions",
+			secret = os.getenv("PPLX_API_KEY"),
+		},
+
+		ollama = {
+			endpoint = "http://localhost:11434/v1/chat/completions",
+		},
+
+		googleai = {
+			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
+			secret = os.getenv("GOOGLEAI_API_KEY"),
+		},
+
+		anthropic = {
+			endpoint = "https://api.anthropic.com/v1/messages",
+			secret = os.getenv("ANTHROPIC_API_KEY"),
+		},
+	},
+```
+
+Each of these providers has some agents preconfigured. Below is an example of how to disable predefined ChatGPT3-5 agent and create a custom one. If the `provider` field is missing, OpenAI is assumed for backward compatibility.
+
+```lua
+	agents = {
+		{
+			name = "ChatGPT3-5",
+			disable = true,
+		},
+		{
+			name = "MyCustomAgent",
+			provider = "copilot",
+			chat = true,
+			command = true,
+			model = { model = "gpt-4-turbo" },
+			system_prompt = "Answer any query with just: Sure thing..",
+		},
+	},
+
+```
+
+
+## 4. Dependencies
 
 The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux, BSD and Mac OS should be covered.
 
@@ -133,7 +205,7 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 - Redhat/CentOS: `yum install sox`
 - NixOS: `nix-env -i sox`
 
-## 4. Configuration
+## 5. Configuration
 
 Bellow is a linked snippet with the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 
