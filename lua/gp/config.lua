@@ -78,7 +78,7 @@ local config = {
 	-- agents = {  { name = "ChatGPT4" }, ... },
 	agents = {
 		{
-			name = "ChatGPT4",
+			name = "ChatGPT4o",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
@@ -214,7 +214,7 @@ local config = {
 		},
 		{
 			provider = "openai",
-			name = "CodeGPT4",
+			name = "CodeGPT4o",
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
