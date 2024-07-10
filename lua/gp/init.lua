@@ -18,6 +18,24 @@ local deprecated = {
 	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
 		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
 	whisper_max_time = "`whisper_max_time`\nPlease use fully customizable `whisper_rec_cmd`",
+
+	openai_api_endpoint = "`openai_api_endpoint`\n\n"
+		.. "********************************************************************************\n"
+		.. "********************************************************************************\n"
+		.. "Gp.nvim finally supports multiple LLM providers; sorry it took so long.\n"
+		.. "I've dreaded merging this, because I hate breaking people's setups.\n"
+		.. "But this change is necessary for future improvements.\n\n"
+		.. "Migration hints are below; for more help, try the readme docs or open an issue.\n"
+		.. "********************************************************************************\n"
+		.. "********************************************************************************\n\n"
+		.. "If you're using the `https://api.openai.com/v1/chat/completions` endpoint,\n"
+		.. "just drop `openai_api_endpoint` in your config and you're done."
+		.. "\n\nOtherwise sorry for probably breaking your setup, "
+		.. "please use `endpoint` and `secret` fields in:\n\nproviders "
+		.. "= {\n  openai = {\n    endpoint = '...',\n    secret = '...'\n   },"
+		.. "\n  -- azure = {...},\n  -- copilot = {...},\n  -- ollama = {...},\n  -- googleai= {...},\n  -- pplx = {...},\n  -- anthropic = {...},\n},\n"
+		.. "\nThe `openai_api_key` is still supported for backwards compatibility,\n"
+		.. "and automatically converted to `providers.openai.secret` if the new config is not set.",
 }
 
 --------------------------------------------------------------------------------
@@ -657,6 +675,55 @@ M.append_selection = function(params, origin_buf, target_buf)
 	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
+function M.refresh_copilot_bearer()
+	if not M.providers.copilot or not M.providers.copilot.secret then
+		return
+	end
+	local secret = M.providers.copilot.secret
+
+	if type(secret) == "table" then
+		return
+	end
+
+	local bearer = M._state.copilot_bearer or {}
+	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
+		return
+	end
+
+	local curl_params = vim.deepcopy(M.config.curl_params or {})
+	local args = {
+		"-s",
+		"-v",
+		"https://api.github.com/copilot_internal/v2/token",
+		"-H",
+		"Content-Type: application/json",
+		"-H",
+		"accept: */*",
+		"-H",
+		"authorization: token " .. secret,
+		"-H",
+		"editor-version: vscode/1.90.2",
+		"-H",
+		"editor-plugin-version: copilot-chat/0.17.2024062801",
+		"-H",
+		"user-agent: GitHubCopilotChat/0.17.2024062801",
+	}
+
+	for _, arg in ipairs(args) do
+		table.insert(curl_params, arg)
+	end
+
+	M._H.process(nil, "curl", curl_params, function(code, signal, stdout, stderr)
+		if code ~= 0 then
+			M.error(string.format("Copilot bearer resolve exited: %d, %d", code, signal, stderr))
+			return
+		end
+
+		M._state.copilot_bearer = vim.json.decode(stdout)
+		M.refresh_state()
+	end, nil, nil)
+end
+
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
@@ -676,12 +743,12 @@ M.setup = function(opts)
 	M.config = vim.deepcopy(config)
 
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents", "image_agents" }
+	local mergeTables = { "hooks", "agents", "image_agents", "providers" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
 		for k, v in pairs(M.config[tbl]) do
-			if tbl == "hooks" then
+			if tbl == "hooks" or tbl == "providers" then
 				M[tbl][k] = v
 			elseif tbl == "agents" or tbl == "image_agents" then
 				M[tbl][v.name] = v
@@ -693,6 +760,14 @@ M.setup = function(opts)
 		for k, v in pairs(opts[tbl]) do
 			if tbl == "hooks" then
 				M[tbl][k] = v
+			elseif tbl == "providers" then
+				M[tbl][k] = M[tbl][k] or {}
+				for pk, pv in pairs(v) do
+					M[tbl][k][pk] = pv
+				end
+				if next(v) == nil then
+					M[tbl][k] = nil
+				end
 			elseif tbl == "agents" or tbl == "image_agents" then
 				M[tbl][v.name] = v
 			end
@@ -753,15 +828,30 @@ M.setup = function(opts)
 		end
 	end
 
+	-- remove invalid providers
+	for name, provider in pairs(M.providers) do
+		if type(provider) ~= "table" or not provider.endpoint then
+			M.providers[name] = nil
+		end
+	end
+
 	-- prepare agent completions
 	M._chat_agents = {}
 	M._command_agents = {}
 	for name, agent in pairs(M.agents) do
-		if agent.command then
-			table.insert(M._command_agents, name)
+		if not M.agents[name].provider then
+			M.agents[name].provider = "openai"
 		end
-		if agent.chat then
-			table.insert(M._chat_agents, name)
+
+		if M.providers[M.agents[name].provider] then
+			if agent.command then
+				table.insert(M._command_agents, name)
+			end
+			if agent.chat then
+				table.insert(M._chat_agents, name)
+			end
+		else
+			M.agents[name] = nil
 		end
 	end
 	table.sort(M._chat_agents)
@@ -828,9 +918,48 @@ M.setup = function(opts)
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	if type(M.config.openai_api_key) == "table" then
+	for name, _ in pairs(M.providers) do
+		M.resolve_secret(name)
+	end
+	if not M.providers.openai then
+		M.providers.openai = {}
+		M.resolve_secret("openai", function()
+			M.providers.openai = nil
+		end)
+	end
+end
+
+---@provider string # provider name
+function M.resolve_secret(provider, callback)
+	local post_process = function()
+		local p = M.providers[provider]
+		if p.secret and type(p.secret) == "string" then
+			p.secret = p.secret:gsub("^%s*(.-)%s*$", "%1")
+		end
+
+		if provider == "copilot" then
+			M.refresh_copilot_bearer()
+		end
+
+		-- backwards compatibility
+		if provider == "openai" then
+			M.config.openai_api_key = M.providers[provider].secret
+		end
+
+		if callback then
+			callback()
+		end
+	end
+
+	-- backwards compatibility
+	if provider == "openai" then
+		M.providers[provider].secret = M.providers[provider].secret or M.config.openai_api_key
+	end
+
+	local secret = M.providers[provider].secret
+	if secret and type(secret) == "table" then
 		---@diagnostic disable-next-line: param-type-mismatch
-		local copy = vim.deepcopy(M.config.openai_api_key)
+		local copy = vim.deepcopy(secret)
 		---@diagnostic disable-next-line: param-type-mismatch
 		local cmd = table.remove(copy, 1)
 		local args = copy
@@ -840,18 +969,23 @@ M.setup = function(opts)
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
 					M.warning(
-						"response from the config.openai_api_key command "
-							.. vim.inspect(M.config.openai_api_key)
+						"response from the config.providers."
+							.. provider
+							.. ".secret command "
+							.. vim.inspect(secret)
 							.. " is empty"
 					)
 					return
 				end
-				M.config.openai_api_key = content
+				M.providers[provider].secret = content
+				post_process()
 			else
 				M.warning(
-					"config.openai_api_key command "
-						.. vim.inspect(M.config.openai_api_key)
-						.. " to retrieve openai_api_key failed:\ncode: "
+					"config.providers."
+						.. provider
+						.. ".secret command "
+						.. vim.inspect(secret)
+						.. " to retrieve the secret failed:\ncode: "
 						.. code
 						.. ", signal: "
 						.. signal
@@ -863,10 +997,11 @@ M.setup = function(opts)
 			end
 		end)
 	else
-		M.valid_api_key()
+		post_process()
 	end
 end
 
+-- TODO: obsolete
 M.valid_api_key = function()
 	local api_key = M.config.openai_api_key
 
@@ -906,9 +1041,20 @@ M.refresh_state = function()
 		M._state.image_agent = M._image_agents[1]
 	end
 
+	local bearer = M._state.copilot_bearer or state.copilot_bearer or nil
+	if bearer and bearer.expires_at and bearer.expires_at < os.time() then
+		bearer = nil
+		M.refresh_copilot_bearer()
+	end
+	M._state.copilot_bearer = bearer
+
 	M.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
+
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	M.display_chat_agent(buf, file_name)
 end
 
 M.Target = {
@@ -974,7 +1120,16 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt, whisper)
+			M.Prompt(
+				params,
+				target,
+				agent.cmd_prefix,
+				agent.model,
+				template,
+				agent.system_prompt,
+				whisper,
+				agent.provider
+			)
 		end
 
 		M.cmd[command] = function(params)
@@ -1002,10 +1157,10 @@ end
 ---@param messages table
 ---@param model string | table | nil
 ---@param default_model string | table
-M.prepare_payload = function(messages, model, default_model)
+---@param provider string | nil
+M.prepare_payload = function(messages, model, default_model, provider)
 	model = model or default_model
 
-	-- if model is a string
 	if type(model) == "string" then
 		return {
 			model = model,
@@ -1014,7 +1169,89 @@ M.prepare_payload = function(messages, model, default_model)
 		}
 	end
 
-	-- if model is a table
+	if provider == "googleai" then
+		for i, message in ipairs(messages) do
+			if message.role == "system" then
+				messages[i].role = "user"
+			end
+			if message.role == "assistant" then
+				messages[i].role = "model"
+			end
+			if message.content then
+				messages[i].parts = {
+					{
+						text = message.content,
+					},
+				}
+				messages[i].content = nil
+			end
+		end
+		local i = 1
+		while i < #messages do
+			if messages[i].role == messages[i + 1].role then
+				table.insert(messages[i].parts, {
+					text = messages[i + 1].parts[1].text,
+				})
+				table.remove(messages, i + 1)
+			else
+				i = i + 1
+			end
+		end
+		local payload = {
+			contents = messages,
+			safetySettings = {
+				{
+					category = "HARM_CATEGORY_HARASSMENT",
+					threshold = "BLOCK_NONE",
+				},
+				{
+					category = "HARM_CATEGORY_HATE_SPEECH",
+					threshold = "BLOCK_NONE",
+				},
+				{
+					category = "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+					threshold = "BLOCK_NONE",
+				},
+				{
+					category = "HARM_CATEGORY_DANGEROUS_CONTENT",
+					threshold = "BLOCK_NONE",
+				},
+			},
+			generationConfig = {
+				temperature = math.max(0, math.min(2, model.temperature or 1)),
+				maxOutputTokens = model.max_tokens or 8192,
+				topP = math.max(0, math.min(1, model.top_p or 1)),
+				topK = model.top_k or 100,
+			},
+			model = model.model,
+		}
+		return payload
+	end
+
+	if provider == "anthropic" then
+		local system = ""
+		local i = 1
+		while i < #messages do
+			if messages[i].role == "system" then
+				system = system .. messages[i].content .. "\n"
+				table.remove(messages, i)
+			else
+				i = i + 1
+			end
+		end
+
+		local payload = {
+			model = model.model,
+			stream = true,
+			messages = messages,
+			system = system,
+			max_tokens = model.max_tokens or 4096,
+			temperature = math.max(0, math.min(2, model.temperature or 1)),
+			top_p = math.max(0, math.min(1, model.top_p or 1)),
+		}
+		return payload
+	end
+
 	return {
 		model = model.model,
 		stream = true,
@@ -1057,7 +1294,8 @@ end
 
 -- gpt query
 ---@param buf number | nil # buffer number
----@param payload table # payload for openai api
+---@param provider string # provider name
+---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param on_complete_callback function | nil # optional on_complete_callback handler
@@ -1078,6 +1316,7 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 	M._queries[qid] = {
 		timestamp = os.time(),
 		buf = buf,
+		provider = provider,
 		payload = payload,
 		handler = handler,
 		on_exit = on_exit,
@@ -1107,13 +1346,35 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
-				if line:match("chat%.completion%.chunk") then
+				local content = ""
+				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
-					local content = line.choices[1].delta.content
-					if content ~= nil then
-						qt.response = qt.response .. content
-						handler(qid, content)
+					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
+						content = line.choices[1].delta.content
 					end
+				end
+
+				if qt.provider == "anthropic" and line:match('"text":') then
+					if line:match("content_block_start") or line:match("content_block_delta") then
+						line = vim.json.decode(line)
+						if line.delta and line.delta.text then
+							content = line.delta.text
+						end
+						if line.content_block and line.content_block.text then
+							content = line.content_block.text
+						end
+					end
+				end
+
+				if qt.provider == "googleai" then
+					if line:match('"text":') then
+						content = vim.json.decode("{" .. line .. "}").text
+					end
+				end
+
+				if content and type(content) == "string" then
+					qt.response = qt.response .. content
+					handler(qid, content)
 				end
 			end
 		end
@@ -1126,7 +1387,7 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 			end
 
 			if err then
-				M.error("OpenAI query stdout error: " .. vim.inspect(err))
+				M.error(qt.provider .. " query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -1146,7 +1407,7 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 				end
 
 				if qt.response == "" then
-					M.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
+					M.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
@@ -1169,8 +1430,65 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 		end
 	end
 
-	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
+	---TODO: this could be moved to a separate function returning endpoint and headers
+	local endpoint = M.providers[provider].endpoint
+	local bearer = M.providers[provider].secret
+	local headers = {}
+
+	if provider == "copilot" then
+		M.refresh_copilot_bearer()
+		---@diagnostic disable-next-line: undefined-field
+		bearer = M._state.copilot_bearer.token or ""
+		headers = {
+			"-H",
+			"editor-version: vscode/1.85.1",
+			"-H",
+			"Authorization: Bearer " .. bearer,
+		}
+	end
+
+	if provider == "openai" then
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+			-- backwards compatibility
+			"-H",
+			"api-key: " .. bearer,
+		}
+	end
+
+	if provider == "pplx" then
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+		}
+	end
+
+	if provider == "googleai" then
+		headers = {}
+		endpoint = M._H.template_replace(endpoint, "{{secret}}", bearer)
+		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
+		payload.model = nil
+	end
+
+	if provider == "anthropic" then
+		headers = {
+			"-H",
+			"x-api-key: " .. bearer,
+			"-H",
+			"anthropic-version: 2023-06-01",
+			"-H",
+			"anthropic-beta: messages-2023-12-15",
+		}
+	end
+
+	if provider == "azure" then
+		headers = {
+			"-H",
+			"api-key: " .. bearer,
+		}
+		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
+	end
 
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
 	local args = {
@@ -1179,11 +1497,6 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 		endpoint,
 		"-H",
 		"Content-Type: application/json",
-		-- api-key is for azure, authorization is for openai
-		"-H",
-		"Authorization: Bearer " .. M.config.openai_api_key,
-		"-H",
-		"api-key: " .. M.config.openai_api_key,
 		"-d",
 		vim.json.encode(payload),
 		--[[ "--doesnt_exist" ]]
@@ -1191,6 +1504,10 @@ M.query = function(buf, payload, handler, on_exit, on_complete_callback)
 
 	for _, arg in ipairs(args) do
 		table.insert(curl_params, arg)
+	end
+
+	for _, header in ipairs(headers) do
+		table.insert(curl_params, header)
 	end
 
 	M._H.process(buf, "curl", curl_params, nil, out_reader(), nil)
@@ -1405,6 +1722,29 @@ M.not_chat = function(buf, file_name)
 	return nil
 end
 
+M.display_chat_agent = function(buf, file_name)
+	if M.not_chat(buf, file_name) then
+		return
+	end
+
+	if buf ~= vim.api.nvim_get_current_buf() then
+		return
+	end
+
+	local ns_id = vim.api.nvim_create_namespace("GpChatExt_" .. file_name)
+	vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
+
+	vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
+		strict = false,
+		right_gravity = true,
+		virt_text_pos = "right_align",
+		virt_text = {
+			{ "Current Agent: [" .. M._state.chat_agent .. "]", "DiagnosticHint" },
+		},
+		hl_mode = "combine",
+	})
+end
+
 M.prep_chat = function(buf, file_name)
 	if M.not_chat(buf, file_name) then
 		return
@@ -1503,7 +1843,20 @@ M.buf_handler = function()
 		local file_name = vim.api.nvim_buf_get_name(buf)
 
 		M.prep_chat(buf, file_name)
+		M.display_chat_agent(buf, file_name)
 		M.prep_context(buf, file_name)
+	end, gid)
+
+	_H.autocmd({ "WinEnter" }, nil, function(event)
+		local buf = event.buf
+
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
+		end
+
+		local file_name = vim.api.nvim_buf_get_name(buf)
+
+		M.display_chat_agent(buf, file_name)
 	end, gid)
 end
 
@@ -1930,12 +2283,17 @@ M.chat_respond = function(params)
 	---@diagnostic disable-next-line: cast-local-type
 	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
 
+	local old_default_user_prefix = "🗨:"
 	for index = start_index, end_index do
 		local line = lines[index]
 		if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "user"
 			content = line:sub(#M.config.chat_user_prefix + 1)
+		elseif line:sub(1, #old_default_user_prefix) == old_default_user_prefix then
+			table.insert(messages, { role = role, content = content })
+			role = "user"
+			content = line:sub(#old_default_user_prefix + 1)
 		elseif line:sub(1, #agent_prefix) == agent_prefix then
 			table.insert(messages, { role = role, content = content })
 			role = "assistant"
@@ -1978,7 +2336,8 @@ M.chat_respond = function(params)
 	-- call the model and write response
 	M.query(
 		buf,
-		M.prepare_payload(messages, headers.model, agent.model),
+		agent.provider,
+		M.prepare_payload(messages, headers.model, agent.model, agent.provider),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
@@ -2020,7 +2379,8 @@ M.chat_respond = function(params)
 				-- call the model
 				M.query(
 					nil,
-					M.prepare_payload(messages, nil, M.config.chat_topic_gen_model),
+					agent.provider,
+					M.prepare_payload(messages, nil, agent.model, agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2426,20 +2786,24 @@ M.cmd.NextAgent = function()
 		agent_list = M._command_agents
 	end
 
+	local set_agent = function(agent_name)
+		if is_chat then
+			M._state.chat_agent = agent_name
+			M.info("Chat agent: " .. agent_name)
+		else
+			M._state.command_agent = agent_name
+			M.info("Command agent: " .. agent_name)
+		end
+		M.refresh_state()
+	end
+
 	for i, agent_name in ipairs(agent_list) do
 		if agent_name == current_agent then
-			local next_agent = agent_list[i % #agent_list + 1]
-			if is_chat then
-				M._state.chat_agent = next_agent
-				M.info("Chat agent: " .. next_agent)
-			else
-				M._state.command_agent = next_agent
-				M.info("Command agent: " .. next_agent)
-			end
-			M.refresh_state()
+			set_agent(agent_list[i % #agent_list + 1])
 			return
 		end
 	end
+	set_agent(agent_list[1])
 end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }
@@ -2449,7 +2813,14 @@ M.get_command_agent = function()
 	local name = M._state.command_agent
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
-	return { cmd_prefix = cmd_prefix, name = name, model = model, system_prompt = system_prompt }
+	local provider = M.agents[name].provider
+	return {
+		cmd_prefix = cmd_prefix,
+		name = name,
+		model = model,
+		system_prompt = system_prompt,
+		provider = provider,
+	}
 end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }
@@ -2459,7 +2830,14 @@ M.get_chat_agent = function()
 	local name = M._state.chat_agent
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
-	return { cmd_prefix = cmd_prefix, name = name, model = model, system_prompt = system_prompt }
+	local provider = M.agents[name].provider
+	return {
+		cmd_prefix = cmd_prefix,
+		name = name,
+		model = model,
+		system_prompt = system_prompt,
+		provider = provider,
+	}
 end
 
 M.cmd.Context = function(params)
@@ -2504,7 +2882,7 @@ M.cmd.Context = function(params)
 	M._H.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, whisper, on_complete_callback)
+M.Prompt = function(params, target, prompt, model, template, system_template, whisper, provider, on_complete_callback)
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -2772,7 +3150,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		local agent = M.get_command_agent()
 		M.query(
 			buf,
-			M.prepare_payload(messages, model, agent.model),
+			provider,
+			M.prepare_payload(messages, model, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
