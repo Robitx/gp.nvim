@@ -1299,7 +1299,7 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param on_complete_callback function | nil # optional on_complete_callback handler
-M.query = function(buf, payload, handler, on_exit, on_complete_callback)
+M.query = function(buf, provider, payload, handler, on_exit, on_complete_callback)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		M.error(
