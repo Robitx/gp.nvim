@@ -460,7 +460,7 @@ local config = {
 		InspectPlugin = function(plugin, params)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local copy = vim.deepcopy(plugin)
-			local key = copy.config.openai_api_key
+			local key = copy.config.openai_api_key or ""
 			copy.config.openai_api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
 			for provider, _ in pairs(copy.providers) do
 				local s = copy.providers[provider].secret
