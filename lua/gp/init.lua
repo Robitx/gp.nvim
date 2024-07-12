@@ -3166,7 +3166,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		local agent = M.get_command_agent()
 		M.query(
 			buf,
-			provider,
+			provider or agent.provider,
 			M.prepare_payload(messages, model, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
