@@ -762,6 +762,7 @@ M.setup = function(opts)
 				M[tbl][k] = v
 			elseif tbl == "providers" then
 				M[tbl][k] = M[tbl][k] or {}
+				M[tbl][k].disable = false
 				for pk, pv in pairs(v) do
 					M[tbl][k][pk] = pv
 				end
@@ -817,20 +818,43 @@ M.setup = function(opts)
 
 	-- remove invalid agents
 	for name, agent in pairs(M.agents) do
-		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
+		if type(agent) ~= "table" or agent.disable then
+			M.agents[name] = nil
+		elseif not agent.model or not agent.system_prompt then
+			M.warning(
+				"Agent "
+					.. name
+					.. " is missing model or system_prompt\n"
+					.. "If you want to disable an agent, use: { name = '"
+					.. name
+					.. "', disable = true },"
+			)
 			M.agents[name] = nil
 		end
 	end
 
 	for name, agent in pairs(M.image_agents) do
-		if type(agent) ~= "table" or not agent.model then
+		if type(agent) ~= "table" or agent.disable then
+			M.image_agents[name] = nil
+		elseif not agent.model then
+			M.warning(
+				"Image agent "
+					.. name
+					.. " is missing model\n"
+					.. "If you want to disable an agent, use: { name = '"
+					.. name
+					.. "', disable = true },"
+			)
 			M.image_agents[name] = nil
 		end
 	end
 
 	-- remove invalid providers
 	for name, provider in pairs(M.providers) do
-		if type(provider) ~= "table" or not provider.endpoint then
+		if type(provider) ~= "table" or provider.disable then
+			M.providers[name] = nil
+		elseif not provider.endpoint then
+			M.warning("Provider " .. name .. " is missing endpoint")
 			M.providers[name] = nil
 		end
 	end

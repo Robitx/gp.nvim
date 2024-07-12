@@ -41,38 +41,46 @@ local config = {
 		-- secret : "sk-...",
 		-- secret = os.getenv("env_name.."),
 		openai = {
+			disable = false,
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			-- secret = os.getenv("OPENAI_API_KEY"),
 		},
 		azure = {
-			-- endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
-			-- secret = os.getenv("AZURE_API_KEY"),
+			disable = true,
+			endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
+			secret = os.getenv("AZURE_API_KEY"),
 		},
 		copilot = {
-			-- endpoint = "https://api.githubcopilot.com/chat/completions",
-			-- secret = {
-			-- 	"bash",
-			-- 	"-c",
-			-- 	"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
-			-- },
+			disable = true,
+			endpoint = "https://api.githubcopilot.com/chat/completions",
+			secret = {
+				"bash",
+				"-c",
+				"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+			},
 		},
 		ollama = {
-			-- endpoint = "http://localhost:11434/v1/chat/completions",
+			disable = true,
+			endpoint = "http://localhost:11434/v1/chat/completions",
 		},
 		lmstudio = {
-			-- endpoint = "http://localhost:1234/v1/chat/completions",
+			disable = true,
+			endpoint = "http://localhost:1234/v1/chat/completions",
 		},
 		googleai = {
-			-- endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
-			-- secret = os.getenv("GOOGLEAI_API_KEY"),
+			disable = true,
+			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
+			secret = os.getenv("GOOGLEAI_API_KEY"),
 		},
 		pplx = {
-			-- endpoint = "https://api.perplexity.ai/chat/completions",
-			-- secret = os.getenv("PPLX_API_KEY"),
+			disable = true,
+			endpoint = "https://api.perplexity.ai/chat/completions",
+			secret = os.getenv("PPLX_API_KEY"),
 		},
 		anthropic = {
-			-- endpoint = "https://api.anthropic.com/v1/messages",
-			-- secret = os.getenv("ANTHROPIC_API_KEY"),
+			disable = true,
+			endpoint = "https://api.anthropic.com/v1/messages",
+			secret = os.getenv("ANTHROPIC_API_KEY"),
 		},
 	},
 
@@ -88,9 +96,13 @@ local config = {
 	-- default command agents (model + persona)
 	-- name, model and system_prompt are mandatory fields
 	-- to use agent for chat set chat = true, for command set command = true
-	-- to remove some default agent completely set it just with the name like:
-	-- agents = {  { name = "ChatGPT4" }, ... },
+	-- to remove some default agent completely set it like:
+	-- agents = {  { name = "ChatGPT3-5", disable = true, }, ... },
 	agents = {
+		{
+			name = "ExampleDisabledAgent",
+			disable = true,
+		},
 		{
 			name = "ChatGPT4o",
 			chat = true,
@@ -366,9 +378,13 @@ local config = {
 	-- default folder for saving images
 	image_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
 	-- default image agents (model + settings)
-	-- to remove some default agent completely set it just with the name like:
-	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid" }, ... },
+	-- to remove some default agent completely set it like:
+	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid", disable = true, }, ... },
 	image_agents = {
+		{
+			name = "ExampleDisabledAgent",
+			disable = true,
+		},
 		{
 			name = "DALL-E-3-1024x1024-vivid",
 			model = "dall-e-3",
