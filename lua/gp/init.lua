@@ -1025,23 +1025,6 @@ function M.resolve_secret(provider, callback)
 	end
 end
 
--- TODO: obsolete
-M.valid_api_key = function()
-	local api_key = M.config.openai_api_key
-
-	if type(api_key) == "table" then
-		M.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
-		return false
-	end
-
-	if api_key and string.match(api_key, "%S") then
-		return true
-	end
-
-	M.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
-	return false
-end
-
 M.refresh_state = function()
 	local state_file = M.config.state_dir .. "/state.json"
 
@@ -1328,10 +1311,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		M.error(
 			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
 		)
-		return
-	end
-
-	if not M.valid_api_key() then
 		return
 	end
 
@@ -2204,10 +2183,6 @@ end
 M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
-
-	if not M.valid_api_key() then
-		return
-	end
 
 	if not M.can_handle(buf) then
 		M.warning("Another Gp process is already running for this buffer.")
@@ -3255,10 +3230,6 @@ M.Whisper = function(callback)
 		},
 	}
 
-	if not M.valid_api_key() then
-		return
-	end
-
 	local gid = M._H.create_augroup("GpWhisper", { clear = true })
 
 	-- create popup
@@ -3517,10 +3488,6 @@ M.cmd.Image = function(params)
 end
 
 function M.generate_image(prompt, model, quality, style, size)
-	if not M.valid_api_key() then
-		return
-	end
-
 	local cmd = "curl"
 	local payload = {
 		model = model,
