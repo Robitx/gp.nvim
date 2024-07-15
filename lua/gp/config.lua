@@ -154,6 +154,16 @@ local config = {
 		},
 		{
 			provider = "anthropic",
+			name = "ChatClaude-3-5-Sonnet",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = default_chat_system_prompt,
+		},
+		{
+			provider = "anthropic",
 			name = "ChatClaude-3-Haiku",
 			chat = true,
 			command = false,
@@ -236,6 +246,15 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
+			system_prompt = default_code_system_prompt,
+		},
+		{
+			provider = "anthropic",
+			name = "CodeClaude-3-5-Sonnet",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
 			system_prompt = default_code_system_prompt,
 		},
 		{
