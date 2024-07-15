@@ -321,7 +321,7 @@ local config = {
 	style_popup_margin_top = 2,
 	style_popup_max_width = 160,
 
-	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
+	-- command config and templates below are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
 	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
 	-- auto select command response (easier chaining of commands)
