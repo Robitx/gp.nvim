@@ -245,7 +245,7 @@ recording and processing:
 
 5. CONFIGURATION                                    *gp.nvim-5.-configuration*
 
-Bellow is a linked snippet with the default values, but I suggest starting with
+Below is a linked snippet with the default values, but I suggest starting with
 minimal config possible (just `openai_api_key` if you don’t have
 `OPENAI_API_KEY` env set up). Defaults change over time to improve things,
 options might get deprecated and so on - it’s better to change only things
@@ -601,7 +601,7 @@ resulting `test` file:
 ==============================================================================
 4. Shortcuts                                               *gp.nvim-shortcuts*
 
-There are no default global shortcuts to mess with your own config. Bellow are
+There are no default global shortcuts to mess with your own config. Below are
 examples for you to adjust or just use directly.
 
 
@@ -1008,7 +1008,7 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     - see gpt model overview <https://platform.openai.com/docs/models/overview>
 - `template`
     - template of the user message send to gpt
-    - string can include variables bellow:
+    - string can include variables below:
           name            Description
           --------------- -----------------------------------
           {{filetype}}    filetype of the current buffer
