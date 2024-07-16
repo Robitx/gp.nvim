@@ -19,6 +19,7 @@ local default_code_system_prompt = "You are an AI working as a code editor.\n\n"
 	.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
 	.. "START AND END YOUR ANSWER WITH:\n\n```"
 
+-- ATTENTION: When you update `config`, you should update the line numbers in the README in the section ##Configuration!
 local config = {
 	-- Please start with minimal config possible.
 	-- Just openai_api_key if you don't have OPENAI_API_KEY env set up.
