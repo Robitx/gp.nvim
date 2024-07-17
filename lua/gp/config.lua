@@ -523,10 +523,10 @@ local config = {
 			gp.Prompt(
 				params,
 				gp.Target.rewrite,
-				nil, -- command will run directly without any prompting for user input
-				agent.model,
+				agent,
 				template,
-				agent.system_prompt
+				nil, -- command will run directly without any prompting for user input
+				nil -- no predefined instructions (e.g. speech-to-text from Whisper)
 			)
 		end,
 
@@ -542,9 +542,12 @@ local config = {
 
 		-- -- example of adding command which opens new chat dedicated for translation
 		-- Translator = function(gp, params)
-		-- 	local agent = gp.get_command_agent()
 		-- 	local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-		-- 	gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
+		-- 	gp.cmd.ChatNew(params, chat_system_prompt)
+		--
+		-- 	-- -- you can also create a chat with a specific fixed agent like this:
+		-- 	-- local agent = gp.get_chat_agent("ChatGPT4o")
+		-- 	-- gp.cmd.ChatNew(params, chat_system_prompt, agent)
 		-- end,
 
 		-- -- example of adding command which writes unit tests for the selected code
@@ -553,7 +556,7 @@ local config = {
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by writing table driven unit tests for the code above."
 		-- 	local agent = gp.get_command_agent()
-		-- 	gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
+		-- 	gp.Prompt(params, gp.Target.enew, agent, template)
 		-- end,
 
 		-- -- example of adding command which explains the selected code
@@ -562,7 +565,7 @@ local config = {
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by explaining the code above."
 		-- 	local agent = gp.get_chat_agent()
-		-- 	gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
+		-- 	gp.Prompt(params, gp.Target.popup, agent, template)
 		-- end,
 	},
 }
