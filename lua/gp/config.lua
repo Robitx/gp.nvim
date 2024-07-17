@@ -5,20 +5,6 @@
 -- Default config
 --------------------------------------------------------------------------------
 
-local default_chat_system_prompt = "You are a general AI assistant.\n\n"
-	.. "The user provided the additional info about how they would like you to respond:\n\n"
-	.. "- If you're unsure don't guess and say you don't know instead.\n"
-	.. "- Ask question if you need clarification to provide better answer.\n"
-	.. "- Think deeply and carefully from first principles step by step.\n"
-	.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-	.. "- Use Socratic method to improve your thinking and coding skills.\n"
-	.. "- Don't elide any code from your output if the answer requires coding.\n"
-	.. "- Take a deep breath; You've got this!\n"
-
-local default_code_system_prompt = "You are an AI working as a code editor.\n\n"
-	.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-	.. "START AND END YOUR ANSWER WITH:\n\n```"
-
 local config = {
 	-- Please start with minimal config possible.
 	-- Just openai_api_key if you don't have OPENAI_API_KEY env set up.
@@ -41,38 +27,46 @@ local config = {
 		-- secret : "sk-...",
 		-- secret = os.getenv("env_name.."),
 		openai = {
+			disable = false,
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			-- secret = os.getenv("OPENAI_API_KEY"),
 		},
 		azure = {
-			-- endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
-			-- secret = os.getenv("AZURE_API_KEY"),
+			disable = true,
+			endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
+			secret = os.getenv("AZURE_API_KEY"),
 		},
 		copilot = {
-			-- endpoint = "https://api.githubcopilot.com/chat/completions",
-			-- secret = {
-			-- 	"bash",
-			-- 	"-c",
-			-- 	"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
-			-- },
+			disable = true,
+			endpoint = "https://api.githubcopilot.com/chat/completions",
+			secret = {
+				"bash",
+				"-c",
+				"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+			},
 		},
 		ollama = {
-			-- endpoint = "http://localhost:11434/v1/chat/completions",
+			disable = true,
+			endpoint = "http://localhost:11434/v1/chat/completions",
 		},
 		lmstudio = {
-			-- endpoint = "http://localhost:1234/v1/chat/completions",
+			disable = true,
+			endpoint = "http://localhost:1234/v1/chat/completions",
 		},
 		googleai = {
-			-- endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
-			-- secret = os.getenv("GOOGLEAI_API_KEY"),
+			disable = true,
+			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
+			secret = os.getenv("GOOGLEAI_API_KEY"),
 		},
 		pplx = {
-			-- endpoint = "https://api.perplexity.ai/chat/completions",
-			-- secret = os.getenv("PPLX_API_KEY"),
+			disable = true,
+			endpoint = "https://api.perplexity.ai/chat/completions",
+			secret = os.getenv("PPLX_API_KEY"),
 		},
 		anthropic = {
-			-- endpoint = "https://api.anthropic.com/v1/messages",
-			-- secret = os.getenv("ANTHROPIC_API_KEY"),
+			disable = true,
+			endpoint = "https://api.anthropic.com/v1/messages",
+			secret = os.getenv("ANTHROPIC_API_KEY"),
 		},
 	},
 
@@ -88,9 +82,13 @@ local config = {
 	-- default command agents (model + persona)
 	-- name, model and system_prompt are mandatory fields
 	-- to use agent for chat set chat = true, for command set command = true
-	-- to remove some default agent completely set it just with the name like:
-	-- agents = {  { name = "ChatGPT4" }, ... },
+	-- to remove some default agent completely set it like:
+	-- agents = {  { name = "ChatGPT3-5", disable = true, }, ... },
 	agents = {
+		{
+			name = "ExampleDisabledAgent",
+			disable = true,
+		},
 		{
 			name = "ChatGPT4o",
 			chat = true,
@@ -98,7 +96,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_chat_system_prompt,
+			system_prompt = require'gp.defaults'.chat_system_prompt,
 		},
 		{
 			provider = "openai",
@@ -108,7 +106,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_chat_system_prompt,
+			system_prompt = require'gp.defaults'.chat_system_prompt,
 		},
 		{
 			provider = "copilot",
@@ -118,7 +116,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_chat_system_prompt,
+			system_prompt = require'gp.defaults'.chat_system_prompt,
 		},
 		{
 			provider = "googleai",
@@ -128,7 +126,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gemini-pro", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_chat_system_prompt,
+			system_prompt = require'gp.defaults'.chat_system_prompt,
 		},
 		{
 			provider = "pplx",
@@ -138,7 +136,17 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_chat_system_prompt,
+			system_prompt = require'gp.defaults'.chat_system_prompt,
+		},
+		{
+			provider = "anthropic",
+			name = "ChatClaude-3-5-Sonnet",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = require'gp.defaults'.chat_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -148,7 +156,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_chat_system_prompt,
+			system_prompt = require'gp.defaults'.chat_system_prompt,
 		},
 		{
 			provider = "ollama",
@@ -186,7 +194,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_code_system_prompt,
+			system_prompt = require'gp.defaults'.code_system_prompt,
 		},
 		{
 			provider = "openai",
@@ -196,7 +204,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-3.5-turbo", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_code_system_prompt,
+			system_prompt = require'gp.defaults'.code_system_prompt,
 		},
 		{
 			provider = "copilot",
@@ -206,7 +214,7 @@ local config = {
 			-- string with the Copilot engine name or table with engine name and parameters if applicable
 			model = { model = "gpt-4", temperature = 0.8, top_p = 1, n = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = default_code_system_prompt,
+			system_prompt = require'gp.defaults'.code_system_prompt,
 		},
 		{
 			provider = "googleai",
@@ -215,7 +223,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "gemini-pro", temperature = 0.8, top_p = 1 },
-			system_prompt = default_code_system_prompt,
+			system_prompt = require'gp.defaults'.code_system_prompt,
 		},
 		{
 			provider = "pplx",
@@ -224,7 +232,16 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
-			system_prompt = default_code_system_prompt,
+			system_prompt = require'gp.defaults'.code_system_prompt,
+		},
+		{
+			provider = "anthropic",
+			name = "CodeClaude-3-5-Sonnet",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
+			system_prompt = require'gp.defaults'.code_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -233,7 +250,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
-			system_prompt = default_code_system_prompt,
+			system_prompt = require'gp.defaults'.code_system_prompt,
 		},
 		{
 			provider = "ollama",
@@ -309,7 +326,7 @@ local config = {
 	style_popup_margin_top = 2,
 	style_popup_max_width = 160,
 
-	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
+	-- command config and templates below are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
 	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
 	-- auto select command response (easier chaining of commands)
@@ -366,9 +383,13 @@ local config = {
 	-- default folder for saving images
 	image_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
 	-- default image agents (model + settings)
-	-- to remove some default agent completely set it just with the name like:
-	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid" }, ... },
+	-- to remove some default agent completely set it like:
+	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid", disable = true, }, ... },
 	image_agents = {
+		{
+			name = "ExampleDisabledAgent",
+			disable = true,
+		},
 		{
 			name = "DALL-E-3-1024x1024-vivid",
 			model = "dall-e-3",
@@ -460,7 +481,7 @@ local config = {
 		InspectPlugin = function(plugin, params)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local copy = vim.deepcopy(plugin)
-			local key = copy.config.openai_api_key
+			local key = copy.config.openai_api_key or ""
 			copy.config.openai_api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
 			for provider, _ in pairs(copy.providers) do
 				local s = copy.providers[provider].secret
@@ -488,10 +509,10 @@ local config = {
 			gp.Prompt(
 				params,
 				gp.Target.rewrite,
-				nil, -- command will run directly without any prompting for user input
-				agent.model,
+				agent,
 				template,
-				agent.system_prompt
+				nil, -- command will run directly without any prompting for user input
+				nil -- no predefined instructions (e.g. speech-to-text from Whisper)
 			)
 		end,
 
@@ -507,9 +528,12 @@ local config = {
 
 		-- -- example of adding command which opens new chat dedicated for translation
 		-- Translator = function(gp, params)
-		-- 	local agent = gp.get_command_agent()
 		-- 	local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-		-- 	gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
+		-- 	gp.cmd.ChatNew(params, chat_system_prompt)
+		--
+		-- 	-- -- you can also create a chat with a specific fixed agent like this:
+		-- 	-- local agent = gp.get_chat_agent("ChatGPT4o")
+		-- 	-- gp.cmd.ChatNew(params, chat_system_prompt, agent)
 		-- end,
 
 		-- -- example of adding command which writes unit tests for the selected code
@@ -518,7 +542,7 @@ local config = {
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by writing table driven unit tests for the code above."
 		-- 	local agent = gp.get_command_agent()
-		-- 	gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
+		-- 	gp.Prompt(params, gp.Target.enew, agent, template)
 		-- end,
 
 		-- -- example of adding command which explains the selected code
@@ -527,7 +551,7 @@ local config = {
 		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
 		-- 		.. "Please respond by explaining the code above."
 		-- 	local agent = gp.get_chat_agent()
-		-- 	gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
+		-- 	gp.Prompt(params, gp.Target.popup, agent, template)
 		-- end,
 	},
 }

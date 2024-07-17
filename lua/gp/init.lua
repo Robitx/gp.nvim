@@ -762,6 +762,7 @@ M.setup = function(opts)
 				M[tbl][k] = v
 			elseif tbl == "providers" then
 				M[tbl][k] = M[tbl][k] or {}
+				M[tbl][k].disable = false
 				for pk, pv in pairs(v) do
 					M[tbl][k][pk] = pv
 				end
@@ -817,20 +818,43 @@ M.setup = function(opts)
 
 	-- remove invalid agents
 	for name, agent in pairs(M.agents) do
-		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
+		if type(agent) ~= "table" or agent.disable then
+			M.agents[name] = nil
+		elseif not agent.model or not agent.system_prompt then
+			M.warning(
+				"Agent "
+					.. name
+					.. " is missing model or system_prompt\n"
+					.. "If you want to disable an agent, use: { name = '"
+					.. name
+					.. "', disable = true },"
+			)
 			M.agents[name] = nil
 		end
 	end
 
 	for name, agent in pairs(M.image_agents) do
-		if type(agent) ~= "table" or not agent.model then
+		if type(agent) ~= "table" or agent.disable then
+			M.image_agents[name] = nil
+		elseif not agent.model then
+			M.warning(
+				"Image agent "
+					.. name
+					.. " is missing model\n"
+					.. "If you want to disable an agent, use: { name = '"
+					.. name
+					.. "', disable = true },"
+			)
 			M.image_agents[name] = nil
 		end
 	end
 
 	-- remove invalid providers
 	for name, provider in pairs(M.providers) do
-		if type(provider) ~= "table" or not provider.endpoint then
+		if type(provider) ~= "table" or provider.disable then
+			M.providers[name] = nil
+		elseif not provider.endpoint then
+			M.warning("Provider " .. name .. " is missing endpoint")
 			M.providers[name] = nil
 		end
 	end
@@ -1120,16 +1144,7 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(
-				params,
-				target,
-				agent.cmd_prefix,
-				agent.model,
-				template,
-				agent.system_prompt,
-				whisper,
-				agent.provider
-			)
+			M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
 		end
 
 		M.cmd[command] = function(params)
@@ -1137,7 +1152,7 @@ M.prepare_commands = function()
 		end
 
 		M.cmd["Whisper" .. command] = function(params)
-			M.Whisper(function(text)
+			M.Whisper(M.config.whisper_language, function(text)
 				vim.schedule(function()
 					cmd(params, text)
 				end)
@@ -1155,12 +1170,9 @@ M.call_hook = function(name, params)
 end
 
 ---@param messages table
----@param model string | table | nil
----@param default_model string | table
+---@param model string | table
 ---@param provider string | nil
-M.prepare_payload = function(messages, model, default_model, provider)
-	model = model or default_model
-
+M.prepare_payload = function(messages, model, provider)
 	if type(model) == "string" then
 		return {
 			model = model,
@@ -1708,7 +1720,7 @@ M.not_chat = function(buf, file_name)
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-	if #lines < 4 then
+	if #lines < 7 then
 		return "file too short"
 	end
 
@@ -1716,9 +1728,17 @@ M.not_chat = function(buf, file_name)
 		return "missing topic header"
 	end
 
-	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
+	local header_found = nil
+	for i = 1, 6 do
+		if lines[i]:match("^- file: ") then
+			header_found = true
+			break
+		end
+	end
+	if not header_found then
 		return "missing file header"
 	end
+
 	return nil
 end
 
@@ -2003,12 +2023,12 @@ M.open_buf = function(file_name, target, kind, toggle)
 	return buf
 end
 
----@param params table # table with args
----@param model string | table | nil # model to use
----@param system_prompt string | nil # system prompt to use
+---@param params table  # vim command parameters such as range, args, etc.
 ---@param toggle boolean # whether chat is toggled
+---@param system_prompt string | nil # system prompt to use
+---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 ---@return number # buffer number
-M.new_chat = function(params, model, system_prompt, toggle)
+M.new_chat = function(params, toggle, system_prompt, agent)
 	M._toggle_close(M._toggle_kind.popup)
 
 	-- prepare filename
@@ -2022,12 +2042,18 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
 	-- encode as json if model is a table
-	if model and type(model) == "table" then
-		model = "- model: " .. vim.json.encode(model) .. "\n"
-	elseif model then
-		model = "- model: " .. model .. "\n"
-	else
-		model = ""
+	local model = ""
+	local provider = ""
+	if agent and agent.model and agent.provider then
+		model = agent.model
+		provider = agent.provider
+		if type(model) == "table" then
+			model = "- model: " .. vim.json.encode(model) .. "\n"
+		else
+			model = "- model: " .. model .. "\n"
+		end
+
+		provider = "- provider: " .. provider:gsub("\n", "\\n") .. "\n"
 	end
 
 	-- display system prompt as single line with escaped newlines
@@ -2040,7 +2066,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	local template = string.format(
 		M.chat_template,
 		string.match(filename, "([^/]+)$"),
-		model .. system_prompt,
+		model .. provider .. system_prompt,
 		M.config.chat_user_prefix,
 		M.config.chat_shortcut_respond.shortcut,
 		M.config.cmd_prefix,
@@ -2073,21 +2099,49 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	return buf
 end
 
+local exampleChatHook = [[
+Translator = function(gp, params)
+    local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
+    gp.cmd.ChatNew(params, chat_system_prompt)
+
+    -- -- you can also create a chat with a specific fixed agent like this:
+    -- local agent = gp.get_chat_agent("ChatGPT4o")
+    -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
+end,
+]]
+
+---@param params table
+---@param system_prompt string | nil
+---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 ---@return number # buffer number
-M.cmd.ChatNew = function(params, model, system_prompt)
+M.cmd.ChatNew = function(params, system_prompt, agent)
+	if agent then
+		if not type(agent) == "table" or not agent.provider then
+			M.warning(
+				"The `gp.cmd.ChatNew` method signature has changed.\n"
+					.. "Please update your hook functions as demonstrated in the example below:\n\n"
+					.. exampleChatHook
+					.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
+			)
+			return -1
+		end
+	end
 	-- if chat toggle is open, close it and start a new one
 	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
 		if params.args == "" then
 			params.args = M.config.toggle_target
 		end
-		return M.new_chat(params, model, system_prompt, true)
+		return M.new_chat(params, true, system_prompt, agent)
 	end
 
-	return M.new_chat(params, model, system_prompt, false)
+	return M.new_chat(params, false, system_prompt, agent)
 end
 
-M.cmd.ChatToggle = function(params, model, system_prompt)
+---@param params table
+---@param system_prompt string | nil
+---@param agent table | nil # obtained from get_command_agent or get_chat_agent
+M.cmd.ChatToggle = function(params, system_prompt, agent)
 	if M._toggle_close(M._toggle_kind.popup) then
 		return
 	end
@@ -2113,7 +2167,7 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 		end
 	end
 
-	M.new_chat(params, model, system_prompt, true)
+	M.new_chat(params, true, system_prompt, agent)
 end
 
 M.cmd.ChatPaste = function(params)
@@ -2271,6 +2325,10 @@ M.chat_respond = function(params)
 		agent_name = agent_name .. " & custom role"
 	end
 
+	if headers.model and not headers.provider then
+		headers.provider = "openai"
+	end
+
 	local agent_prefix = config.chat_assistant_prefix[1]
 	local agent_suffix = config.chat_assistant_prefix[2]
 	if type(M.config.chat_assistant_prefix) == "string" then
@@ -2336,8 +2394,8 @@ M.chat_respond = function(params)
 	-- call the model and write response
 	M.query(
 		buf,
-		agent.provider,
-		M.prepare_payload(messages, headers.model, agent.model, agent.provider),
+		headers.provider or agent.provider,
+		M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
@@ -2379,8 +2437,8 @@ M.chat_respond = function(params)
 				-- call the model
 				M.query(
 					nil,
-					agent.provider,
-					M.prepare_payload(messages, nil, agent.model, agent.provider),
+					headers.provider or agent.provider,
+					M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2806,11 +2864,16 @@ M.cmd.NextAgent = function()
 	set_agent(agent_list[1])
 end
 
----@return table # { cmd_prefix, name, model, system_prompt }
-M.get_command_agent = function()
+---@param name string | nil
+---@return table | nil # { cmd_prefix, name, model, system_prompt, provider}
+M.get_command_agent = function(name)
+	name = name or M._state.command_agent
+	if M.agents[name] == nil then
+		M.warning("Command Agent " .. name .. " not found, using " .. M._state.command_agent)
+		name = M._state.command_agent
+	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
-	local name = M._state.command_agent
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2823,11 +2886,16 @@ M.get_command_agent = function()
 	}
 end
 
----@return table # { cmd_prefix, name, model, system_prompt }
-M.get_chat_agent = function()
+---@param name string | nil
+---@return table # { cmd_prefix, name, model, system_prompt, provider }
+M.get_chat_agent = function(name)
+	name = name or M._state.chat_agent
+	if M.agents[name] == nil then
+		M.warning("Chat Agent " .. name .. " not found, using " .. M._state.chat_agent)
+		name = M._state.chat_agent
+	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.chat_agent })
-	local name = M._state.chat_agent
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2865,7 +2933,7 @@ M.cmd.Context = function(params)
 	end
 
 	if vim.fn.filereadable(file_name) ~= 1 then
-		vim.fn.writefile({ "Additional context is provided bellow.", "" }, file_name)
+		vim.fn.writefile({ "Additional context is provided below.", "" }, file_name)
 	end
 
 	params.args = params.args or ""
@@ -2882,7 +2950,34 @@ M.cmd.Context = function(params)
 	M._H.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, whisper, provider, on_complete_callback)
+local examplePromptHook = [[
+UnitTests = function(gp, params)
+    local template = "I have the following code from {{filename}}:\n\n"
+        .. "```{{filetype}}\n{{selection}}\n```\n\n"
+        .. "Please respond by writing table driven unit tests for the code above."
+    local agent = gp.get_command_agent()
+    gp.Prompt(params, gp.Target.vnew, agent, template)
+end,
+]]
+
+---@param params table  # vim command parameters such as range, args, etc.
+---@param target integer | function | table  # where to put the response
+---@param agent table  # obtained from get_command_agent or get_chat_agent
+---@param template string  # template with model instructions
+---@param prompt string | nil  # nil for non interactive commads
+---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
+---@param callback function | nil  # callback after completing the prompt
+M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
+	if not agent or not type(agent) == "table" or not agent.provider then
+		M.warning(
+			"The `gp.Prompt` method signature has changed.\n"
+				.. "Please update your hook functions as demonstrated in the example below:\n\n"
+				.. examplePromptHook
+				.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
+		)
+		return
+	end
+
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -3044,7 +3139,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		local filetype = M._H.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
+		local sys_prompt = M.template_render(agent.system_template, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
@@ -3147,11 +3242,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		end
 
 		-- call the model and write the response
-		local agent = M.get_command_agent()
 		M.query(
 			buf,
-			provider,
-			M.prepare_payload(messages, model, agent.model, agent.provider),
+			agent.provider,
+			M.prepare_payload(messages, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
@@ -3185,7 +3279,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 end
 
 ---@param callback function # callback function(text)
-M.Whisper = function(callback)
+M.Whisper = function(language, callback)
 	-- make sure sox is installed
 	if vim.fn.executable("sox") == 0 then
 		M.error("sox is not installed")
@@ -3341,7 +3435,7 @@ M.Whisper = function(callback)
 			.. M.config.openai_api_key
 			.. '" -H "Content-Type: multipart/form-data" '
 			.. '-F model="whisper-1" -F language="'
-			.. M.config.whisper_language
+			.. language
 			.. '" -F file="@final.mp3" '
 			.. '-F response_format="json"'
 
@@ -3444,7 +3538,14 @@ M.cmd.Whisper = function(params)
 		end_line = params.line2
 	end
 
-	M.Whisper(function(text)
+	local args = vim.split(params.args, " ")
+
+	local language = config.whisper_language
+	if args[1] ~= "" then
+		language = args[1]
+	end
+
+	M.Whisper(language, function(text)
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
 		end
