@@ -734,7 +734,7 @@ Here are some more examples:
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by writing table driven unit tests for the code above."
       local agent = gp.get_command_agent()
-      gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
+      gp.Prompt(params, gp.Target.vnew, agent, template)
   end,
   ````
 
@@ -747,7 +747,7 @@ Here are some more examples:
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by explaining the code above."
       local agent = gp.get_chat_agent()
-      gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
+      gp.Prompt(params, gp.Target.popup, agent, template)
   end,
   ````
 
@@ -760,7 +760,7 @@ Here are some more examples:
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please analyze for code smells and suggest improvements."
       local agent = gp.get_chat_agent()
-      gp.Prompt(params, gp.Target.enew("markdown"), nil, agent.model, template, agent.system_prompt)
+      gp.Prompt(params, gp.Target.enew("markdown"), agent, template)
   end,
   ````
 
@@ -769,9 +769,12 @@ Here are some more examples:
   ```lua
   -- example of adding command which opens new chat dedicated for translation
   Translator = function(gp, params)
-    local agent = gp.get_command_agent()
-  local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-  gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
+      local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
+      gp.cmd.ChatNew(params, chat_system_prompt)
+
+      -- -- you can also create a chat with a specific fixed agent like this:
+      -- local agent = gp.get_chat_agent("ChatGPT4o")
+      -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
   end,
   ```
 
@@ -786,7 +789,16 @@ Here are some more examples:
   end,
   ```
 
-The raw plugin text editing method `Prompt` has seven aprameters:
+The raw plugin text editing method `Prompt` has following signature:
+```lua
+---@param params table  # vim command parameters such as range, args, etc.
+---@param target integer | function | table  # where to put the response
+---@param agent table  # obtained from get_command_agent or get_chat_agent
+---@param template string  # template with model instructions
+---@param prompt string | nil  # nil for non interactive commads
+---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
+Prompt(params, target, agent, template, prompt, whisper)
+```
 
 - `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses:
 
@@ -871,13 +883,14 @@ The raw plugin text editing method `Prompt` has seven aprameters:
   }
   ```
 
-- `prompt`
-  - string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
-  - if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
-  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
-    (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
-- `model`
-  - see [gpt model overview](https://platform.openai.com/docs/models/overview)
+
+- `agent` table obtainable via `get_command_agent` and `get_chat_agent` methods which have following signature:
+  ```lua
+  ---@param name string | nil
+  ---@return table # { cmd_prefix, name, model, system_prompt, provider }
+  get_command_agent(name)
+  ```
+
 - `template`
 
   - template of the user message send to gpt
@@ -889,7 +902,10 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     | `{{selection}}` | last or currently selected text   |
     | `{{command}}`   | instructions provided by the user |
 
-- `system_template`
-  - See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
+- `prompt`
+  - string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
+  - if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
+  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
+    (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
 - `whisper`
   - optional string serving as a default for input prompt (for example generated from speech by Whisper)
