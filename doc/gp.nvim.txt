@@ -1,4 +1,4 @@
-*gp.nvim.txt*             For NVIM v0.8.0            Last change: 2024 July 16
+*gp.nvim.txt*             For NVIM v0.8.0            Last change: 2024 July 17
 
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
@@ -396,7 +396,7 @@ Provides custom context per repository:
 SPEECH COMMANDS                                      *gp.nvim-speech-commands*
 
 
-:GpWhisper                                                        *:GpWhisper*
+:GpWhisper {lang?}                                                *:GpWhisper*
 
 Transcription replaces the current line, visual selection or range in the
 current buffer. Use your mouth to ask a question in a chat buffer instead of
@@ -406,6 +406,9 @@ novel..
 For the rest of the whisper commands, the transcription is used as an editable
 prompt for the equivalent non whisper command - `GpWhisperRewrite` dictates
 instructions for `GpRewrite` etc.
+
+You can override the default language by setting {lang} with the 2 letter
+shortname of your language (e.g. "en" for English, "fr" for French etc).
 
 
 :GpWhisperRewrite                                          *:GpWhisperRewrite*
