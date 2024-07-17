@@ -1310,8 +1310,8 @@ end
 ---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
----@param on_complete_callback function | nil # optional on_complete_callback handler
-M.query = function(buf, provider, payload, handler, on_exit, on_complete_callback)
+---@param callback function | nil # optional callback handler
+M.query = function(buf, provider, payload, handler, on_exit, callback)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		M.error(
@@ -1432,10 +1432,10 @@ M.query = function(buf, provider, payload, handler, on_exit, on_complete_callbac
 					end
 				end
 
-				-- optional on_complete_callback handler
-				if type(on_complete_callback) == "function" then
+				-- optional callback handler
+				if type(callback) == "function" then
 					vim.schedule(function()
-						on_complete_callback(qt.response)
+						callback(qt.response)
 					end)
 				end
 			end
@@ -3043,7 +3043,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 	M._selection_first_line = start_line
 	M._selection_last_line = end_line
 
-	local callback = function(command)
+	local cb = function(command)
 		-- dummy handler
 		local handler = function() end
 		-- default on_exit strips trailing backticks if response was markdown snippet
@@ -3251,20 +3251,20 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				on_exit(qid)
 				vim.cmd("doautocmd User GpDone")
 			end),
-			on_complete_callback
+			callback
 		)
 	end
 
 	vim.schedule(function()
 		local args = params.args or ""
 		if args:match("%S") then
-			callback(args)
+			cb(args)
 			return
 		end
 
 		-- if prompt is not provided, run the command directly
 		if not prompt or prompt == "" then
-			callback(nil)
+			cb(nil)
 			return
 		end
 
@@ -3273,7 +3273,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			if not input or input == "" then
 				return
 			end
-			callback(input)
+			cb(input)
 		end)
 	end)
 end
