@@ -1144,16 +1144,7 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(
-				params,
-				target,
-				agent.cmd_prefix,
-				agent.model,
-				template,
-				agent.system_prompt,
-				whisper,
-				agent.provider
-			)
+			M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
 		end
 
 		M.cmd[command] = function(params)
@@ -1179,12 +1170,9 @@ M.call_hook = function(name, params)
 end
 
 ---@param messages table
----@param model string | table | nil
----@param default_model string | table
+---@param model string | table
 ---@param provider string | nil
-M.prepare_payload = function(messages, model, default_model, provider)
-	model = model or default_model
-
+M.prepare_payload = function(messages, model, provider)
 	if type(model) == "string" then
 		return {
 			model = model,
@@ -1724,7 +1712,7 @@ M.not_chat = function(buf, file_name)
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-	if #lines < 4 then
+	if #lines < 7 then
 		return "file too short"
 	end
 
@@ -1732,9 +1720,17 @@ M.not_chat = function(buf, file_name)
 		return "missing topic header"
 	end
 
-	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
+	local header_found = nil
+	for i = 1, 6 do
+		if lines[i]:match("^- file: ") then
+			header_found = true
+			break
+		end
+	end
+	if not header_found then
 		return "missing file header"
 	end
+
 	return nil
 end
 
@@ -2287,6 +2283,10 @@ M.chat_respond = function(params)
 		agent_name = agent_name .. " & custom role"
 	end
 
+	if headers.model and not headers.provider then
+		headers.provider = "openai"
+	end
+
 	local agent_prefix = config.chat_assistant_prefix[1]
 	local agent_suffix = config.chat_assistant_prefix[2]
 	if type(M.config.chat_assistant_prefix) == "string" then
@@ -2352,8 +2352,8 @@ M.chat_respond = function(params)
 	-- call the model and write response
 	M.query(
 		buf,
-		agent.provider,
-		M.prepare_payload(messages, headers.model, agent.model, agent.provider),
+		headers.provider or agent.provider,
+		M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
@@ -2395,8 +2395,8 @@ M.chat_respond = function(params)
 				-- call the model
 				M.query(
 					nil,
-					agent.provider,
-					M.prepare_payload(messages, nil, agent.model, agent.provider),
+					headers.provider or agent.provider,
+					M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2898,7 +2898,33 @@ M.cmd.Context = function(params)
 	M._H.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, whisper, provider)
+local exampleHook = [[
+UnitTests = function(gp, params)
+    local template = "I have the following code from {{filename}}:\n\n"
+        .. "```{{filetype}}\n{{selection}}\n```\n\n"
+        .. "Please respond by writing table driven unit tests for the code above."
+    local agent = gp.get_command_agent()
+    gp.Prompt(params, gp.Target.vnew, agent, template)
+end,
+]]
+
+---@param params table
+---@param target integer | function | table
+---@param agent table  # obtained from get_command_agent or get_chat_agent
+---@param template string  # te
+---@param prompt string | nil  # nil for non interactive commads
+---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
+M.Prompt = function(params, target, agent, template, prompt, whisper)
+	if not agent or not type(agent) == "table" or not agent.provider then
+		M.warning(
+			"The `gp.Prompt` method signature has changed.\n"
+				.. "Please update your hook functions as demonstrated in the example below::\n\n"
+				.. exampleHook
+				.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
+		)
+		return
+	end
+
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -3060,7 +3086,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		local filetype = M._H.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
+		local sys_prompt = M.template_render(agent.system_template, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
@@ -3163,11 +3189,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		end
 
 		-- call the model and write the response
-		local agent = M.get_command_agent()
 		M.query(
 			buf,
-			provider or agent.provider,
-			M.prepare_payload(messages, model, agent.model, agent.provider),
+			agent.provider,
+			M.prepare_payload(messages, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
