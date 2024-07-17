@@ -2856,11 +2856,16 @@ M.cmd.NextAgent = function()
 	set_agent(agent_list[1])
 end
 
----@return table # { cmd_prefix, name, model, system_prompt }
-M.get_command_agent = function()
+---@param name string | nil
+---@return table | nil # { cmd_prefix, name, model, system_prompt }
+M.get_command_agent = function(name)
+	name = name or M._state.command_agent
+	if M.agents[name] == nil then
+		M.warning("Command Agent " .. name .. " not found, using " .. M._state.command_agent)
+		name = M._state.command_agent
+	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
-	local name = M._state.command_agent
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2873,11 +2878,16 @@ M.get_command_agent = function()
 	}
 end
 
+---@param name string | nil
 ---@return table # { cmd_prefix, name, model, system_prompt }
-M.get_chat_agent = function()
+M.get_chat_agent = function(name)
+	name = name or M._state.chat_agent
+	if M.agents[name] == nil then
+		M.warning("Chat Agent " .. name .. " not found, using " .. M._state.chat_agent)
+		name = M._state.chat_agent
+	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.chat_agent })
-	local name = M._state.chat_agent
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
