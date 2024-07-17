@@ -1161,7 +1161,7 @@ M.prepare_commands = function()
 		end
 
 		M.cmd["Whisper" .. command] = function(params)
-			M.Whisper(function(text)
+			M.Whisper(M.config.whisper_language, function(text)
 				vim.schedule(function()
 					cmd(params, text)
 				end)
@@ -3200,7 +3200,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 end
 
 ---@param callback function # callback function(text)
-M.Whisper = function(callback)
+M.Whisper = function(language, callback)
 	-- make sure sox is installed
 	if vim.fn.executable("sox") == 0 then
 		M.error("sox is not installed")
@@ -3356,7 +3356,7 @@ M.Whisper = function(callback)
 			.. M.config.openai_api_key
 			.. '" -H "Content-Type: multipart/form-data" '
 			.. '-F model="whisper-1" -F language="'
-			.. M.config.whisper_language
+			.. language
 			.. '" -F file="@final.mp3" '
 			.. '-F response_format="json"'
 
@@ -3459,7 +3459,14 @@ M.cmd.Whisper = function(params)
 		end_line = params.line2
 	end
 
-	M.Whisper(function(text)
+	local args = vim.split(params.args, " ")
+
+	local language = config.whisper_language
+	if args[1] ~= "" then
+		language = args[1]
+	end
+
+	M.Whisper(language, function(text)
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
 		end
