@@ -311,11 +311,14 @@ Provides custom context per repository:
 
 ## Speech commands
 
-#### `:GpWhisper` <!-- {doc=:GpWhisper}  -->
+#### `:GpWhisper` {lang?} <!-- {doc=:GpWhisper}  -->
 
 Transcription replaces the current line, visual selection or range in the current buffer. Use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel..
 
 For the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command - `GpWhisperRewrite` dictates instructions for `GpRewrite` etc.
+
+You can override the default language by setting {lang} with the 2 letter
+shortname of your language (e.g. "en" for English, "fr" for French etc).
 
 #### `:GpWhisperRewrite` <!-- {doc=:GpWhisperRewrite}  -->
 
