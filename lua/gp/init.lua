@@ -2093,12 +2093,12 @@ end
 
 local exampleChatHook = [[
 Translator = function(gp, params)
-    local chat_system_prompt = "You are a Translator, help me translate between English and Chinese."
-    local agent = gp.get_chat_agent()
-    gp.cmd.ChatNew(params, chat_system_prompt, agent)
+    local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
+    gp.cmd.ChatNew(params, chat_system_prompt)
 
-    -- nil agent is also valid (you can switch agents dynamically during the chat)
-    -- gp.cmd.ChatNew(params, chat_system_prompt)
+    -- -- you can also create a chat with a specific fixed agent like this:
+    -- local agent = gp.get_chat_agent("ChatGPT4o")
+    -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
 end,
 ]]
 
@@ -2857,7 +2857,7 @@ M.cmd.NextAgent = function()
 end
 
 ---@param name string | nil
----@return table | nil # { cmd_prefix, name, model, system_prompt }
+---@return table | nil # { cmd_prefix, name, model, system_prompt, provider}
 M.get_command_agent = function(name)
 	name = name or M._state.command_agent
 	if M.agents[name] == nil then
@@ -2879,7 +2879,7 @@ M.get_command_agent = function(name)
 end
 
 ---@param name string | nil
----@return table # { cmd_prefix, name, model, system_prompt }
+---@return table # { cmd_prefix, name, model, system_prompt, provider }
 M.get_chat_agent = function(name)
 	name = name or M._state.chat_agent
 	if M.agents[name] == nil then
