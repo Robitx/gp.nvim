@@ -797,6 +797,7 @@ The raw plugin text editing method `Prompt` has following signature:
 ---@param template string  # template with model instructions
 ---@param prompt string | nil  # nil for non interactive commads
 ---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
+---@param callback function | nil  # callback(response) after completing the prompt
 Prompt(params, target, agent, template, prompt, whisper)
 ```
 
@@ -909,3 +910,5 @@ Prompt(params, target, agent, template, prompt, whisper)
     (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
 - `whisper`
   - optional string serving as a default for input prompt (for example generated from speech by Whisper)
+- `callback`
+  - optional callback function receiving the prompt response
