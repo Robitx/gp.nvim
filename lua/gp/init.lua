@@ -2015,12 +2015,12 @@ M.open_buf = function(file_name, target, kind, toggle)
 	return buf
 end
 
----@param params table # table with args
----@param model string | table | nil # model to use
----@param system_prompt string | nil # system prompt to use
+---@param params table  # vim command parameters such as range, args, etc.
 ---@param toggle boolean # whether chat is toggled
+---@param system_prompt string | nil # system prompt to use
+---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 ---@return number # buffer number
-M.new_chat = function(params, model, system_prompt, toggle)
+M.new_chat = function(params, toggle, system_prompt, agent)
 	M._toggle_close(M._toggle_kind.popup)
 
 	-- prepare filename
@@ -2034,12 +2034,18 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
 	-- encode as json if model is a table
-	if model and type(model) == "table" then
-		model = "- model: " .. vim.json.encode(model) .. "\n"
-	elseif model then
-		model = "- model: " .. model .. "\n"
-	else
-		model = ""
+	local model = ""
+	local provider = ""
+	if agent and agent.model and agent.provider then
+		model = agent.model
+		provider = agent.provider
+		if type(model) == "table" then
+			model = "- model: " .. vim.json.encode(model) .. "\n"
+		else
+			model = "- model: " .. model .. "\n"
+		end
+
+		provider = "- provider: " .. provider:gsub("\n", "\\n") .. "\n"
 	end
 
 	-- display system prompt as single line with escaped newlines
@@ -2052,7 +2058,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	local template = string.format(
 		M.chat_template,
 		string.match(filename, "([^/]+)$"),
-		model .. system_prompt,
+		model .. provider .. system_prompt,
 		M.config.chat_user_prefix,
 		M.config.chat_shortcut_respond.shortcut,
 		M.config.cmd_prefix,
@@ -2085,21 +2091,49 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	return buf
 end
 
+local exampleChatHook = [[
+Translator = function(gp, params)
+    local chat_system_prompt = "You are a Translator, help me translate between English and Chinese."
+    local agent = gp.get_chat_agent()
+    gp.cmd.ChatNew(params, chat_system_prompt, agent)
+
+    -- nil agent is also valid (you can switch agents dynamically during the chat)
+    -- gp.cmd.ChatNew(params, chat_system_prompt)
+end,
+]]
+
+---@param params table
+---@param system_prompt string | nil
+---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 ---@return number # buffer number
-M.cmd.ChatNew = function(params, model, system_prompt)
+M.cmd.ChatNew = function(params, system_prompt, agent)
+	if agent then
+		if not type(agent) == "table" or not agent.provider then
+			M.warning(
+				"The `gp.cmd.ChatNew` method signature has changed.\n"
+					.. "Please update your hook functions as demonstrated in the example below:\n\n"
+					.. exampleChatHook
+					.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
+			)
+			return -1
+		end
+	end
 	-- if chat toggle is open, close it and start a new one
 	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
 		if params.args == "" then
 			params.args = M.config.toggle_target
 		end
-		return M.new_chat(params, model, system_prompt, true)
+		return M.new_chat(params, true, system_prompt, agent)
 	end
 
-	return M.new_chat(params, model, system_prompt, false)
+	return M.new_chat(params, false, system_prompt, agent)
 end
 
-M.cmd.ChatToggle = function(params, model, system_prompt)
+---@param params table
+---@param system_prompt string | nil
+---@param agent table | nil # obtained from get_command_agent or get_chat_agent
+M.cmd.ChatToggle = function(params, system_prompt, agent)
 	if M._toggle_close(M._toggle_kind.popup) then
 		return
 	end
@@ -2125,7 +2159,7 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 		end
 	end
 
-	M.new_chat(params, model, system_prompt, true)
+	M.new_chat(params, true, system_prompt, agent)
 end
 
 M.cmd.ChatPaste = function(params)
@@ -2898,7 +2932,7 @@ M.cmd.Context = function(params)
 	M._H.feedkeys("G", "xn")
 end
 
-local exampleHook = [[
+local examplePromptHook = [[
 UnitTests = function(gp, params)
     local template = "I have the following code from {{filename}}:\n\n"
         .. "```{{filetype}}\n{{selection}}\n```\n\n"
@@ -2908,18 +2942,18 @@ UnitTests = function(gp, params)
 end,
 ]]
 
----@param params table
----@param target integer | function | table
+---@param params table  # vim command parameters such as range, args, etc.
+---@param target integer | function | table  # where to put the response
 ---@param agent table  # obtained from get_command_agent or get_chat_agent
----@param template string  # te
+---@param template string  # template with model instructions
 ---@param prompt string | nil  # nil for non interactive commads
 ---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
 M.Prompt = function(params, target, agent, template, prompt, whisper)
 	if not agent or not type(agent) == "table" or not agent.provider then
 		M.warning(
 			"The `gp.Prompt` method signature has changed.\n"
-				.. "Please update your hook functions as demonstrated in the example below::\n\n"
-				.. exampleHook
+				.. "Please update your hook functions as demonstrated in the example below:\n\n"
+				.. examplePromptHook
 				.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
 		)
 		return
