@@ -993,11 +993,7 @@ function M.resolve_secret(provider, callback)
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
 					M.warning(
-						"response from the config.providers."
-							.. provider
-							.. ".secret command "
-							.. vim.inspect(secret)
-							.. " is empty"
+						"response from the config.providers." .. provider .. ".secret command " .. vim.inspect(secret) .. " is empty"
 					)
 					return
 				end
@@ -1314,9 +1310,7 @@ end
 M.query = function(buf, provider, payload, handler, on_exit, callback)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
-		M.error(
-			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
-		)
+		M.error(string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler)))
 		return
 	end
 
@@ -1595,13 +1589,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 			table.insert(unfinished_lines, lines[i])
 		end
 
-		vim.api.nvim_buf_set_lines(
-			buf,
-			first_line + finished_lines,
-			first_line + finished_lines,
-			false,
-			unfinished_lines
-		)
+		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + finished_lines, false, unfinished_lines)
 
 		local new_finished_lines = math.max(0, #lines - 1)
 		for i = finished_lines, new_finished_lines do
@@ -2383,13 +2371,7 @@ M.chat_respond = function(params)
 
 	-- write assistant prompt
 	local last_content_line = M._H.last_content_line(buf)
-	vim.api.nvim_buf_set_lines(
-		buf,
-		last_content_line,
-		last_content_line,
-		false,
-		{ "", agent_prefix .. agent_suffix, "" }
-	)
+	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
 	-- call the model and write response
 	M.query(
@@ -3183,22 +3165,16 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
 			local popup_close = nil
-			buf, win, popup_close, _ = M._H.create_popup(
-				nil,
-				M._Name .. " popup (close with <esc>/<C-c>)",
-				function(w, h)
-					local top = M.config.style_popup_margin_top or 2
-					local bottom = M.config.style_popup_margin_bottom or 8
-					local left = M.config.style_popup_margin_left or 1
-					local right = M.config.style_popup_margin_right or 1
-					local max_width = M.config.style_popup_max_width or 160
-					local ww = math.min(w - (left + right), max_width)
-					local wh = h - (top + bottom)
-					return ww, wh, top, (w - ww) / 2
-				end,
-				{ on_leave = true, escape = true },
-				{ border = M.config.style_popup_border or "single" }
-			)
+			buf, win, popup_close, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
+				local top = M.config.style_popup_margin_top or 2
+				local bottom = M.config.style_popup_margin_bottom or 8
+				local left = M.config.style_popup_margin_left or 1
+				local right = M.config.style_popup_margin_right or 1
+				local max_width = M.config.style_popup_max_width or 160
+				local ww = math.min(w - (left + right), max_width)
+				local wh = h - (top + bottom)
+				return ww, wh, top, (w - ww) / 2
+			end, { on_leave = true, escape = true }, { border = M.config.style_popup_border or "single" })
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown

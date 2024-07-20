@@ -96,7 +96,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "openai",
@@ -106,7 +106,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "copilot",
@@ -116,7 +116,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "googleai",
@@ -126,7 +126,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gemini-pro", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "pplx",
@@ -136,7 +136,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -146,7 +146,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -156,7 +156,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.chat_system_prompt,
+			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
 		{
 			provider = "ollama",
@@ -194,7 +194,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "openai",
@@ -204,7 +204,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = { model = "gpt-3.5-turbo", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "copilot",
@@ -214,7 +214,7 @@ local config = {
 			-- string with the Copilot engine name or table with engine name and parameters if applicable
 			model = { model = "gpt-4", temperature = 0.8, top_p = 1, n = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "googleai",
@@ -223,7 +223,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "gemini-pro", temperature = 0.8, top_p = 1 },
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "pplx",
@@ -232,7 +232,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -241,7 +241,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "anthropic",
@@ -250,7 +250,7 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
-			system_prompt = require'gp.defaults'.code_system_prompt,
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
 			provider = "ollama",
