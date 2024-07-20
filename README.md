@@ -36,7 +36,7 @@ Trying to keep things as native as possible - reusing and integrating well with 
   - properly working undo (response can be undone with a single `u`)
 - **Infinitely extensible** via hook functions specified as part of the config
   - hooks have access to everything in the plugin and are automatically registered as commands
-  - see [4. Configuration](#4-configuration) and [Extend functionality](#extend-functionality) sections for details
+  - see [5. Configuration](#5-configuration) and [Extend functionality](#extend-functionality) sections for details
 - **Minimum dependencies** (`neovim`, `curl`, `grep` and optionally `sox`)
   - zero dependencies on other lua plugins to minimize chance of breakage
 - **ChatGPT like sessions**
@@ -121,7 +121,79 @@ The OpenAI API key can be passed to the plugin in multiple ways:
 
 If `openai_api_key` is a table, Gp runs it asynchronously to avoid blocking Neovim (password managers can take a second or two).
 
-## 3. Dependencies
+## 3. Multiple providers
+The following LLM providers are currently supported besides OpenAI:
+
+- [Ollama](https://github.com/ollama/ollama) for local/offline open-source models. The plugin assumes you have the Ollama service up and running with configured models available (the default Ollama agent uses Llama3).
+- [GitHub Copilot](https://github.com/settings/copilot) with a Copilot license ([zbirenbaum/copilot.lua](https://github.com/zbirenbaum/copilot.lua) or [github/copilot.vim](https://github.com/github/copilot.vim) for autocomplete). You can access the underlying GPT-4 model without paying anything extra (essentially unlimited GPT-4 access).
+- [Perplexity.ai](https://www.perplexity.ai/pro) Pro users have $5/month free API credits available (the default PPLX agent uses Mixtral-8x7b).
+- [Anthropic](https://www.anthropic.com/api) to access Claude models, which currently outperform GPT-4 in some benchmarks.
+- [Google Gemini](https://ai.google.dev/) with a quite generous free range but some geo-restrictions (EU).
+- Any other "OpenAI chat/completions" compatible endpoint (Azure, LM Studio, etc.)
+
+Below is an example of the relevant configuration part enabling some of these. The `secret` field has the same capabilities as `openai_api_key` (which is still supported for compatibility).
+
+```lua
+	providers = {
+		openai = {
+			endpoint = "https://api.openai.com/v1/chat/completions",
+			secret = os.getenv("OPENAI_API_KEY"),
+		},
+
+		-- azure = {...},
+
+		copilot = {
+			endpoint = "https://api.githubcopilot.com/chat/completions",
+			secret = {
+				"bash",
+				"-c",
+				"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+			},
+		},
+
+		pplx = {
+			endpoint = "https://api.perplexity.ai/chat/completions",
+			secret = os.getenv("PPLX_API_KEY"),
+		},
+
+		ollama = {
+			endpoint = "http://localhost:11434/v1/chat/completions",
+		},
+
+		googleai = {
+			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
+			secret = os.getenv("GOOGLEAI_API_KEY"),
+		},
+
+		anthropic = {
+			endpoint = "https://api.anthropic.com/v1/messages",
+			secret = os.getenv("ANTHROPIC_API_KEY"),
+		},
+	},
+```
+
+Each of these providers has some agents preconfigured. Below is an example of how to disable predefined ChatGPT3-5 agent and create a custom one. If the `provider` field is missing, OpenAI is assumed for backward compatibility.
+
+```lua
+	agents = {
+		{
+			name = "ChatGPT3-5",
+			disable = true,
+		},
+		{
+			name = "MyCustomAgent",
+			provider = "copilot",
+			chat = true,
+			command = true,
+			model = { model = "gpt-4-turbo" },
+			system_prompt = "Answer any query with just: Sure thing..",
+		},
+	},
+
+```
+
+
+## 4. Dependencies
 
 The core plugin only needs `curl` installed to make calls to OpenAI API and `grep` for ChatFinder. So Linux, BSD and Mac OS should be covered.
 
@@ -133,11 +205,11 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 - Redhat/CentOS: `yum install sox`
 - NixOS: `nix-env -i sox`
 
-## 4. Configuration
+## 5. Configuration
 
-Bellow is a linked snippet with the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
+Below is a linked snippet with the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 
-https://github.com/Robitx/gp.nvim/blob/d90816b2e9185202d72f7b1346b6d33b36350886/lua/gp/config.lua#L8-L355
+https://github.com/Robitx/gp.nvim/blob/3adf3dc7589f54cf7af887879c995aa9846aace5/lua/gp/config.lua#L8-L568
 
 # Usage
 
@@ -239,11 +311,14 @@ Provides custom context per repository:
 
 ## Speech commands
 
-#### `:GpWhisper` <!-- {doc=:GpWhisper}  -->
+#### `:GpWhisper` {lang?} <!-- {doc=:GpWhisper}  -->
 
 Transcription replaces the current line, visual selection or range in the current buffer. Use your mouth to ask a question in a chat buffer instead of writing it by hand, dictate some comments for the code, notes or even your next novel..
 
 For the rest of the whisper commands, the transcription is used as an editable prompt for the equivalent non whisper command - `GpWhisperRewrite` dictates instructions for `GpRewrite` etc.
+
+You can override the default language by setting {lang} with the 2 letter
+shortname of your language (e.g. "en" for English, "fr" for French etc).
 
 #### `:GpWhisperRewrite` <!-- {doc=:GpWhisperRewrite}  -->
 
@@ -391,7 +466,7 @@ Ahoy there!
 
 # Shortcuts
 
-There are no default global shortcuts to mess with your own config. Bellow are examples for you to adjust or just use directly.
+There are no default global shortcuts to mess with your own config. Below are examples for you to adjust or just use directly.
 
 ## Native
 
@@ -659,7 +734,7 @@ Here are some more examples:
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by writing table driven unit tests for the code above."
       local agent = gp.get_command_agent()
-      gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
+      gp.Prompt(params, gp.Target.vnew, agent, template)
   end,
   ````
 
@@ -672,7 +747,7 @@ Here are some more examples:
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by explaining the code above."
       local agent = gp.get_chat_agent()
-      gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
+      gp.Prompt(params, gp.Target.popup, agent, template)
   end,
   ````
 
@@ -685,7 +760,7 @@ Here are some more examples:
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please analyze for code smells and suggest improvements."
       local agent = gp.get_chat_agent()
-      gp.Prompt(params, gp.Target.enew("markdown"), nil, agent.model, template, agent.system_prompt)
+      gp.Prompt(params, gp.Target.enew("markdown"), agent, template)
   end,
   ````
 
@@ -694,9 +769,12 @@ Here are some more examples:
   ```lua
   -- example of adding command which opens new chat dedicated for translation
   Translator = function(gp, params)
-    local agent = gp.get_command_agent()
-  local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-  gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
+      local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
+      gp.cmd.ChatNew(params, chat_system_prompt)
+
+      -- -- you can also create a chat with a specific fixed agent like this:
+      -- local agent = gp.get_chat_agent("ChatGPT4o")
+      -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
   end,
   ```
 
@@ -711,7 +789,17 @@ Here are some more examples:
   end,
   ```
 
-The raw plugin text editing method `Prompt` has seven aprameters:
+The raw plugin text editing method `Prompt` has following signature:
+```lua
+---@param params table  # vim command parameters such as range, args, etc.
+---@param target integer | function | table  # where to put the response
+---@param agent table  # obtained from get_command_agent or get_chat_agent
+---@param template string  # template with model instructions
+---@param prompt string | nil  # nil for non interactive commads
+---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
+---@param callback function | nil  # callback(response) after completing the prompt
+Prompt(params, target, agent, template, prompt, whisper, callback)
+```
 
 - `params` is a [table passed to neovim user commands](https://neovim.io/doc/user/lua-guide.html#lua-guide-commands-create), `Prompt` currently uses:
 
@@ -796,17 +884,18 @@ The raw plugin text editing method `Prompt` has seven aprameters:
   }
   ```
 
-- `prompt`
-  - string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
-  - if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
-  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
-    (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
-- `model`
-  - see [gpt model overview](https://platform.openai.com/docs/models/overview)
+
+- `agent` table obtainable via `get_command_agent` and `get_chat_agent` methods which have following signature:
+  ```lua
+  ---@param name string | nil
+  ---@return table # { cmd_prefix, name, model, system_prompt, provider }
+  get_command_agent(name)
+  ```
+
 - `template`
 
   - template of the user message send to gpt
-  - string can include variables bellow:
+  - string can include variables below:
 
     | name            | Description                       |
     | --------------- | --------------------------------- |
@@ -814,7 +903,13 @@ The raw plugin text editing method `Prompt` has seven aprameters:
     | `{{selection}}` | last or currently selected text   |
     | `{{command}}`   | instructions provided by the user |
 
-- `system_template`
-  - See [gpt api intro](https://platform.openai.com/docs/guides/chat/introduction)
+- `prompt`
+  - string used similarly as bash/zsh prompt in terminal, when plugin asks for user command to gpt.
+  - if `nil`, user is not asked to provide input (for specific predefined commands - document this, explain that, write tests ..)
+  - simple `🤖 ~ ` might be used or you could use different msg to convey info about the method which is called  
+    (`🤖 rewrite ~`, `🤖 popup ~`, `🤖 enew ~`, `🤖 inline ~`, etc.)
 - `whisper`
   - optional string serving as a default for input prompt (for example generated from speech by Whisper)
+- `callback`
+  - optional callback function allowing post processing logic on the prompt response  
+    (for example letting the model to generate commit message and using the callback to make actual commit)
