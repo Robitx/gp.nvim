@@ -609,9 +609,13 @@ M.file_to_table = function(file_path)
 end
 
 -- helper function to find the root directory of the current git repository
+---@param path string | nil  # optional path to start searching from
 ---@return string # returns the path of the git root dir or an empty string if not found
-_H.find_git_root = function()
+_H.find_git_root = function(path)
 	local cwd = vim.fn.expand("%:p:h")
+	if path then
+		cwd = vim.fn.fnamemodify(path, ":p:h")
+	end
 	while cwd ~= "/" do
 		local files = vim.fn.readdir(cwd)
 		if vim.tbl_contains(files, ".git") then
@@ -641,26 +645,20 @@ M.repo_instructions = function()
 	return table.concat(lines, "\n")
 end
 
-local function get_git_root()
-	local handle = io.popen("git rev-parse --show-toplevel 2>/dev/null")
-	local result = handle:read("*a"):gsub("\n", "")
-	handle:close()
-	return result ~= "" and result or nil
-end
-
-local function get_relative_path(full_path, git_root)
-	return git_root and full_path:sub(#git_root + 2) or full_path
-end
-
 M.template_render = function(template, command, selection, filetype, filename)
-	local git_root = get_git_root()
-	local relative_filename = get_relative_path(filename, git_root)
-	
+	local git_root = _H.find_git_root(filename)
+	if git_root ~= "" then
+		local git_root_plus_one = vim.fn.fnamemodify(git_root, ":h")
+		if git_root_plus_one ~= "" then
+			filename = filename:sub(#git_root_plus_one + 2)
+		end
+	end
+
 	local key_value_pairs = {
 		["{{command}}"] = command,
 		["{{selection}}"] = selection,
 		["{{filetype}}"] = filetype,
-		["{{filename}}"] = relative_filename,
+		["{{filename}}"] = filename,
 	}
 	return _H.template_render(template, key_value_pairs)
 end
