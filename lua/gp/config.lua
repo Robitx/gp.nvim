@@ -282,19 +282,9 @@ local config = {
 	-- if you really want just a static string, make it a table with one element { "🤖:" }
 	chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
 	-- The banner shown at the top of each chat file.
-	chat_template = [[
-# topic: ?
-
-- file: %s
-%s
-Write your queries after %s. Use `%s` or :%sChatRespond to generate a response.
-Response generation can be terminated by using `%s` or :%sChatStop command.
-Chats are saved automatically. To delete this chat, use `%s` or :%sChatDelete.
-Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
-
----
-
-%s]],
+	chat_template = require("gp.defaults").chat_template,
+	-- if you want more real estate in your chat files and don't need the helper text
+	-- chat_template = require("gp.defaults").short_chat_template,
 	-- chat topic generation prompt
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
 		.. " in two or three words. Respond only with those words.",

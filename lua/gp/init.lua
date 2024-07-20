@@ -56,6 +56,7 @@ local M = {
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
 	spinner = require("gp.spinner"), -- spinner module
+	defaults = require("gp.defaults"), -- some useful defaults
 }
 
 --------------------------------------------------------------------------------
@@ -1612,20 +1613,6 @@ end
 -- Chat logic
 --------------------
 
-M.chat_template = [[
-# topic: ?
-
-- file: %s
-%s
-Write your queries after %s. Use `%s` or :%sChatRespond to generate a response.
-Response generation can be terminated by using `%s` or :%sChatStop command.
-Chats are saved automatically. To delete this chat, use `%s` or :%sChatDelete.
-Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
-
----
-
-%s]]
-
 M._toggle = {}
 
 M._toggle_kind = {
@@ -1708,7 +1695,7 @@ M.not_chat = function(buf, file_name)
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-	if #lines < 7 then
+	if #lines < 5 then
 		return "file too short"
 	end
 
@@ -1717,8 +1704,8 @@ M.not_chat = function(buf, file_name)
 	end
 
 	local header_found = nil
-	for i = 1, 6 do
-		if lines[i]:match("^- file: ") then
+	for i = 1, 10 do
+		if i < #lines and lines[i]:match("^- file: ") then
 			header_found = true
 			break
 		end
@@ -2051,21 +2038,32 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		system_prompt = ""
 	end
 
-	local template = string.format(
-		M.config.chat_template or M.chat_template,
-		string.match(filename, "([^/]+)$"),
-		model .. provider .. system_prompt,
-		M.config.chat_user_prefix,
-		M.config.chat_shortcut_respond.shortcut,
-		M.config.cmd_prefix,
-		M.config.chat_shortcut_stop.shortcut,
-		M.config.cmd_prefix,
-		M.config.chat_shortcut_delete.shortcut,
-		M.config.cmd_prefix,
-		M.config.chat_shortcut_new.shortcut,
-		M.config.cmd_prefix,
-		M.config.chat_user_prefix
-	)
+	local template = M._H.template_render(M.config.chat_template or require("gp.defaults").chat_template, {
+		["{{filename}}"] = string.match(filename, "([^/]+)$"),
+		["{{optional_headers}}"] = model .. provider .. system_prompt,
+		["{{user_prefix}}"] = M.config.chat_user_prefix,
+		["{{respond_shortcut}}"] = M.config.chat_shortcut_respond.shortcut,
+		["{{cmd_prefix}}"] = M.config.cmd_prefix,
+		["{{stop_shortcut}}"] = M.config.chat_shortcut_stop.shortcut,
+		["{{delete_shortcut}}"] = M.config.chat_shortcut_delete.shortcut,
+		["{{new_shortcut}}"] = M.config.chat_shortcut_new.shortcut,
+	})
+
+	-- local template = string.format(
+	-- 	M.config.chat_template or require("gp.defaults").chat_template,
+	-- 	string.match(filename, "([^/]+)$"),
+	-- 	model .. provider .. system_prompt,
+	-- 	M.config.chat_user_prefix,
+	-- 	M.config.chat_shortcut_respond.shortcut,
+	-- 	M.config.cmd_prefix,
+	-- 	M.config.chat_shortcut_stop.shortcut,
+	-- 	M.config.cmd_prefix,
+	-- 	M.config.chat_shortcut_delete.shortcut,
+	-- 	M.config.cmd_prefix,
+	-- 	M.config.chat_shortcut_new.shortcut,
+	-- 	M.config.cmd_prefix,
+	-- 	M.config.chat_user_prefix
+	-- )
 
 	-- escape underscores (for markdown)
 	template = template:gsub("_", "\\_")
