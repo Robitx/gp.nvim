@@ -351,6 +351,9 @@ local config = {
 	-- Whisper costs $0.006 / minute (rounded to the nearest second)
 	-- by eliminating silence and speeding up the tempo of the recording
 	-- we can reduce the cost by 50% or more and get the results faster
+
+	-- OpenAI audio/transcriptions api endpoint to transcribe audio to text
+	whisper_api_endpoint = "https://api.openai.com/v1/audio/transcriptions",
 	-- directory for storing whisper files
 	whisper_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
 	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
