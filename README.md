@@ -67,15 +67,15 @@ Snippets for your preferred package manager:
 ```lua
 -- lazy.nvim
 {
-	"robitx/gp.nvim",
-	config = function()
-		require("gp").setup()
+    "robitx/gp.nvim",
+    config = function()
+        local conf = {
+            -- For customization, refer to Install > Configuration in the Documentation/Readme
+        }
+        require("gp").setup(conf)
 
-		-- or setup with your own config (see Install > Configuration in Readme)
-		-- require("gp").setup(config)
-
-        	-- shortcuts might be setup here (see Usage > Shortcuts in Readme)
-	end,
+        -- Setup shortcuts here (see Usage > Shortcuts in the Documentation/Readme)
+    end,
 }
 ```
 
@@ -84,12 +84,12 @@ Snippets for your preferred package manager:
 use({
     "robitx/gp.nvim",
     config = function()
-        require("gp").setup()
+        local conf = {
+            -- For customization, refer to Install > Configuration in the Documentation/Readme
+        }
+        require("gp").setup(conf)
 
-	-- or setup with your own config (see Install > Configuration in Readme)
-	-- require("gp").setup(config)
-
-        -- shortcuts might be setup here (see Usage > Shortcuts in Readme)
+        -- Setup shortcuts here (see Usage > Shortcuts in the Documentation/Readme)
     end,
 })
 ```
@@ -98,12 +98,12 @@ use({
 -- vim-plug
 Plug 'robitx/gp.nvim'
 
-require("gp").setup()
+local conf = {
+    -- For customization, refer to Install > Configuration in the Documentation/Readme
+}
+require("gp").setup(conf)
 
--- or setup with your own config (see Install > Configuration in Readme)
--- require("gp").setup(config)
-
--- shortcuts might be setup here (see Usage > Shortcuts in Readme)
+-- Setup shortcuts here (see Usage > Shortcuts in the Documentation/Readme)
 ```
 ## 2. OpenAI API key
 
