@@ -1418,7 +1418,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 
 					process_lines(complete_lines)
 				end
-			-- chunk is nil when EOF is reached
+				-- chunk is nil when EOF is reached
 			else
 				-- if there's remaining data in the buffer, process it
 				if #buffer > 0 then
@@ -1473,6 +1473,13 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			-- backwards compatibility
 			"-H",
 			"api-key: " .. bearer,
+		}
+	end
+
+	if provider == "openrouter" then
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
 		}
 	end
 
