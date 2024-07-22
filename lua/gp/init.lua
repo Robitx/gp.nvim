@@ -3138,7 +3138,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		local filetype = M._H.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local sys_prompt = M.template_render(agent.system_template, command, selection, filetype, filename)
+		local sys_prompt = M.template_render(agent.system_prompt, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
