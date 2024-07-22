@@ -13,7 +13,7 @@ jobs:
           fetch-depth: 0
 
       - name: Update README with Snippet Permalink
-        uses: Robitx/snippet-permalink-updater-action@v1
+        uses: Robitx/snippet-permalink-updater-action@main
         with:
           snippet_file: 'lua/gp/config.lua'
           start_marker: 'README_REFERENCE_MARKER_START'
