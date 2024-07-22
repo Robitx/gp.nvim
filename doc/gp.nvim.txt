@@ -1,4 +1,4 @@
-*gp.nvim.txt*               For Neovim               Last change: 2024 July 21
+*gp.nvim.txt*               For Neovim               Last change: 2024 July 22
 
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
