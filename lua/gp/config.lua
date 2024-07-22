@@ -5,6 +5,7 @@
 -- Default config
 --------------------------------------------------------------------------------
 
+-- README_REFERENCE_MARKER_START
 local config = {
 	-- Please start with minimal config possible.
 	-- Just openai_api_key if you don't have OPENAI_API_KEY env set up.
@@ -562,5 +563,6 @@ local config = {
 		-- end,
 	},
 }
+-- README_REFERENCE_MARKER_END
 
 return config

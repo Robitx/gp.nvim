@@ -3,13 +3,24 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-
 jobs:
   docs:
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/docs' }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Update README with Snippet Permalink
+        uses: Robitx/snippet-permalink-updater-action@v1
+        with:
+          snippet_file: 'lua/gp/config.lua'
+          start_marker: 'README_REFERENCE_MARKER_START'
+          end_marker: 'README_REFERENCE_MARKER_END'
+          markdown_file: 'README.md'
+          replace_marker: '<!-- README_REFERENCE_MARKER_REPLACE_NEXT_LINE -->'
+
       - name: panvimdoc
         uses: kdheepak/panvimdoc@main
         with:
@@ -20,10 +31,11 @@ jobs:
           docmapping: true
           docmappingprojectname: false
           dedupsubheadings: false
+
       - name: Push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "chore: auto-generate vimdoc"
+          commit_message: "chore: update README and auto-generate vimdoc"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
