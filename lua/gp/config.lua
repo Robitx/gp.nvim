@@ -101,11 +101,11 @@ local config = {
 		},
 		{
 			provider = "openai",
-			name = "ChatGPT3-5",
+			name = "ChatGPT4o-mini",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
+			model = { model = "gpt-4o-mini", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
@@ -199,13 +199,13 @@ local config = {
 		},
 		{
 			provider = "openai",
-			name = "CodeGPT3-5",
+			name = "CodeGPT4o-mini",
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-3.5-turbo", temperature = 0.8, top_p = 1 },
+			model = { model = "gpt-4o-mini", temperature = 0.7, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = require("gp.defaults").code_system_prompt,
+			system_prompt = "Please return ONLY code snippets.\nSTART AND END YOUR ANSWER WITH:\n\n```",
 		},
 		{
 			provider = "copilot",
