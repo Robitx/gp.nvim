@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/Robitx/gp.nvim/compare/v3.2.0...v3.3.0) (2024-07-23)
+
+
+### Features
+
+* add logging to file ([#166](https://github.com/Robitx/gp.nvim/issues/166)) ([33812a6](https://github.com/Robitx/gp.nvim/commit/33812a62d6e3a34a10d24c696106337a5e2ef4b3))
+
 ## [3.2.0](https://github.com/Robitx/gp.nvim/compare/v3.1.0...v3.2.0) (2024-07-23)
 
 
