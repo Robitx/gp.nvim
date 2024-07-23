@@ -57,6 +57,7 @@ local M = {
 	hooks = {}, -- user defined command functions
 	spinner = require("gp.spinner"), -- spinner module
 	defaults = require("gp.defaults"), -- some useful defaults
+	logger = require("gp.logger"), -- logger module
 }
 
 --------------------------------------------------------------------------------
@@ -231,7 +232,7 @@ _H.undojoin = function(buf)
 		if result:match("E790") then
 			return
 		end
-		M.error("Error running undojoin: " .. vim.inspect(result))
+		M.logger.error("Error running undojoin: " .. vim.inspect(result))
 	end
 end
 
@@ -249,7 +250,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local stderr_data = ""
 
 	if not M.can_handle(buf) then
-		M.warning("Another Gp process is already running for this buffer.")
+		M.logger.warning("Another Gp process is already running for this buffer.")
 		return
 	end
 
@@ -278,7 +279,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
-			M.error("Error reading stdout: " .. vim.inspect(err))
+			M.logger.error("Error reading stdout: " .. vim.inspect(err))
 		end
 		if data then
 			stdout_data = stdout_data .. data
@@ -290,7 +291,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	vim.loop.read_start(stderr, function(err, data)
 		if err then
-			M.error("Error reading stderr: " .. vim.inspect(err))
+			M.logger.error("Error reading stderr: " .. vim.inspect(err))
 		end
 		if data then
 			stderr_data = stderr_data .. data
@@ -545,35 +546,6 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
----@param msg string # message to log
----@param kind string # hl group to use for logging
----@param history boolean # whether to add the message to history
-M._log = function(msg, kind, history)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg, kind },
-		}, history, {})
-	end)
-end
-
--- nicer error messages using nvim_echo
----@param msg string # error message
-M.error = function(msg)
-	M._log(msg, "ErrorMsg", true)
-end
-
--- nicer warning messages using nvim_echo
----@param msg string # warning message
-M.warning = function(msg)
-	M._log(msg, "WarningMsg", true)
-end
-
--- nicer plain messages using nvim_echo
----@param msg string # plain message
-M.info = function(msg)
-	M._log(msg, "Normal", true)
-end
-
 ---@param tbl table # the table to be stored
 ---@param file_path string # the file path where the table will be stored as json
 M.table_to_file = function(tbl, file_path)
@@ -581,7 +553,7 @@ M.table_to_file = function(tbl, file_path)
 
 	local file = io.open(file_path, "w")
 	if not file then
-		M.warning("Failed to open file for writing: " .. file_path)
+		M.logger.warning("Failed to open file for writing: " .. file_path)
 		return
 	end
 	file:write(json)
@@ -593,14 +565,14 @@ end
 M.file_to_table = function(file_path)
 	local file, err = io.open(file_path, "r")
 	if not file then
-		M.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
+		M.logger.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
 		return nil
 	end
 	local content = file:read("*a")
 	file:close()
 
 	if content == nil or content == "" then
-		M.warning("Failed to read any content from file: " .. file_path)
+		M.logger.warning("Failed to read any content from file: " .. file_path)
 		return nil
 	end
 
@@ -728,7 +700,7 @@ function M.refresh_copilot_bearer()
 
 	M._H.process(nil, "curl", curl_params, function(code, signal, stdout, stderr)
 		if code ~= 0 then
-			M.error(string.format("Copilot bearer resolve exited: %d, %d", code, signal, stderr))
+			M.logger.error(string.format("Copilot bearer resolve exited: %d, %d", code, signal, stderr))
 			return
 		end
 
@@ -748,7 +720,7 @@ M.setup = function(opts)
 	-- make sure opts is a table
 	opts = opts or {}
 	if type(opts) ~= "table" then
-		M.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
+		M.logger.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
 		opts = {}
 	end
 
@@ -797,6 +769,8 @@ M.setup = function(opts)
 		end
 	end
 
+	M.logger.set_log_file(M.config.log_file)
+
 	if #M._deprecated > 0 then
 		local msg = "Hey there, I have good news and bad news for you.\n"
 			.. "\nThe good news is that you've updated gp.nvim and got some new features."
@@ -812,7 +786,7 @@ M.setup = function(opts)
 			.. "\nso everything should work without problems and you can deal with this later."
 			.. "\n\nYou can check deprecated options any time with `:checkhealth gp`"
 			.. "\nSorry for the inconvenience and thank you for using gp.nvim."
-		M.info(msg)
+		M.logger.info(msg)
 	end
 
 	-- make sure _dirs exists
@@ -822,7 +796,7 @@ M.setup = function(opts)
 			M.config[k] = dir
 			if vim.fn.isdirectory(dir) == 0 then
 				if k ~= "whisper_dir" and k ~= "image_dir" then
-					M.info("creating directory " .. dir)
+					M.logger.info("creating directory " .. dir)
 				end
 				vim.fn.mkdir(dir, "p")
 			end
@@ -834,7 +808,7 @@ M.setup = function(opts)
 		if type(agent) ~= "table" or agent.disable then
 			M.agents[name] = nil
 		elseif not agent.model or not agent.system_prompt then
-			M.warning(
+			M.logger.warning(
 				"Agent "
 					.. name
 					.. " is missing model or system_prompt\n"
@@ -850,7 +824,7 @@ M.setup = function(opts)
 		if type(agent) ~= "table" or agent.disable then
 			M.image_agents[name] = nil
 		elseif not agent.model then
-			M.warning(
+			M.logger.warning(
 				"Image agent "
 					.. name
 					.. " is missing model\n"
@@ -867,7 +841,7 @@ M.setup = function(opts)
 		if type(provider) ~= "table" or provider.disable then
 			M.providers[name] = nil
 		elseif not provider.endpoint then
-			M.warning("Provider " .. name .. " is missing endpoint")
+			M.logger.warning("Provider " .. name .. " is missing endpoint")
 			M.providers[name] = nil
 		end
 	end
@@ -952,7 +926,7 @@ M.setup = function(opts)
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
-		M.error("curl is not installed, run :checkhealth gp")
+		M.logger.error("curl is not installed, run :checkhealth gp")
 	end
 
 	for name, _ in pairs(M.providers) do
@@ -1005,7 +979,7 @@ function M.resolve_secret(provider, callback)
 			if code == 0 then
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
-					M.warning(
+					M.logger.warning(
 						"response from the config.providers." .. provider .. ".secret command " .. vim.inspect(secret) .. " is empty"
 					)
 					return
@@ -1013,7 +987,7 @@ function M.resolve_secret(provider, callback)
 				M.providers[provider].secret = content
 				post_process()
 			else
-				M.warning(
+				M.logger.warning(
 					"config.providers."
 						.. provider
 						.. ".secret command "
@@ -1039,7 +1013,7 @@ M.valid_api_key = function()
 	local api_key = M.config.openai_api_key
 
 	if type(api_key) == "table" then
-		M.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
+		M.logger.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
 		return false
 	end
 
@@ -1047,7 +1021,7 @@ M.valid_api_key = function()
 		return true
 	end
 
-	M.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
+	M.logger.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
 	return false
 end
 
@@ -1175,7 +1149,7 @@ M.call_hook = function(name, params)
 	if M.hooks[name] ~= nil then
 		return M.hooks[name](M, params)
 	end
-	M.error("The hook '" .. name .. "' does not exist.")
+	M.logger.error("The hook '" .. name .. "' does not exist.")
 end
 
 ---@param messages table
@@ -1307,7 +1281,7 @@ end
 ---@return table | nil # query data
 function M.get_query(qid)
 	if not M._queries[qid] then
-		M.error("Query with ID " .. tostring(qid) .. " not found.")
+		M.logger.error("Query with ID " .. tostring(qid) .. " not found.")
 		return nil
 	end
 	return M._queries[qid]
@@ -1323,7 +1297,9 @@ end
 M.query = function(buf, provider, payload, handler, on_exit, callback)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
-		M.error(string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler)))
+		M.logger.error(
+			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
+		)
 		return
 	end
 
@@ -1406,7 +1382,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			end
 
 			if err then
-				M.error(qt.provider .. " query stdout error: " .. vim.inspect(err))
+				M.logger.error(qt.provider .. " query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -1426,7 +1402,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 
 				if qt.response == "" then
-					M.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
+					M.logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
@@ -1654,7 +1630,7 @@ M._toggle_close = function(kind)
 		and vim.api.nvim_win_get_buf(M._toggle[kind].win) == M._toggle[kind].buf
 	then
 		if #vim.api.nvim_list_wins() == 1 then
-			M.warning("Can't close the last window.")
+			M.logger.warning("Can't close the last window.")
 		else
 			M._toggle[kind].close()
 			M._toggle[kind] = nil
@@ -1682,7 +1658,7 @@ M._toggle_resolve = function(kind)
 	elseif kind == "context" then
 		return M._toggle_kind.context
 	end
-	M.warning("Unknown toggle kind: " .. kind)
+	M.logger.warning("Unknown toggle kind: " .. kind)
 	return M._toggle_kind.unknown
 end
 
@@ -2122,7 +2098,7 @@ end,
 M.cmd.ChatNew = function(params, system_prompt, agent)
 	if agent then
 		if not type(agent) == "table" or not agent.provider then
-			M.warning(
+			M.logger.warning(
 				"The `gp.cmd.ChatNew` method signature has changed.\n"
 					.. "Please update your hook functions as demonstrated in the example below:\n\n"
 					.. exampleChatHook
@@ -2178,7 +2154,7 @@ end
 M.cmd.ChatPaste = function(params)
 	-- if there is no selection, do nothing
 	if params.range ~= 2 then
-		M.warning("Please select some text to paste into the chat.")
+		M.logger.warning("Please select some text to paste into the chat.")
 		return
 	end
 
@@ -2226,7 +2202,7 @@ M.cmd.ChatDelete = function()
 
 	-- check if file is in the chat dir
 	if not _H.starts_with(file_name, M.config.chat_dir) then
-		M.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
+		M.logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
 
@@ -2253,7 +2229,7 @@ M.chat_respond = function(params)
 	end
 
 	if not M.can_handle(buf) then
-		M.warning("Another Gp process is already running for this buffer.")
+		M.logger.warning("Another Gp process is already running for this buffer.")
 		return
 	end
 
@@ -2267,7 +2243,7 @@ M.chat_respond = function(params)
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local reason = M.not_chat(buf, file_name)
 	if reason then
-		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
+		M.logger.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
 		return
 	end
 
@@ -2292,7 +2268,7 @@ M.chat_respond = function(params)
 	end
 
 	if header_end == nil then
-		M.error("Error while parsing headers: --- not found. Check your chat template.")
+		M.logger.error("Error while parsing headers: --- not found. Check your chat template.")
 		return
 	end
 
@@ -2478,7 +2454,7 @@ M.cmd.ChatRespond = function(params)
 	-- ensure args is a single positive number
 	local n_requests = tonumber(params.args)
 	if n_requests == nil or math.floor(n_requests) ~= n_requests or n_requests <= 0 then
-		M.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
+		M.logger.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
 		return
 	end
 
@@ -2500,7 +2476,7 @@ end
 M._chat_finder_opened = false
 M.cmd.ChatFinder = function()
 	if M._chat_finder_opened then
-		M.warning("Chat finder is already open")
+		M.logger.warning("Chat finder is already open")
 		return
 	end
 	M._chat_finder_opened = true
@@ -2802,12 +2778,12 @@ end
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
-		M.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
+		M.logger.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
 		return
 	end
 
 	if not M.agents[agent_name] then
-		M.warning("Unknown agent: " .. agent_name)
+		M.logger.warning("Unknown agent: " .. agent_name)
 		return
 	end
 
@@ -2816,14 +2792,14 @@ M.cmd.Agent = function(params)
 	local is_chat = M.not_chat(buf, file_name) == nil
 	if is_chat and M.agents[agent_name].chat then
 		M._state.chat_agent = agent_name
-		M.info("Chat agent: " .. M._state.chat_agent)
+		M.logger.info("Chat agent: " .. M._state.chat_agent)
 	elseif is_chat then
-		M.warning(agent_name .. " is not a Chat agent")
+		M.logger.warning(agent_name .. " is not a Chat agent")
 	elseif M.agents[agent_name].command then
 		M._state.command_agent = agent_name
-		M.info("Command agent: " .. M._state.command_agent)
+		M.logger.info("Command agent: " .. M._state.command_agent)
 	else
-		M.warning(agent_name .. " is not a Command agent")
+		M.logger.warning(agent_name .. " is not a Command agent")
 	end
 
 	M.refresh_state()
@@ -2846,10 +2822,10 @@ M.cmd.NextAgent = function()
 	local set_agent = function(agent_name)
 		if is_chat then
 			M._state.chat_agent = agent_name
-			M.info("Chat agent: " .. agent_name)
+			M.logger.info("Chat agent: " .. agent_name)
 		else
 			M._state.command_agent = agent_name
-			M.info("Command agent: " .. agent_name)
+			M.logger.info("Command agent: " .. agent_name)
 		end
 		M.refresh_state()
 	end
@@ -2868,7 +2844,7 @@ end
 M.get_command_agent = function(name)
 	name = name or M._state.command_agent
 	if M.agents[name] == nil then
-		M.warning("Command Agent " .. name .. " not found, using " .. M._state.command_agent)
+		M.logger.warning("Command Agent " .. name .. " not found, using " .. M._state.command_agent)
 		name = M._state.command_agent
 	end
 	local template = M.config.command_prompt_prefix_template
@@ -2890,7 +2866,7 @@ end
 M.get_chat_agent = function(name)
 	name = name or M._state.chat_agent
 	if M.agents[name] == nil then
-		M.warning("Chat Agent " .. name .. " not found, using " .. M._state.chat_agent)
+		M.logger.warning("Chat Agent " .. name .. " not found, using " .. M._state.chat_agent)
 		name = M._state.chat_agent
 	end
 	local template = M.config.command_prompt_prefix_template
@@ -2925,7 +2901,7 @@ M.cmd.Context = function(params)
 	else
 		local git_root = _H.find_git_root()
 		if git_root == "" then
-			M.warning("Not in a git repository")
+			M.logger.warning("Not in a git repository")
 			return
 		end
 		file_name = git_root .. "/.gp.md"
@@ -2968,7 +2944,7 @@ end,
 ---@param callback function | nil  # callback after completing the prompt
 M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 	if not agent or not type(agent) == "table" or not agent.provider then
-		M.warning(
+		M.logger.warning(
 			"The `gp.Prompt` method signature has changed.\n"
 				.. "Please update your hook functions as demonstrated in the example below:\n\n"
 				.. examplePromptHook
@@ -2989,7 +2965,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		M.warning("Another Gp process is already running for this buffer.")
+		M.logger.warning("Another Gp process is already running for this buffer.")
 		return
 	end
 
@@ -3034,7 +3010,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		selection = table.concat(lines, "\n")
 
 		if selection == "" then
-			M.warning("Please select some text to rewrite")
+			M.logger.warning("Please select some text to rewrite")
 			return
 		end
 	end
@@ -3275,7 +3251,7 @@ end
 M.Whisper = function(language, callback)
 	-- make sure sox is installed
 	if vim.fn.executable("sox") == 0 then
-		M.error("sox is not installed")
+		M.logger.error("sox is not installed")
 		return
 	end
 
@@ -3435,17 +3411,17 @@ M.Whisper = function(language, callback)
 
 		M._H.process(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
 			if code ~= 0 then
-				M.error(string.format("Whisper query exited: %d, %d", code, signal))
+				M.logger.error(string.format("Whisper query exited: %d, %d", code, signal))
 				return
 			end
 
 			if not stdout or stdout == "" or #stdout < 11 then
-				M.error("Whisper query, no stdout: " .. vim.inspect(stdout))
+				M.logger.error("Whisper query, no stdout: " .. vim.inspect(stdout))
 				return
 			end
 			local text = vim.json.decode(stdout).text
 			if not text then
-				M.error("Whisper query, no text: " .. vim.inspect(stdout))
+				M.logger.error("Whisper query, no text: " .. vim.inspect(stdout))
 				return
 			end
 
@@ -3484,7 +3460,7 @@ M.Whisper = function(language, callback)
 	elseif type(rec_cmd) == "string" and rec_options[rec_cmd] then
 		cmd = rec_options[rec_cmd]
 	else
-		M.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
+		M.logger.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
 		close()
 		return
 	end
@@ -3498,7 +3474,7 @@ M.Whisper = function(language, callback)
 		close()
 
 		if code and code ~= cmd.exit_code then
-			M.error(
+			M.logger.error(
 				cmd.cmd
 					.. " exited with code and signal:\ncode: "
 					.. code
@@ -3553,17 +3529,17 @@ end
 M.cmd.ImageAgent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
-		M.info("Image agent: " .. (M._state.image_agent or "none"))
+		M.logger.info("Image agent: " .. (M._state.image_agent or "none"))
 		return
 	end
 
 	if not M.image_agents[agent_name] then
-		M.warning("Unknown image agent: " .. agent_name)
+		M.logger.warning("Unknown image agent: " .. agent_name)
 		return
 	end
 
 	M._state.image_agent = agent_name
-	M.info("Image agent: " .. M._state.image_agent)
+	M.logger.info("Image agent: " .. M._state.image_agent)
 
 	M.refresh_state()
 end
@@ -3642,7 +3618,7 @@ function M.generate_image(prompt, model, quality, style, size)
 		query.raw_response = stdout_data
 		query.error = stderr_data
 		if code ~= 0 then
-			M.error(
+			M.logger.error(
 				"Image generation exited: code: "
 					.. code
 					.. " signal: "
@@ -3664,7 +3640,7 @@ function M.generate_image(prompt, model, quality, style, size)
 				{ prompt = M.config.image_prompt_save, completion = "file", default = M.config.image_dir },
 				function(save_path)
 					if not save_path or save_path == "" then
-						M.info("Image URL: " .. image_url)
+						M.logger.info("Image URL: " .. image_url)
 						return
 					end
 					query.save_path = save_path
@@ -3678,9 +3654,9 @@ function M.generate_image(prompt, model, quality, style, size)
 							query.save_raw_response = save_stdout_data
 							query.save_error = save_stderr_data
 							if save_code == 0 then
-								M.info("Image saved to: " .. save_path)
+								M.logger.info("Image saved to: " .. save_path)
 							else
-								M.error(
+								M.logger.error(
 									"Failed to save image: path: "
 										.. save_path
 										.. " code: "
@@ -3696,7 +3672,7 @@ function M.generate_image(prompt, model, quality, style, size)
 				end
 			)
 		else
-			M.error("Image generation failed: " .. vim.inspect(stdout_data))
+			M.logger.error("Image generation failed: " .. vim.inspect(stdout_data))
 		end
 	end)
 end

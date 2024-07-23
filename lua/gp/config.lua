@@ -77,6 +77,9 @@ local config = {
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
 
+	-- log	file location
+	log_file = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp.nvim.log",
+
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
 
@@ -512,7 +515,7 @@ local config = {
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
 
 			local agent = gp.get_command_agent()
-			gp.info("Implementing selection with agent: " .. agent.name)
+			gp.logger.info("Implementing selection with agent: " .. agent.name)
 
 			gp.Prompt(
 				params,
