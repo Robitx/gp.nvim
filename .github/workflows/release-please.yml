@@ -1,7 +1,8 @@
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["docgen"]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -12,6 +13,7 @@ name: release-please
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - uses: googleapis/release-please-action@v4
         with:
