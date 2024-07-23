@@ -19,12 +19,3 @@ jobs:
         id: release
         with:
           release-type: simple
-      - name: Send to Discord
-        if: ${{ steps.release.outputs.release_created }}
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          RELEASE_NOTES: ${{ steps.release.outputs.body }}
-        run: |
-          curl -H "Content-Type: application/json" -X POST -d '{
-            "content": "New Release: ${{ steps.release.outputs.tag_name }}\n\n```markdown\n${{ steps.release.outputs.body }}\n```"
-          }' $DISCORD_WEBHOOK_URL
