@@ -78,7 +78,7 @@ local config = {
 	curl_params = {},
 
 	-- log	file location
-	log_file = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp.nvim.log",
+	log_file = vim.fn.stdpath("log"):gsub("/$", "") .. "/gp.nvim.log",
 
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
