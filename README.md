@@ -210,7 +210,7 @@ Voice commands (`:GpWhisper*`) depend on `SoX` (Sound eXchange) to handle audio 
 Below is a linked snippet with the default values, but I suggest starting with minimal config possible (just `openai_api_key` if you don't have `OPENAI_API_KEY` env set up). Defaults change over time to improve things, options might get deprecated and so on - it's better to change only things where the default doesn't fit your needs.
 
 <!-- README_REFERENCE_MARKER_REPLACE_NEXT_LINE -->
-https://github.com/Robitx/gp.nvim/blob/79889a4899b9369358ad0fcad1360b5871fe3cef/lua/gp/config.lua#L9-L565
+https://github.com/Robitx/gp.nvim/blob/a062dbea91340fc6423fd06b6c3f84f252ba8f38/lua/gp/config.lua#L9-L565
 
 # Usage
 
