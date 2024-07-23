@@ -39,7 +39,7 @@ local log = function(msg, level, slevel)
 		log_file:close()
 	end
 
-	if level == vim.log.levels.DEBUG then
+	if level >= vim.log.levels.DEBUG then
 		return
 	end
 
@@ -66,6 +66,11 @@ end
 ---@param msg string # debug message
 M.debug = function(msg)
 	log(msg, vim.log.levels.DEBUG, "DEBUG")
+end
+
+---@param msg string # trace message
+M.trace = function(msg)
+	log(msg, vim.log.levels.TRACE, "TRACE")
 end
 
 return M
