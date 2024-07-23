@@ -1,12 +1,14 @@
 local M = {}
 
 local file = "/dev/null"
+local uuid = ""
 
 M._log_history = {}
 
 ---@param path string # path to log file
 M.set_log_file = function(path)
-	M.debug("New neovim instance started, setting log file to " .. path)
+	uuid = string.format("%x", math.random(0, 0xFFFF)) .. string.format("%x", os.time() % 0xFFFF)
+	M.debug("New neovim instance [" .. uuid .. "] started, setting log file to " .. path)
 	local dir = vim.fn.fnamemodify(path, ":h")
 	if vim.fn.isdirectory(dir) == 0 then
 		vim.fn.mkdir(dir, "p")
@@ -26,7 +28,7 @@ end
 ---@param level integer # log level
 ---@param slevel string # log level as string
 local log = function(msg, level, slevel)
-	local raw = string.format("[%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), slevel, msg)
+	local raw = string.format("[%s] [%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), uuid, slevel, msg)
 
 	M._log_history[#M._log_history + 1] = raw
 	if #M._log_history > 100 then
