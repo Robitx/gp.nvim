@@ -1,3 +1,4 @@
+name: discord
 on:
   workflow_dispatch:
   release:
