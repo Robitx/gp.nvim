@@ -1,12 +1,17 @@
 name: docgen
 on:
   push:
+    branches:
+      - main
+      - docs
   pull_request:
-  workflow_dispatch:
+    branches:
+      - main
+      - docs
 jobs:
   docs:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/docs' }}
+    if: ${{ ! contains(github.event.pull_request.head.ref, 'release-please') }}
     steps:
       - uses: actions/checkout@v3
         with:
