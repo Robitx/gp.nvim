@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/Robitx/gp.nvim/compare/v3.1.0...v3.2.0) (2024-07-23)
+
+
+### Features
+
+* replace gpt3.5 agents with gpt-4o-mini ([a062dbe](https://github.com/Robitx/gp.nvim/commit/a062dbea91340fc6423fd06b6c3f84f252ba8f38))
+
 ## [3.1.0](https://github.com/Robitx/gp.nvim/compare/v3.0.1...v3.1.0) (2024-07-23)
 
 
