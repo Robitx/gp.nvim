@@ -24,7 +24,7 @@ end
 
 ---@param msg string # message to log
 ---@param level integer # log level
----@param slevel	string # log level as string
+---@param slevel string # log level as string
 local log = function(msg, level, slevel)
 	local raw = string.format("[%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), slevel, msg)
 
