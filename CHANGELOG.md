@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/Robitx/gp.nvim/compare/v3.3.0...v3.4.0) (2024-07-24)
+
+
+### Features
+
+* default to openai compatible headers ([#168](https://github.com/Robitx/gp.nvim/issues/168)) ([7b84846](https://github.com/Robitx/gp.nvim/commit/7b8484667b6ddd16189b156f72c1af0ff8e35131))
+
 ## [3.3.0](https://github.com/Robitx/gp.nvim/compare/v3.2.0...v3.3.0) (2024-07-23)
 
 
