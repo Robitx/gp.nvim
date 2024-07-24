@@ -1440,9 +1440,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			"-H",
 			"Authorization: Bearer " .. bearer,
 		}
-	end
-
-	if provider == "openai" then
+	elseif provider == "openai" then
 		headers = {
 			"-H",
 			"Authorization: Bearer " .. bearer,
@@ -1450,30 +1448,12 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			"-H",
 			"api-key: " .. bearer,
 		}
-	end
-
-	if provider == "openrouter" then
-		headers = {
-			"-H",
-			"Authorization: Bearer " .. bearer,
-		}
-	end
-
-	if provider == "pplx" then
-		headers = {
-			"-H",
-			"Authorization: Bearer " .. bearer,
-		}
-	end
-
-	if provider == "googleai" then
+	elseif provider == "googleai" then
 		headers = {}
 		endpoint = M._H.template_replace(endpoint, "{{secret}}", bearer)
 		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
 		payload.model = nil
-	end
-
-	if provider == "anthropic" then
+	elseif provider == "anthropic" then
 		headers = {
 			"-H",
 			"x-api-key: " .. bearer,
@@ -1482,14 +1462,17 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			"-H",
 			"anthropic-beta: messages-2023-12-15",
 		}
-	end
-
-	if provider == "azure" then
+	elseif provider == "azure" then
 		headers = {
 			"-H",
 			"api-key: " .. bearer,
 		}
 		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
+	else -- default to openai compatible headers
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+		}
 	end
 
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
