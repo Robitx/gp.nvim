@@ -41,6 +41,7 @@ local deprecated = {
 --------------------------------------------------------------------------------
 -- Module structure
 --------------------------------------------------------------------------------
+local uv = vim.uv or vim.loop
 
 local _H = {}
 local M = {
@@ -181,7 +182,7 @@ M.cmd.Stop = function(signal)
 
 	for _, handle_info in ipairs(M._handles) do
 		if handle_info.handle ~= nil and not handle_info.handle:is_closing() then
-			vim.loop.kill(handle_info.pid, signal or 15)
+			uv.kill(handle_info.pid, signal or 15)
 		end
 	end
 
@@ -189,8 +190,8 @@ M.cmd.Stop = function(signal)
 end
 
 -- add a process handle and its corresponding pid to the _handles table
----@param handle userdata # the Lua uv handle
----@param pid number # the process id
+---@param handle userdata | nil # the Lua uv handle
+---@param pid number |string # the process id
 ---@param buf number | nil # buffer number
 M.add_handle = function(handle, pid, buf)
 	table.insert(M._handles, { handle = handle, pid = pid, buf = buf })
@@ -212,7 +213,7 @@ M.can_handle = function(buf)
 end
 
 -- remove a process handle from the _handles table using its pid
----@param pid number # the process id to find the corresponding handle
+---@param pid number | string # the process id to find the corresponding handle
 M.remove_handle = function(pid)
 	for i, handle_info in ipairs(M._handles) do
 		if handle_info.pid == pid then
@@ -244,8 +245,8 @@ end
 ---@param err_reader function | nil # stderr reader function(err, data)
 _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local handle, pid
-	local stdout = vim.loop.new_pipe(false)
-	local stderr = vim.loop.new_pipe(false)
+	local stdout = uv.new_pipe(false)
+	local stderr = uv.new_pipe(false)
 	local stdout_data = ""
 	local stderr_data = ""
 
@@ -268,7 +269,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 		M.remove_handle(pid)
 	end))
 
-	handle, pid = vim.loop.spawn(cmd, {
+	handle, pid = uv.spawn(cmd, {
 		args = args,
 		stdio = { nil, stdout, stderr },
 		hide = true,
@@ -277,7 +278,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	M.add_handle(handle, pid, buf)
 
-	vim.loop.read_start(stdout, function(err, data)
+	uv.read_start(stdout, function(err, data)
 		if err then
 			M.logger.error("Error reading stdout: " .. vim.inspect(err))
 		end
@@ -289,7 +290,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 		end
 	end)
 
-	vim.loop.read_start(stderr, function(err, data)
+	uv.read_start(stderr, function(err, data)
 		if err then
 			M.logger.error("Error reading stderr: " .. vim.inspect(err))
 		end
@@ -383,8 +384,8 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 
 	local resize = function()
 		-- get editor dimensions
-		local ew = vim.api.nvim_get_option("columns")
-		local eh = vim.api.nvim_get_option("lines")
+		local ew = vim.api.nvim_get_option_value("columns", {})
+		local eh = vim.api.nvim_get_option_value("lines", {})
 
 		local w, h, r, c = size_func(ew, eh)
 
@@ -474,18 +475,15 @@ end
 ---@param buf number # buffer number
 ---@return string # returns filetype of specified buffer
 _H.get_filetype = function(buf)
-	return vim.api.nvim_buf_get_option(buf, "filetype")
+	return vim.api.nvim_get_option_value("filetype", { buf = buf })
 end
 
--- returns rendered template with specified key replaced by value
+---@param template string # template string
+---@param key string # key to replace
+---@param value string | table | nil # value to replace key with (nil => "")
+---@return string # returns rendered template with specified key replaced by value
 _H.template_replace = function(template, key, value)
-	if template == nil then
-		return nil
-	end
-
-	if value == nil then
-		return template:gsub(key, "")
-	end
+	value = value or ""
 
 	if type(value) == "table" then
 		value = table.concat(value, "\n")
@@ -497,14 +495,10 @@ _H.template_replace = function(template, key, value)
 	return template
 end
 
----@param template string | nil # template string
+---@param template string # template string
 ---@param key_value_pairs table # table with key value pairs
----@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
+---@return string # returns rendered template with keys replaced by values from key_value_pairs
 _H.template_render = function(template, key_value_pairs)
-	if template == nil then
-		return nil
-	end
-
 	for key, value in pairs(key_value_pairs) do
 		template = _H.template_replace(template, key, value)
 	end
@@ -1127,7 +1121,9 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
+			if agent then
+				M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
+			end
 		end
 
 		M.cmd[command] = function(params)
@@ -1374,7 +1370,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			end
 		end
 
-		-- closure for vim.loop.read_start(stdout, fn)
+		-- closure for uv.read_start(stdout, fn)
 		return function(err, chunk)
 			local qt = M.get_query(qid)
 			if not qt then
@@ -1508,7 +1504,7 @@ end
 M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	buf = buf or vim.api.nvim_get_current_buf()
 	prefix = prefix or ""
-	local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
+	local first_line = line or vim.api.nvim_win_get_cursor(win or 0)[1] - 1
 	local finished_lines = 0
 	local skip_first_undojoin = not first_undojoin
 
@@ -1730,7 +1726,7 @@ M.prep_chat = function(buf, file_name)
 	M.prep_md(buf)
 
 	if M.config.chat_prompt_buf_type then
-		vim.api.nvim_buf_set_option(buf, "buftype", "prompt")
+		vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
 		vim.fn.prompt_setprompt(buf, "")
 		vim.fn.prompt_setcallback(buf, function()
 			M.cmd.ChatRespond({ args = "" })
@@ -1908,7 +1904,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent 0read " .. file_name)
 			vim.api.nvim_command("silent file " .. file_name)
 			-- set the filetype to markdown
-			vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+			vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 		else
 			-- move cursor to the beginning of the file and scroll to the end
 			M._H.feedkeys("ggG", "xn")
@@ -1951,7 +1947,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 		return buf
 	end
 
-	vim.api.nvim_buf_set_option(buf, "buflisted", false)
+	vim.api.nvim_set_option_value("buflisted", false, { buf = buf })
 
 	if target == M.BufTarget.split or target == M.BufTarget.vsplit then
 		close = function()
@@ -1986,7 +1982,7 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 
 	-- prepare filename
 	local time = os.date("%Y-%m-%d.%H-%M-%S")
-	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+	local stamp = tostring(math.floor(uv.hrtime() / 1000000) % 1000)
 	-- make sure stamp is 3 digits
 	while #stamp < 3 do
 		stamp = "0" .. stamp
@@ -2501,7 +2497,7 @@ M.cmd.ChatFinder = function()
 		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
-	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
+	vim.api.nvim_set_option_value("filetype", "markdown", { buf = preview_buf })
 
 	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
 		nil,
@@ -2921,7 +2917,7 @@ end,
 ]]
 
 ---@param params table  # vim command parameters such as range, args, etc.
----@param target integer | function | table  # where to put the response
+---@param target number | function | table  # where to put the response
 ---@param agent table  # obtained from get_command_agent or get_chat_agent
 ---@param template string  # template with model instructions
 ---@param prompt string | nil  # nil for non interactive commads
@@ -3156,7 +3152,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
-			vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+			vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
@@ -3182,7 +3178,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				buffer = buf,
 				group = group,
 				callback = function(ctx)
-					vim.api.nvim_buf_set_option(ctx.buf, "buftype", "")
+					vim.api.nvim_set_option_value("buftype", "", { buf = ctx.buf })
 					vim.api.nvim_buf_set_name(ctx.buf, ctx.file)
 					vim.api.nvim_command("w!")
 					vim.api.nvim_del_augroup_by_id(ctx.group)
@@ -3190,7 +3186,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			})
 
 			local ft = target.filetype or filetype
-			vim.api.nvim_buf_set_option(buf, "filetype", ft)
+			vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
 			handler = M.create_handler(buf, win, 0, false, "", cursor)
 		end
@@ -3307,7 +3303,7 @@ M.Whisper = function(language, callback)
 
 	-- animated instructions in the popup
 	local counter = 0
-	local timer = vim.loop.new_timer()
+	local timer = uv.new_timer()
 	timer:start(
 		0,
 		200,
