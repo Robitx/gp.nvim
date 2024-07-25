@@ -2184,7 +2184,7 @@ M.cmd.ChatDelete = function()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 
 	-- check if file is in the chat dir
-	if not _H.starts_with(file_name, M.config.chat_dir) then
+	if not _H.starts_with(file_name, vim.fn.resolve(M.config.chat_dir)) then
 		M.logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
