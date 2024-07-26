@@ -10,7 +10,6 @@ local config = require("gp.config")
 
 local M = {
 	_Name = "Gp", -- plugin name
-	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
 	agents = {}, -- table of agents
 	image_agents = {}, -- table of image agents
@@ -609,37 +608,6 @@ M.prepare_payload = function(messages, model, provider)
 	}
 end
 
----@param N number # number of queries to keep
----@param age number # age of queries to keep in seconds
-function M.cleanup_old_queries(N, age)
-	local current_time = os.time()
-
-	local query_count = 0
-	for _ in pairs(M._queries) do
-		query_count = query_count + 1
-	end
-
-	if query_count <= N then
-		return
-	end
-
-	for qid, query_data in pairs(M._queries) do
-		if current_time - query_data.timestamp > age then
-			M._queries[qid] = nil
-		end
-	end
-end
-
----@param qid string # query id
----@return table | nil # query data
-function M.get_query(qid)
-	if not M._queries[qid] then
-		M.logger.error("Query with ID " .. tostring(qid) .. " not found.")
-		return nil
-	end
-	return M._queries[qid]
-end
-
 -- gpt query
 ---@param buf number | nil # buffer number
 ---@param provider string # provider name
@@ -661,7 +629,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 	end
 
 	local qid = M.helpers.uuid()
-	M._queries[qid] = {
+	M.tasker.set_query(qid, {
 		timestamp = os.time(),
 		buf = buf,
 		provider = provider,
@@ -674,16 +642,14 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 		last_line = -1,
 		ns_id = nil,
 		ex_id = nil,
-	}
-
-	M.cleanup_old_queries(8, 60)
+	})
 
 	local out_reader = function()
 		local buffer = ""
 
 		---@param lines_chunk string
 		local function process_lines(lines_chunk)
-			local qt = M.get_query(qid)
+			local qt = M.tasker.get_query(qid)
 			if not qt then
 				return
 			end
@@ -729,7 +695,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 
 		-- closure for uv.read_start(stdout, fn)
 		return function(err, chunk)
-			local qt = M.get_query(qid)
+			local qt = M.tasker.get_query(qid)
 			if not qt then
 				return
 			end
@@ -877,7 +843,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 
 	local response = ""
 	return vim.schedule_wrap(function(qid, chunk)
-		local qt = M.get_query(qid)
+		local qt = M.tasker.get_query(qid)
 		if not qt then
 			return
 		end
@@ -1686,7 +1652,7 @@ M.chat_respond = function(params)
 		M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 		M.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
-			local qt = M.get_query(qid)
+			local qt = M.tasker.get_query(qid)
 			if not qt then
 				return
 			end
@@ -2362,7 +2328,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		local handler = function() end
 		-- default on_exit strips trailing backticks if response was markdown snippet
 		local on_exit = function(qid)
-			local qt = M.get_query(qid)
+			local qt = M.tasker.get_query(qid)
 			if not qt then
 				return
 			end
