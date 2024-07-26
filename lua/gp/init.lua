@@ -23,178 +23,12 @@ local M = {
 	tasker = require("gp.tasker"), -- tasker module
 	helpers = require("gp.helper"), -- helper functions
 	deprecator = require("gp.deprecator"), -- handle deprecated options
+	render = require("gp.render"), -- render module
 }
 
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
-
----@param buf number | nil # buffer number
----@param title string # title of the popup
----@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
----@param opts table # options - gid=nul, on_leave=false, persist=false
----@param style table # style - border="single"
----returns table with buffer, window, close function, resize function
-M.create_popup = function(buf, title, size_func, opts, style)
-	opts = opts or {}
-	style = style or {}
-	local border = style.border or "single"
-
-	-- create buffer
-	buf = buf or vim.api.nvim_create_buf(false, not opts.persist)
-
-	-- setting to the middle of the editor
-	local options = {
-		relative = "editor",
-		-- dummy values gets resized later
-		width = 10,
-		height = 10,
-		row = 10,
-		col = 10,
-		style = "minimal",
-		border = border,
-		title = title,
-		title_pos = "center",
-	}
-
-	-- open the window and return the buffer
-	local win = vim.api.nvim_open_win(buf, true, options)
-
-	local resize = function()
-		-- get editor dimensions
-		local ew = vim.api.nvim_get_option_value("columns", {})
-		local eh = vim.api.nvim_get_option_value("lines", {})
-
-		local w, h, r, c = size_func(ew, eh)
-
-		-- setting to the middle of the editor
-		local o = {
-			relative = "editor",
-			-- half of the editor width
-			width = math.floor(w),
-			-- half of the editor height
-			height = math.floor(h),
-			-- center of the editor
-			row = math.floor(r),
-			-- center of the editor
-			col = math.floor(c),
-		}
-		vim.api.nvim_win_set_config(win, o)
-	end
-
-	local pgid = opts.gid or M.helpers.create_augroup("GpPopup", { clear = true })
-
-	-- cleanup on exit
-	local close = M.tasker.once(function()
-		vim.schedule(function()
-			-- delete only internal augroups
-			if not opts.gid then
-				vim.api.nvim_del_augroup_by_id(pgid)
-			end
-			if win and vim.api.nvim_win_is_valid(win) then
-				vim.api.nvim_win_close(win, true)
-			end
-			if opts.persist then
-				return
-			end
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_delete(buf, { force = true })
-			end
-		end)
-	end)
-
-	-- resize on vim resize
-	M.helpers.autocmd("VimResized", { buf }, resize, pgid)
-
-	-- cleanup on buffer exit
-	M.helpers.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, pgid)
-
-	-- optional cleanup on buffer leave
-	if opts.on_leave then
-		-- close when entering non-popup buffer
-		M.helpers.autocmd({ "BufEnter" }, nil, function(event)
-			local b = event.buf
-			if b ~= buf then
-				close()
-				-- make sure to set current buffer after close
-				vim.schedule(vim.schedule_wrap(function()
-					vim.api.nvim_set_current_buf(b)
-				end))
-			end
-		end, pgid)
-	end
-
-	-- cleanup on escape exit
-	if opts.escape then
-		M.helpers.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
-		M.helpers.set_keymap({ buf }, { "n", "v", "i" }, "<C-c>", close, title .. " close on escape")
-	end
-
-	resize()
-	return buf, win, close, resize
-end
-
--- tries to find an .gp.md file in the root of current git repo
----@return string # returns instructions from the .gp.md file
-M.repo_instructions = function()
-	local git_root = M.helpers.find_git_root()
-
-	if git_root == "" then
-		return ""
-	end
-
-	local instruct_file = git_root .. "/.gp.md"
-
-	if vim.fn.filereadable(instruct_file) == 0 then
-		return ""
-	end
-
-	local lines = vim.fn.readfile(instruct_file)
-	return table.concat(lines, "\n")
-end
-
-M.template_render = function(template, command, selection, filetype, filename)
-	local git_root = M.helpers.find_git_root(filename)
-	if git_root ~= "" then
-		local git_root_plus_one = vim.fn.fnamemodify(git_root, ":h")
-		if git_root_plus_one ~= "" then
-			filename = filename:sub(#git_root_plus_one + 2)
-		end
-	end
-
-	local key_value_pairs = {
-		["{{command}}"] = command,
-		["{{selection}}"] = selection,
-		["{{filetype}}"] = filetype,
-		["{{filename}}"] = filename,
-	}
-	return M.helpers.template_render(template, key_value_pairs)
-end
-
----@param params table # table with command args
----@param origin_buf number # selection origin buffer
----@param target_buf number # selection target buffer
-M.append_selection = function(params, origin_buf, target_buf)
-	-- prepare selection
-	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
-	local selection = table.concat(lines, "\n")
-	if selection ~= "" then
-		local filetype = M.helpers.get_filetype(origin_buf)
-		local fname = vim.api.nvim_buf_get_name(origin_buf)
-		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
-		if rendered then
-			selection = rendered
-		end
-	end
-
-	-- delete whitespace lines at the end of the file
-	local last_content_line = M.helpers.last_content_line(target_buf)
-	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
-
-	-- insert selection lines
-	lines = vim.split("\n" .. selection, "\n")
-	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
-end
 
 function M.refresh_copilot_bearer()
 	if not M.providers.copilot or not M.providers.copilot.secret then
@@ -305,7 +139,6 @@ M.setup = function(opts)
 	M.deprecator.report()
 
 	M.logger.set_log_file(M.config.log_file)
-
 
 	-- make sure _dirs exists
 	for k, v in pairs(M.config) do
@@ -970,8 +803,8 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 		}
 	elseif provider == "googleai" then
 		headers = {}
-		endpoint = M.helpers.template_replace(endpoint, "{{secret}}", bearer)
-		endpoint = M.helpers.template_replace(endpoint, "{{model}}", payload.model)
+		endpoint = M.render.template_replace(endpoint, "{{secret}}", bearer)
+		endpoint = M.render.template_replace(endpoint, "{{model}}", payload.model)
 		payload.model = nil
 	elseif provider == "anthropic" then
 		headers = {
@@ -987,7 +820,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 			"-H",
 			"api-key: " .. bearer,
 		}
-		endpoint = M.helpers.template_replace(endpoint, "{{model}}", payload.model)
+		endpoint = M.render.template_replace(endpoint, "{{model}}", payload.model)
 	else -- default to openai compatible headers
 		headers = {
 			"-H",
@@ -1317,18 +1150,6 @@ M.prep_chat = function(buf, file_name)
 	end
 end
 
-M.prep_context = function(buf, file_name)
-	if not M.helpers.ends_with(file_name, ".gp.md") then
-		return
-	end
-
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-
-	M.prep_md(buf)
-end
-
 M.buf_handler = function()
 	local gid = M.helpers.create_augroup("GpBufHandler", { clear = true })
 
@@ -1412,7 +1233,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 	if target == M.BufTarget.popup then
 		local old_buf = M.helpers.get_buffer(file_name)
 
-		buf, win, close, _ = M.create_popup(old_buf, M._Name .. " Popup", function(w, h)
+		buf, win, close, _ = M.render.popup(old_buf, M._Name .. " Popup", function(w, h)
 			local top = M.config.style_popup_margin_top or 2
 			local bottom = M.config.style_popup_margin_bottom or 8
 			local left = M.config.style_popup_margin_left or 1
@@ -1542,7 +1363,7 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		system_prompt = ""
 	end
 
-	local template = M.helpers.template_render(M.config.chat_template or require("gp.defaults").chat_template, {
+	local template = M.render.template(M.config.chat_template or require("gp.defaults").chat_template, {
 		["{{filename}}"] = string.match(filename, "([^/]+)$"),
 		["{{optional_headers}}"] = model .. provider .. system_prompt,
 		["{{user_prefix}}"] = M.config.chat_user_prefix,
@@ -1567,7 +1388,7 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 	local buf = M.open_buf(filename, target, M._toggle_kind.chat, toggle)
 
 	if params.range == 2 then
-		M.append_selection(params, cbuf, buf)
+		M.render.append_selection(params, cbuf, buf, M.config.template_selection)
 	end
 	M.helpers.feedkeys("G", "xn")
 	return buf
@@ -1684,7 +1505,7 @@ M.cmd.ChatPaste = function(params)
 	end
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
-	M.append_selection(params, cbuf, buf)
+	M.render.append_selection(params, cbuf, buf, M.config.template_selection)
 	M.helpers.feedkeys("G", "xn")
 end
 
@@ -1812,7 +1633,7 @@ M.chat_respond = function(params)
 		agent_suffix = M.config.chat_assistant_prefix[2] or ""
 	end
 	---@diagnostic disable-next-line: cast-local-type
-	agent_suffix = M.helpers.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
+	agent_suffix = M.render.template(agent_suffix, { ["{{agent}}"] = agent_name })
 
 	local old_default_user_prefix = "🗨:"
 	for index = start_index, end_index do
@@ -1986,7 +1807,7 @@ M.cmd.ChatFinder = function()
 	local bottom = M.config.style_chat_finder_margin_bottom or 8
 	local left = M.config.style_chat_finder_margin_left or 1
 	local right = M.config.style_chat_finder_margin_right or 2
-	local picker_buf, picker_win, picker_close, picker_resize = M.create_popup(
+	local picker_buf, picker_win, picker_close, picker_resize = M.render.popup(
 		nil,
 		"Picker: j/k <Esc>|exit <Enter>|open dd|del i|srch",
 		function(w, h)
@@ -1998,7 +1819,7 @@ M.cmd.ChatFinder = function()
 		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
-	local preview_buf, preview_win, preview_close, preview_resize = M.create_popup(
+	local preview_buf, preview_win, preview_close, preview_resize = M.render.popup(
 		nil,
 		"Preview (edits are ephemeral)",
 		function(w, h)
@@ -2012,7 +1833,7 @@ M.cmd.ChatFinder = function()
 
 	vim.api.nvim_set_option_value("filetype", "markdown", { buf = preview_buf })
 
-	local command_buf, command_win, command_close, command_resize = M.create_popup(
+	local command_buf, command_win, command_close, command_resize = M.render.popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
 			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>|open/float/split/vsplit/tab/toggle",
@@ -2336,7 +2157,7 @@ M.get_command_agent = function(name)
 		name = M._state.command_agent
 	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M.helpers.template_render(template, { ["{{agent}}"] = name })
+	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2358,7 +2179,7 @@ M.get_chat_agent = function(name)
 		name = M._state.chat_agent
 	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M.helpers.template_render(template, { ["{{agent}}"] = name })
+	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2369,6 +2190,37 @@ M.get_chat_agent = function(name)
 		system_prompt = system_prompt,
 		provider = provider,
 	}
+end
+
+-- tries to find an .gp.md file in the root of current git repo
+---@return string # returns instructions from the .gp.md file
+M.repo_instructions = function()
+	local git_root = M.helpers.find_git_root()
+
+	if git_root == "" then
+		return ""
+	end
+
+	local instruct_file = git_root .. "/.gp.md"
+
+	if vim.fn.filereadable(instruct_file) == 0 then
+		return ""
+	end
+
+	local lines = vim.fn.readfile(instruct_file)
+	return table.concat(lines, "\n")
+end
+
+M.prep_context = function(buf, file_name)
+	if not M.helpers.ends_with(file_name, ".gp.md") then
+		return
+	end
+
+	if buf ~= vim.api.nvim_get_current_buf() then
+		return
+	end
+
+	M.prep_md(buf)
 end
 
 M.cmd.Context = function(params)
@@ -2407,7 +2259,7 @@ M.cmd.Context = function(params)
 	buf = M.open_buf(file_name, target, M._toggle_kind.context, true)
 
 	if params.range == 2 then
-		M.append_selection(params, cbuf, buf)
+		M.render.append_selection(params, cbuf, buf, M.config.template_selection)
 	end
 
 	M.helpers.feedkeys("G", "xn")
@@ -2601,7 +2453,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		local filetype = M.helpers.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local sys_prompt = M.template_render(agent.system_prompt, command, selection, filetype, filename)
+		local sys_prompt = M.render.prompt_template(agent.system_prompt, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
@@ -2610,7 +2462,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			table.insert(messages, { role = "system", content = repo_instructions })
 		end
 
-		local user_prompt = M.template_render(template, command, selection, filetype, filename)
+		local user_prompt = M.render.prompt_template(template, command, selection, filetype, filename)
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
@@ -2645,7 +2497,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
 			local popup_close = nil
-			buf, win, popup_close, _ = M.create_popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
+			buf, win, popup_close, _ = M.render.popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
 				local top = M.config.style_popup_margin_top or 2
 				local bottom = M.config.style_popup_margin_bottom or 8
 				local left = M.config.style_popup_margin_left or 1
@@ -2797,7 +2649,7 @@ M.Whisper = function(language, callback)
 	local gid = M.helpers.create_augroup("GpWhisper", { clear = true })
 
 	-- create popup
-	local buf, _, close_popup, _ = M.create_popup(
+	local buf, _, close_popup, _ = M.render.popup(
 		nil,
 		M._Name .. " Whisper",
 		function(w, h)
@@ -3034,7 +2886,7 @@ end
 ---@return table # { cmd_prefix, name, model, quality, style, size }
 M.get_image_agent = function()
 	local template = M.config.image_prompt_prefix_template
-	local cmd_prefix = M.helpers.template_render(template, { ["{{agent}}"] = M._state.image_agent })
+	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = M._state.image_agent })
 	local name = M._state.image_agent
 	local model = M.image_agents[name].model
 	local quality = M.image_agents[name].quality

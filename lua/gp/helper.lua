@@ -124,34 +124,6 @@ _H.get_filetype = function(buf)
 	return vim.api.nvim_get_option_value("filetype", { buf = buf })
 end
 
----@param template string # template string
----@param key string # key to replace
----@param value string | table | nil # value to replace key with (nil => "")
----@return string # returns rendered template with specified key replaced by value
-_H.template_replace = function(template, key, value)
-	value = value or ""
-
-	if type(value) == "table" then
-		value = table.concat(value, "\n")
-	end
-
-	value = value:gsub("%%", "%%%%")
-	template = template:gsub(key, value)
-	template = template:gsub("%%%%", "%%")
-	return template
-end
-
----@param template string # template string
----@param key_value_pairs table # table with key value pairs
----@return string # returns rendered template with keys replaced by values from key_value_pairs
-_H.template_render = function(template, key_value_pairs)
-	for key, value in pairs(key_value_pairs) do
-		template = _H.template_replace(template, key, value)
-	end
-
-	return template
-end
-
 ---@param line number # line number
 ---@param buf number # buffer number
 ---@param win number | nil # window number
