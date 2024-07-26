@@ -136,6 +136,10 @@ R.popup = function(buf, title, size_func, opts, style)
 			-- center of the editor
 			col = math.floor(c),
 		}
+		if o.width <= 0 or o.height <= 0 then
+			logger.error("Invalid popup size (window too small to render)")
+			return
+		end
 		vim.api.nvim_win_set_config(win, o)
 	end
 

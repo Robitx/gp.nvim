@@ -37,9 +37,9 @@ local deprecated = {
 M.is_valid = function(k, v)
 	if deprecated[k] then
 		table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
-		return true
+		return false
 	end
-	return false
+	return true
 end
 
 M.report = function()
