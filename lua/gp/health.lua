@@ -70,15 +70,7 @@ function M.check()
 		end
 	end
 
-	if gp._deprecated and #gp._deprecated > 0 then
-		local msg = "deprecated config option(s) in setup():"
-		for _, v in ipairs(gp._deprecated) do
-			msg = msg .. "\n\n- " .. v.msg
-		end
-		vim.health.warn(msg)
-	else
-		vim.health.ok("no deprecated config options")
-	end
+	require("gp.deprecator").check_health()
 end
 
 return M
