@@ -9,9 +9,21 @@ local uv = vim.uv or vim.loop
 local M = {}
 M._handles = {}
 
+---@param fn function # function to wrap so it only gets called once
+M.once = function(fn)
+	local once = false
+	return function(...)
+		if once then
+			return
+		end
+		once = true
+		fn(...)
+	end
+end
+
 -- add a process handle and its corresponding pid to the _handles table
 ---@param handle userdata | nil # the Lua uv handle
----@param pid number |string # the process id
+---@param pid number | string # the process id
 ---@param buf number | nil # buffer number
 M.add_handle = function(handle, pid, buf)
 	table.insert(M._handles, { handle = handle, pid = pid, buf = buf })
@@ -25,18 +37,6 @@ M.remove_handle = function(pid)
 			table.remove(M._handles, i)
 			return
 		end
-	end
-end
-
----@param fn function # function to wrap so it only gets called once
-M.once = function(fn)
-	local once = false
-	return function(...)
-		if once then
-			return
-		end
-		once = true
-		fn(...)
 	end
 end
 
