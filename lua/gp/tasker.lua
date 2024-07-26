@@ -175,7 +175,6 @@ M.grep_directory = function(buf, directory, pattern, callback)
 					lnum = line_number,
 					line = line_text,
 				})
-				-- extract line number
 			end
 		end
 		table.sort(results, function(a, b)

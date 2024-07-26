@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- Generic helper functions
+-- Generic independent helper functions
 --------------------------------------------------------------------------------
 
 local logger = require("gp.logger")
