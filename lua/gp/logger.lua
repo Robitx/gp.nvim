@@ -1,3 +1,7 @@
+--------------------------------------------------------------------------------
+-- Logger module
+--------------------------------------------------------------------------------
+
 local M = {}
 
 local file = "/dev/null"
@@ -27,10 +31,13 @@ end
 ---@param msg string # message to log
 ---@param level integer # log level
 ---@param slevel string # log level as string
-local log = function(msg, level, slevel)
+---@param sensitive boolean | nil # sensitive log
+local log = function(msg, level, slevel, sensitive)
 	local raw = string.format("[%s] [%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), uuid, slevel, msg)
 
-	M._log_history[#M._log_history + 1] = raw
+	if not sensitive then
+		M._log_history[#M._log_history + 1] = raw
+	end
 	if #M._log_history > 100 then
 		table.remove(M._log_history, 1)
 	end
@@ -46,33 +53,38 @@ local log = function(msg, level, slevel)
 	end
 
 	vim.schedule(function()
-		vim.notify(msg, level, { title = "gp.nvim" })
+		vim.notify("Gp.nvim: " .. msg, level, { title = "Gp.nvim" })
 	end)
 end
 
 ---@param msg string # error message
-M.error = function(msg)
-	log(msg, vim.log.levels.ERROR, "ERROR")
+---@param sensitive boolean | nil # sensitive log
+M.error = function(msg, sensitive)
+	log(msg, vim.log.levels.ERROR, "ERROR", sensitive)
 end
 
 ---@param msg string # warning message
-M.warning = function(msg)
-	log(msg, vim.log.levels.WARN, "WARNING")
+---@param sensitive boolean | nil # sensitive log
+M.warning = function(msg, sensitive)
+	log(msg, vim.log.levels.WARN, "WARNING", sensitive)
 end
 
 ---@param msg string # plain message
-M.info = function(msg)
-	log(msg, vim.log.levels.INFO, "INFO")
+---@param sensitive boolean | nil # sensitive log
+M.info = function(msg, sensitive)
+	log(msg, vim.log.levels.INFO, "INFO", sensitive)
 end
 
 ---@param msg string # debug message
-M.debug = function(msg)
-	log(msg, vim.log.levels.DEBUG, "DEBUG")
+---@param sensitive boolean | nil # sensitive log
+M.debug = function(msg, sensitive)
+	log(msg, vim.log.levels.DEBUG, "DEBUG", sensitive)
 end
 
 ---@param msg string # trace message
-M.trace = function(msg)
-	log(msg, vim.log.levels.TRACE, "TRACE")
+---@param sensitive boolean | nil # sensitive log
+M.trace = function(msg, sensitive)
+	log(msg, vim.log.levels.TRACE, "TRACE", sensitive)
 end
 
 return M
