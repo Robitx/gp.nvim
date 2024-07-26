@@ -6,13 +6,13 @@ local logger = require("gp.logger")
 local helpers = require("gp.helper")
 local tasker = require("gp.tasker")
 
-local R = {}
+local M = {}
 
 ---@param template string # template string
 ---@param key string # key to replace
 ---@param value string | table | nil # value to replace key with (nil => "")
 ---@return string # returns rendered template with specified key replaced by value
-R.template_replace = function(template, key, value)
+M.template_replace = function(template, key, value)
 	value = value or ""
 
 	if type(value) == "table" then
@@ -28,9 +28,9 @@ end
 ---@param template string # template string
 ---@param key_value_pairs table # table with key value pairs
 ---@return string # returns rendered template with keys replaced by values from key_value_pairs
-R.template = function(template, key_value_pairs)
+M.template = function(template, key_value_pairs)
 	for key, value in pairs(key_value_pairs) do
-		template = R.template_replace(template, key, value)
+		template = M.template_replace(template, key, value)
 	end
 
 	return template
@@ -41,7 +41,7 @@ end
 ---@param selection string | nil # selection
 ---@param filetype string | nil # filetype
 ---@param filename string | nil # filename
-R.prompt_template = function(template, command, selection, filetype, filename)
+M.prompt_template = function(template, command, selection, filetype, filename)
 	local git_root = helpers.find_git_root(filename)
 	if git_root ~= "" then
 		local git_root_plus_one = vim.fn.fnamemodify(git_root, ":h")
@@ -57,21 +57,21 @@ R.prompt_template = function(template, command, selection, filetype, filename)
 		["{{filetype}}"] = filetype,
 		["{{filename}}"] = filename,
 	}
-	return R.template(template, key_value_pairs)
+	return M.template(template, key_value_pairs)
 end
 
 ---@param params table # table with command args
 ---@param origin_buf number # selection origin buffer
 ---@param target_buf number # selection target buffer
 ---@param template string # template to render
-R.append_selection = function(params, origin_buf, target_buf, template)
+M.append_selection = function(params, origin_buf, target_buf, template)
 	-- prepare selection
 	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
 	local selection = table.concat(lines, "\n")
 	if selection ~= "" then
 		local filetype = helpers.get_filetype(origin_buf)
 		local fname = vim.api.nvim_buf_get_name(origin_buf)
-		local rendered = R.prompt_template(template, "", selection, filetype, fname)
+		local rendered = M.prompt_template(template, "", selection, filetype, fname)
 		if rendered then
 			selection = rendered
 		end
@@ -92,7 +92,7 @@ end
 ---@param opts table # options - gid=nul, on_leave=false, persist=false
 ---@param style table # style - border="single"
 ---returns table with buffer, window, close function, resize function
-R.popup = function(buf, title, size_func, opts, style)
+M.popup = function(buf, title, size_func, opts, style)
 	opts = opts or {}
 	style = style or {}
 	local border = style.border or "single"
@@ -195,4 +195,4 @@ R.popup = function(buf, title, size_func, opts, style)
 	return buf, win, close, resize
 end
 
-return R
+return M
