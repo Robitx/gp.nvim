@@ -142,14 +142,7 @@ M.setup = function(opts)
 	-- make sure _dirs exists
 	for k, v in pairs(M.config) do
 		if k:match("_dir$") and type(v) == "string" then
-			local dir = v:gsub("/$", "")
-			M.config[k] = dir
-			if vim.fn.isdirectory(dir) == 0 then
-				if k ~= "whisper_dir" and k ~= "image_dir" then
-					M.logger.info("creating directory " .. dir)
-				end
-				vim.fn.mkdir(dir, "p")
-			end
+			M.config[k] = M.helpers.prepare_dir(v, k)
 		end
 	end
 
