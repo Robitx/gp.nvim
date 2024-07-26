@@ -223,4 +223,22 @@ _H.file_to_table = function(file_path)
 	return tbl
 end
 
+---@param dir string # directory to prepare
+---@param name string | nil # name of the directory
+---@return string # returns resolved directory path
+_H.prepare_dir = function(dir, name)
+	local odir = dir
+	dir = dir:gsub("/$", "")
+	name = name and name .. " " or ""
+	if vim.fn.isdirectory(dir) == 0 then
+		logger.debug("creating " .. name .. "directory: " .. dir)
+		vim.fn.mkdir(dir, "p")
+	end
+
+	dir = vim.fn.resolve(dir)
+
+	logger.debug("resolved " .. name .. "directory: " .. odir .. " -> " .. dir)
+	return dir
+end
+
 return _H
