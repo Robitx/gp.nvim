@@ -8,6 +8,7 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 M._handles = {}
+M._queries = {} -- table of latest queries
 
 ---@param fn function # function to wrap so it only gets called once
 M.once = function(fn)
@@ -19,6 +20,44 @@ M.once = function(fn)
 		once = true
 		fn(...)
 	end
+end
+
+---@param N number # number of queries to keep
+---@param age number # age of queries to keep in seconds
+M.cleanup_old_queries = function(N, age)
+	local current_time = os.time()
+
+	local query_count = 0
+	for _ in pairs(M._queries) do
+		query_count = query_count + 1
+	end
+
+	if query_count <= N then
+		return
+	end
+
+	for qid, query_data in pairs(M._queries) do
+		if current_time - query_data.timestamp > age then
+			M._queries[qid] = nil
+		end
+	end
+end
+
+---@param qid string # query id
+---@return table | nil # query data
+M.get_query = function(qid)
+	if not M._queries[qid] then
+		M.logger.error("query with ID " .. tostring(qid) .. " not found.")
+		return nil
+	end
+	return M._queries[qid]
+end
+
+---@param qid string # query id
+---@param payload table # query payload
+M.set_query = function(qid, payload)
+	M._queries[qid] = payload
+	M.cleanup_old_queries(10, 60)
 end
 
 -- add a process handle and its corresponding pid to the _handles table
