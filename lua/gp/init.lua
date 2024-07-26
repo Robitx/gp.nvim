@@ -2023,22 +2023,6 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		["{{new_shortcut}}"] = M.config.chat_shortcut_new.shortcut,
 	})
 
-	-- local template = string.format(
-	-- 	M.config.chat_template or require("gp.defaults").chat_template,
-	-- 	string.match(filename, "([^/]+)$"),
-	-- 	model .. provider .. system_prompt,
-	-- 	M.config.chat_user_prefix,
-	-- 	M.config.chat_shortcut_respond.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_shortcut_stop.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_shortcut_delete.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_shortcut_new.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_user_prefix
-	-- )
-
 	-- escape underscores (for markdown)
 	template = template:gsub("_", "\\_")
 
