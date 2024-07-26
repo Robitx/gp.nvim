@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.1](https://github.com/Robitx/gp.nvim/compare/v3.4.0...v3.4.1) (2024-07-26)
+
+
+### Bug Fixes
+
+* handle symlinks for ChatDelete ([#171](https://github.com/Robitx/gp.nvim/issues/171)) ([129c2f8](https://github.com/Robitx/gp.nvim/commit/129c2f8a1b068b93763c1a5ef950966d1c10ec37))
+
 ## [3.4.0](https://github.com/Robitx/gp.nvim/compare/v3.3.0...v3.4.0) (2024-07-24)
 
 
