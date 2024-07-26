@@ -158,7 +158,7 @@ end
 ---@param path string | nil  # optional path to start searching from
 ---@return string # returns the path of the git root dir or an empty string if not found
 _H.find_git_root = function(path)
-	logger.info("Finding git root for path: " .. vim.inspect(path))
+	logger.debug("finding git root for path: " .. vim.inspect(path))
 	local cwd = vim.fn.expand("%:p:h")
 	if path then
 		cwd = vim.fn.fnamemodify(path, ":p:h")
@@ -166,10 +166,12 @@ _H.find_git_root = function(path)
 	while cwd ~= "/" do
 		local files = vim.fn.readdir(cwd)
 		if vim.tbl_contains(files, ".git") then
+			logger.debug("found git root: " .. cwd)
 			return cwd
 		end
 		cwd = vim.fn.fnamemodify(cwd, ":h")
 	end
+	logger.debug("git root not found")
 	return ""
 end
 
