@@ -77,8 +77,10 @@ local config = {
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
 
-	-- log	file location
+	-- log file location
 	log_file = vim.fn.stdpath("log"):gsub("/$", "") .. "/gp.nvim.log",
+	-- write sensitive data to log file for	debugging purposes (like api keys)
+	log_sensitive = false,
 
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",

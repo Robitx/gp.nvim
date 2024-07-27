@@ -6,11 +6,14 @@ local M = {}
 
 local file = "/dev/null"
 local uuid = ""
+local store_sensitive = false
 
 M._log_history = {}
 
 ---@param path string # path to log file
-M.set_log_file = function(path)
+---@param sensitive boolean | nil # whether to store sensitive data in logs
+M.setup = function(path, sensitive)
+	store_sensitive = sensitive or false
 	uuid = string.format("%x", math.random(0, 0xFFFF)) .. string.format("%x", os.time() % 0xFFFF)
 	M.debug("New neovim instance [" .. uuid .. "] started, setting log file to " .. path)
 	local dir = vim.fn.fnamemodify(path, ":h")
@@ -33,7 +36,14 @@ end
 ---@param slevel string # log level as string
 ---@param sensitive boolean | nil # sensitive log
 local log = function(msg, level, slevel, sensitive)
-	local raw = string.format("[%s] [%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), uuid, slevel, msg)
+	local raw = msg
+	if sensitive then
+		if not store_sensitive then
+			raw = "REDACTED"
+		end
+		raw = raw:gsub("([^\n]+)", "[SENSITIVE DATA] %1")
+	end
+	raw = string.format("[%s] [%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), uuid, slevel, raw)
 
 	if not sensitive then
 		M._log_history[#M._log_history + 1] = raw
