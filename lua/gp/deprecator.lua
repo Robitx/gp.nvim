@@ -43,15 +43,16 @@ local deprecated = {
 		.. "\n  -- azure = {...},\n  -- copilot = {...},\n  -- ollama = {...},\n  -- googleai= {...},\n  -- pplx = {...},\n  -- anthropic = {...},\n},\n"
 		.. "\nThe `openai_api_key` is still supported for backwards compatibility,\n"
 		.. "and automatically converted to `providers.openai.secret` if the new config is not set.",
+	image_dir = "`image_dir`\nPlease use `image = { store_dir = ... }`",
 }
 
 M.is_valid = function(k, v)
-	if helpers.starts_with(k, "image_") then
-		table.insert(M._deprecated, { name = k, msg = image_nested(k), value = v })
-		return false
-	end
 	if deprecated[k] then
 		table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
+		return false
+	end
+	if helpers.starts_with(k, "image_") then
+		table.insert(M._deprecated, { name = k, msg = image_nested(k), value = v })
 		return false
 	end
 	return true
