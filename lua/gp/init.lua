@@ -12,7 +12,6 @@ local M = {
 	_Name = "Gp", -- plugin name
 	_state = {}, -- table of state variables
 	agents = {}, -- table of agents
-	image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
@@ -23,6 +22,7 @@ local M = {
 	helpers = require("gp.helper"), -- helper functions
 	deprecator = require("gp.deprecator"), -- handle deprecated options
 	render = require("gp.render"), -- render module
+	imager = require("gp.imager"), -- imager module
 	vault = require("gp.vault"), -- vault module
 }
 
@@ -50,15 +50,20 @@ M.setup = function(opts)
 
 	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
 
+	local image_opts = opts.image or {}
+	image_opts.state_dir = opts.state_dir or M.config.state_dir
+	image_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
+	M.imager.setup(image_opts)
+
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents", "image_agents", "providers" }
+	local mergeTables = { "hooks", "agents", "providers" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
 		for k, v in pairs(M.config[tbl]) do
 			if tbl == "hooks" or tbl == "providers" then
 				M[tbl][k] = v
-			elseif tbl == "agents" or tbl == "image_agents" then
+			elseif tbl == "agents" then
 				M[tbl][v.name] = v
 			end
 		end
@@ -77,7 +82,7 @@ M.setup = function(opts)
 				if next(v) == nil then
 					M[tbl][k] = nil
 				end
-			elseif tbl == "agents" or tbl == "image_agents" then
+			elseif tbl == "agents" then
 				M[tbl][v.name] = v
 			end
 		end
@@ -115,22 +120,6 @@ M.setup = function(opts)
 		end
 	end
 
-	for name, agent in pairs(M.image_agents) do
-		if type(agent) ~= "table" or agent.disable then
-			M.image_agents[name] = nil
-		elseif not agent.model then
-			M.logger.warning(
-				"Image agent "
-					.. name
-					.. " is missing model\n"
-					.. "If you want to disable an agent, use: { name = '"
-					.. name
-					.. "', disable = true },"
-			)
-			M.image_agents[name] = nil
-		end
-	end
-
 	-- remove invalid providers
 	for name, provider in pairs(M.providers) do
 		if type(provider) ~= "table" or provider.disable then
@@ -162,12 +151,6 @@ M.setup = function(opts)
 	end
 	table.sort(M._chat_agents)
 	table.sort(M._command_agents)
-
-	M._image_agents = {}
-	for name, _ in pairs(M.image_agents) do
-		table.insert(M._image_agents, name)
-	end
-	table.sort(M._image_agents)
 
 	M.refresh_state()
 
@@ -208,10 +191,6 @@ M.setup = function(opts)
 						return M._command_agents
 					end
 
-					if cmd == "ImageAgent" then
-						return M._image_agents
-					end
-
 					return {}
 				end,
 			})
@@ -249,6 +228,8 @@ M.refresh_state = function()
 		state = M.helpers.file_to_table(state_file) or {}
 	end
 
+	M.logger.debug("loaded state: " .. vim.inspect(state))
+
 	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
 	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
 		M._state.chat_agent = M._chat_agents[1]
@@ -258,18 +239,6 @@ M.refresh_state = function()
 	if not M._state.command_agent == nil or not M.agents[M._state.command_agent] then
 		M._state.command_agent = M._command_agents[1]
 	end
-
-	M._state.image_agent = M._state.image_agent or state.image_agent or nil
-	if not M._state.image_agent == nil or not M.image_agents[M._state.image_agent] then
-		M._state.image_agent = M._image_agents[1]
-	end
-
-	local bearer = M._state.copilot_bearer or state.copilot_bearer or nil
-	if bearer and bearer.expires_at and bearer.expires_at < os.time() then
-		bearer = nil
-		M.refresh_copilot_bearer()
-	end
-	M._state.copilot_bearer = bearer
 
 	M.helpers.table_to_file(M._state, state_file)
 
@@ -2692,157 +2661,6 @@ M.cmd.Whisper = function(params)
 
 		if text then
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
-		end
-	end)
-end
-
-M.cmd.ImageAgent = function(params)
-	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-	if agent_name == "" then
-		M.logger.info("Image agent: " .. (M._state.image_agent or "none"))
-		return
-	end
-
-	if not M.image_agents[agent_name] then
-		M.logger.warning("Unknown image agent: " .. agent_name)
-		return
-	end
-
-	M._state.image_agent = agent_name
-	M.logger.info("Image agent: " .. M._state.image_agent)
-
-	M.refresh_state()
-end
-
----@return table # { cmd_prefix, name, model, quality, style, size }
-M.get_image_agent = function()
-	local template = M.config.image_prompt_prefix_template
-	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = M._state.image_agent })
-	local name = M._state.image_agent
-	local model = M.image_agents[name].model
-	local quality = M.image_agents[name].quality
-	local style = M.image_agents[name].style
-	local size = M.image_agents[name].size
-	return { cmd_prefix = cmd_prefix, name = name, model = model, quality = quality, style = style, size = size }
-end
-
-M.cmd.Image = function(params)
-	local prompt = params.args
-	local agent = M.get_image_agent()
-	if prompt == "" then
-		vim.ui.input({ prompt = agent.cmd_prefix }, function(input)
-			prompt = input
-			if not prompt then
-				return
-			end
-			M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
-		end)
-	else
-		M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
-	end
-end
-
-function M.generate_image(prompt, model, quality, style, size)
-	if not M.valid_api_key() then
-		return
-	end
-
-	local cmd = "curl"
-	local payload = {
-		model = model,
-		prompt = prompt,
-		n = 1,
-		size = size,
-		style = style,
-		quality = quality,
-	}
-	local args = {
-		"-s",
-		"-H",
-		"Content-Type: application/json",
-		"-H",
-		"Authorization: Bearer " .. M.config.openai_api_key,
-		"-d",
-		vim.json.encode(payload),
-		"https://api.openai.com/v1/images/generations",
-	}
-
-	local qid = M.helpers.uuid()
-	M._queries[qid] = {
-		timestamp = os.time(),
-		payload = payload,
-		raw_response = "",
-		error = "",
-		url = "",
-		prompt = "",
-		save_path = "",
-		save_raw_response = "",
-		save_error = "",
-	}
-	local query = M._queries[qid]
-
-	M.spinner.start_spinner("Generating image...")
-
-	M.tasker.run(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-		M.spinner.stop_spinner()
-		query.raw_response = stdout_data
-		query.error = stderr_data
-		if code ~= 0 then
-			M.logger.error(
-				"Image generation exited: code: "
-					.. code
-					.. " signal: "
-					.. signal
-					.. " stdout: "
-					.. stdout_data
-					.. " stderr: "
-					.. stderr_data
-			)
-			return
-		end
-		local result = vim.json.decode(stdout_data)
-		query.parsed_response = vim.inspect(result)
-		if result and result.data and result.data[1] and result.data[1].url then
-			local image_url = result.data[1].url
-			query.url = image_url
-			-- query.prompt = result.data[1].prompt
-			vim.ui.input(
-				{ prompt = M.config.image_prompt_save, completion = "file", default = M.config.image_dir },
-				function(save_path)
-					if not save_path or save_path == "" then
-						M.logger.info("Image URL: " .. image_url)
-						return
-					end
-					query.save_path = save_path
-					M.spinner.start_spinner("Saving image...")
-					M.tasker.run(
-						nil,
-						"curl",
-						{ "-s", "-o", save_path, image_url },
-						function(save_code, save_signal, save_stdout_data, save_stderr_data)
-							M.spinner.stop_spinner()
-							query.save_raw_response = save_stdout_data
-							query.save_error = save_stderr_data
-							if save_code == 0 then
-								M.logger.info("Image saved to: " .. save_path)
-							else
-								M.logger.error(
-									"Failed to save image: path: "
-										.. save_path
-										.. " code: "
-										.. save_code
-										.. " signal: "
-										.. save_signal
-										.. " stderr: "
-										.. save_stderr_data
-								)
-							end
-						end
-					)
-				end
-			)
-		else
-			M.logger.error("Image generation failed: " .. vim.inspect(stdout_data))
 		end
 	end)
 end

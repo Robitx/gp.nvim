@@ -53,8 +53,8 @@ local config = {
 		},
 		lmstudio = {
 			disable = true,
-			secret = "dummy_secret",
 			endpoint = "http://localhost:1234/v1/chat/completions",
+			secret = "dummy_secret",
 		},
 		googleai = {
 			disable = true,
@@ -391,103 +391,115 @@ local config = {
 	whisper_rec_cmd = nil,
 
 	-- image generation settings
-	-- image prompt prefix for asking user for input (supports {{agent}} template variable)
-	image_prompt_prefix_template = "🖌️ {{agent}} ~ ",
-	-- image prompt prefix for asking location to save the image
-	image_prompt_save = "🖌️💾 ~ ",
-	-- default folder for saving images
-	image_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
-	-- default image agents (model + settings)
-	-- to remove some default agent completely set it like:
-	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid", disable = true, }, ... },
-	image_agents = {
-		{
-			name = "ExampleDisabledAgent",
-			disable = true,
-		},
-		{
-			name = "DALL-E-3-1024x1024-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1024x1792",
+	image = {
+		-- you can disable image generation logic completely by image.disable = true
+		disable = false,
+
+		-- required openai api key (string or table with command and arguments)
+		-- openai_api_key = { "cat", "path_to/openai_api_key" },
+		-- openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },
+		-- openai_api_key: "sk-...",
+		-- openai_api_key = os.getenv("env_name.."),
+		openai_api_key = os.getenv("OPENAI_API_KEY"),
+
+		-- image prompt prefix for asking user for input (supports {{agent}} template variable)
+		prompt_prefix_template = "🖌️ {{agent}} ~ ",
+		-- image prompt prefix for asking location to save the image
+		prompt_save = "🖌️💾 ~ ",
+		-- default folder for saving images
+		store_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
+		-- default image agents (model + settings)
+		-- to remove some default agent completely set it like:
+		-- image.agents = {  { name = "DALL-E-3-1024x1792-vivid", disable = true, }, ... },
+		agents = {
+			{
+				name = "ExampleDisabledAgent",
+				disable = true,
+			},
+			{
+				name = "DALL-E-3-1024x1024-vivid",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "vivid",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-vivid",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "vivid",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-vivid",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "vivid",
+				size = "1024x1792",
+			},
+			{
+				name = "DALL-E-3-1024x1024-natural",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "natural",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-natural",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "natural",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-natural",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "natural",
+				size = "1024x1792",
+			},
+			{
+				name = "DALL-E-3-1024x1024-vivid-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "vivid",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-vivid-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "vivid",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-vivid-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "vivid",
+				size = "1024x1792",
+			},
+			{
+				name = "DALL-E-3-1024x1024-natural-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "natural",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-natural-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "natural",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-natural-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "natural",
+				size = "1024x1792",
+			},
 		},
 	},
 
