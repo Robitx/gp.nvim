@@ -241,23 +241,6 @@ M.setup = function(opts)
 	M.vault.resolve_secret("openai_api_key", image_opts.openai_api_key)
 end
 
--- TODO: obsolete
-M.valid_api_key = function()
-	local api_key = M.config.openai_api_key
-
-	if type(api_key) == "table" then
-		M.logger.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
-		return false
-	end
-
-	if api_key and string.match(api_key, "%S") then
-		return true
-	end
-
-	M.logger.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
-	return false
-end
-
 M.refresh_state = function()
 	local state_file = M.config.state_dir .. "/state.json"
 
@@ -504,10 +487,6 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 		M.logger.error(
 			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
 		)
-		return
-	end
-
-	if not M.valid_api_key() then
 		return
 	end
 
@@ -1391,10 +1370,6 @@ end
 M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
-
-	if not M.valid_api_key() then
-		return
-	end
 
 	if M.tasker.is_busy(buf) then
 		return
@@ -2448,6 +2423,12 @@ M.Whisper = function(language, callback)
 		return
 	end
 
+	local bearer = M.vault.get("openai_api_key")
+	if not bearer then
+		M.logger.error("OpenAI API key not found")
+		return
+	end
+
 	local rec_file = M.config.whisper_dir .. "/rec.wav"
 	local rec_options = {
 		sox = {
@@ -2495,10 +2476,6 @@ M.Whisper = function(language, callback)
 			exit_code = 255,
 		},
 	}
-
-	if not M.valid_api_key() then
-		return
-	end
 
 	local gid = M.helpers.create_augroup("GpWhisper", { clear = true })
 
@@ -2571,13 +2548,6 @@ M.Whisper = function(language, callback)
 
 	local curl_params = M.config.curl_params or {}
 	local curl = "curl" .. " " .. table.concat(curl_params, " ")
-
-	local bearer = M.vault.get("openai_api_key")
-
-	if not bearer then
-		M.logger.error("OpenAI API key not found")
-		return
-	end
 
 	-- transcribe the recording
 	local transcribe = function()
