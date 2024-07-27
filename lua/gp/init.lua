@@ -59,11 +59,12 @@ M.setup = function(opts)
 	local mergeTables = { "hooks", "agents", "providers" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
-		---@diagnostic disable-next-line: param-type-mismatch
+		---@diagnostic disable-next-line
 		for k, v in pairs(M.config[tbl]) do
 			if tbl == "hooks" or tbl == "providers" then
 				M[tbl][k] = v
 			elseif tbl == "agents" then
+				---@diagnostic disable-next-line
 				M[tbl][v.name] = v
 			end
 		end
