@@ -1,5 +1,20 @@
 print("top of gp.completion.lua")
 
+-- Gets a buffer variable or returns the default
+local function buf_get_var(buf, var_name, default)
+	local status, result = pcall(vim.api.nvim_buf_get_var, buf, var_name)
+	if status then
+		return result
+	else
+		return default
+	end
+end
+
+-- This function is only here make the get/set call pair look consistent
+local function buf_set_var(buf, var_name, value)
+	return vim.api.nvim_buf_set_var(buf, var_name, value)
+end
+
 local source = {}
 
 source.src_name = "gp_completion"
@@ -10,7 +25,6 @@ source.new = function()
 end
 
 source.get_trigger_characters = function()
-	print("in get_trigger_characters...")
 	return { "@", ":", "/" }
 end
 
@@ -33,15 +47,22 @@ source.setup_autocmd_for_markdown = function()
 	print("setting up autocmd...")
 	vim.api.nvim_create_autocmd("BufEnter", {
 		pattern = { "*.md", "markdown" },
-		callback = function()
-			print("attaching completion source for buffer: " .. vim.api.nvim_get_current_buf())
+		callback = function(arg)
+			local attached_varname = "gp_source_attached"
+			local attached = buf_get_var(arg.buf, attached_varname, false)
+			if attached then
+				return
+			end
 
+			print("attaching completion source for buffer: " .. arg.buf)
 			local cmp = require("cmp")
 			cmp.setup.buffer({
 				sources = cmp.config.sources({
 					{ name = source.src_name },
 				}),
 			})
+
+			buf_set_var(arg.buf, attached_varname, true)
 		end,
 	})
 end
@@ -150,7 +171,13 @@ end
 
 source.complete = function(self, request, callback)
 	local input = string.sub(request.context.cursor_before_line, request.offset - 1)
+	print("[comp] input: '" .. input .. "'")
 	local cmd = extract_cmd(request)
+	if not cmd then
+		return
+	end
+
+	print("[comp] cmd: '" .. cmd .. "'")
 	local cmd_parts = cmd_split(cmd)
 
 	local items = {}
