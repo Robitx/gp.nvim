@@ -2060,7 +2060,6 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		M.append_selection(params, cbuf, buf)
 	end
 	M._H.feedkeys("G", "xn")
-
 	return buf
 end
 
@@ -2107,7 +2106,6 @@ end
 ---@param system_prompt string | nil
 ---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 M.cmd.ChatToggle = function(params, system_prompt, agent)
-	print(">> ChatToggle")
 	if M._toggle_close(M._toggle_kind.popup) then
 		return
 	end
@@ -2134,11 +2132,6 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	else
 		buf = M.new_chat(params, true, system_prompt, agent)
 	end
-
-	-- Tell nvim-cmp to use our completion source for the new buffer
-	-- print("In ChatToggle, trying to setup per buffer completion source")
-	-- local completion = require("gp.completion")
-	-- completion.setup_for_buffer(buf)
 
 	return buf
 end
@@ -2359,8 +2352,7 @@ M.chat_respond = function(params)
 	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
 	-- insert requested context in the message the user just entered
-	local context = require("gp.context")
-	messages[#messages].content = context.insert_contexts(messages[#messages].content)
+	messages[#messages].content = require("gp.context").insert_contexts(messages[#messages].content)
 	print(vim.inspect(messages[#messages]))
 
 	-- call the model and write response
