@@ -3,11 +3,22 @@
 --------------------------------------------------------------------------------
 
 local logger = require("gp.logger")
+local helpers = require("gp.helper")
+local render = require("gp.render")
 
 local M = {}
 M._deprecated = {}
 
 local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
+
+local image_nested = function(variable)
+	local new_variable = variable:gsub("image_", "")
+	return render.template(
+		"`{{old}}`\nPlease use `image = { {{new}} = ... }`",
+		{ ["{{old}}"] = variable, ["{{new}}"] = new_variable }
+	)
+end
+
 local deprecated = {
 	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target` which is also used by other commands",
 	command_model = "`command_model`\n" .. switch_to_agent,
@@ -35,6 +46,10 @@ local deprecated = {
 }
 
 M.is_valid = function(k, v)
+	if helpers.starts_with(k, "image_") then
+		table.insert(M._deprecated, { name = k, msg = image_nested(k), value = v })
+		return false
+	end
 	if deprecated[k] then
 		table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
 		return false
