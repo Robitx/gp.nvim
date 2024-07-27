@@ -96,6 +96,8 @@ M.setup = function(opts)
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
+	M.loger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
+
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents", "image_agents", "providers" }
 	for _, tbl in ipairs(mergeTables) do
