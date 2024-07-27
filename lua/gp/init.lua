@@ -23,60 +23,12 @@ local M = {
 	helpers = require("gp.helper"), -- helper functions
 	deprecator = require("gp.deprecator"), -- handle deprecated options
 	render = require("gp.render"), -- render module
+	vault = require("gp.vault"), -- vault module
 }
 
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
-
-function M.refresh_copilot_bearer()
-	if not M.providers.copilot or not M.providers.copilot.secret then
-		return
-	end
-	local secret = M.providers.copilot.secret
-
-	if type(secret) == "table" then
-		return
-	end
-
-	local bearer = M._state.copilot_bearer or {}
-	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
-		return
-	end
-
-	local curl_params = vim.deepcopy(M.config.curl_params or {})
-	local args = {
-		"-s",
-		"-v",
-		"https://api.github.com/copilot_internal/v2/token",
-		"-H",
-		"Content-Type: application/json",
-		"-H",
-		"accept: */*",
-		"-H",
-		"authorization: token " .. secret,
-		"-H",
-		"editor-version: vscode/1.90.2",
-		"-H",
-		"editor-plugin-version: copilot-chat/0.17.2024062801",
-		"-H",
-		"user-agent: GitHubCopilotChat/0.17.2024062801",
-	}
-
-	for _, arg in ipairs(args) do
-		table.insert(curl_params, arg)
-	end
-
-	M.tasker.run(nil, "curl", curl_params, function(code, signal, stdout, stderr)
-		if code ~= 0 then
-			M.logger.error(string.format("Copilot bearer resolve exited: %d, %d", code, signal, stderr))
-			return
-		end
-
-		M._state.copilot_bearer = vim.json.decode(stdout)
-		M.refresh_state()
-	end, nil, nil)
-end
 
 -- setup function
 M._setup_called = false
@@ -96,7 +48,7 @@ M.setup = function(opts)
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
-	M.loger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
+	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
 
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents", "image_agents", "providers" }
@@ -138,8 +90,6 @@ M.setup = function(opts)
 		end
 	end
 	M.deprecator.report()
-
-	M.logger.set_log_file(M.config.log_file)
 
 	-- make sure _dirs exists
 	for k, v in pairs(M.config) do
@@ -274,83 +224,21 @@ M.setup = function(opts)
 		M.logger.error("curl is not installed, run :checkhealth gp")
 	end
 
-	for name, _ in pairs(M.providers) do
-		M.resolve_secret(name)
-	end
-	if not M.providers.openai then
-		M.providers.openai = {}
-		M.resolve_secret("openai", function()
-			M.providers.openai = nil
-		end)
-	end
-end
+	M.vault.setup({
+		state_dir = M.config.state_dir,
+		curl_params = M.config.curl_params,
+	})
 
----@provider string # provider name
-function M.resolve_secret(provider, callback)
-	local post_process = function()
-		local p = M.providers[provider]
-		if p.secret and type(p.secret) == "string" then
-			p.secret = p.secret:gsub("^%s*(.-)%s*$", "%1")
+	for name, provider in pairs(M.providers) do
+		if name == "copilot" then
+			M.vault.resolve_secret(name, provider.secret, M.vault.refresh_copilot_bearer)
+		else
+			M.vault.resolve_secret(name, provider.secret)
 		end
-
-		if provider == "copilot" then
-			M.refresh_copilot_bearer()
-		end
-
-		-- backwards compatibility
-		if provider == "openai" then
-			M.config.openai_api_key = M.providers[provider].secret
-		end
-
-		if callback then
-			callback()
-		end
+		provider.secret = nil
 	end
-
-	-- backwards compatibility
-	if provider == "openai" then
-		M.providers[provider].secret = M.providers[provider].secret or M.config.openai_api_key
-	end
-
-	local secret = M.providers[provider].secret
-	if secret and type(secret) == "table" then
-		---@diagnostic disable-next-line: param-type-mismatch
-		local copy = vim.deepcopy(secret)
-		---@diagnostic disable-next-line: param-type-mismatch
-		local cmd = table.remove(copy, 1)
-		local args = copy
-		---@diagnostic disable-next-line: param-type-mismatch
-		M.tasker.run(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-			if code == 0 then
-				local content = stdout_data:match("^%s*(.-)%s*$")
-				if not string.match(content, "%S") then
-					M.logger.warning(
-						"response from the config.providers." .. provider .. ".secret command " .. vim.inspect(secret) .. " is empty"
-					)
-					return
-				end
-				M.providers[provider].secret = content
-				post_process()
-			else
-				M.logger.warning(
-					"config.providers."
-						.. provider
-						.. ".secret command "
-						.. vim.inspect(secret)
-						.. " to retrieve the secret failed:\ncode: "
-						.. code
-						.. ", signal: "
-						.. signal
-						.. "\nstdout: "
-						.. stdout_data
-						.. "\nstderr: "
-						.. stderr_data
-				)
-			end
-		end)
-	else
-		post_process()
-	end
+	M.vault.resolve_secret("openai_api_key", M.config.openai_api_key)
+	M.vault.resolve_secret("openai_api_key", image_opts.openai_api_key)
 end
 
 -- TODO: obsolete
@@ -741,13 +629,18 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 
 	---TODO: this could be moved to a separate function returning endpoint and headers
 	local endpoint = M.providers[provider].endpoint
-	local bearer = M.providers[provider].secret
 	local headers = {}
+	local bearer = M.vault.get_secret(provider)
+	if not bearer then
+		return
+	end
 
 	if provider == "copilot" then
 		M.refresh_copilot_bearer()
-		---@diagnostic disable-next-line: undefined-field
-		bearer = M._state.copilot_bearer.token or ""
+		bearer = M.vault.get_secret("copilot_bearer")
+		if not bearer then
+			return
+		end
 		headers = {
 			"-H",
 			"editor-version: vscode/1.85.1",
@@ -2679,6 +2572,13 @@ M.Whisper = function(language, callback)
 	local curl_params = M.config.curl_params or {}
 	local curl = "curl" .. " " .. table.concat(curl_params, " ")
 
+	local bearer = M.vault.get("openai_api_key")
+
+	if not bearer then
+		M.logger.error("OpenAI API key not found")
+		return
+	end
+
 	-- transcribe the recording
 	local transcribe = function()
 		local cmd = "cd "
@@ -2702,7 +2602,7 @@ M.Whisper = function(language, callback)
 			.. " --max-time 20 "
 			.. M.config.whisper_api_endpoint
 			.. ' -s -H "Authorization: Bearer '
-			.. M.config.openai_api_key
+			.. bearer
 			.. '" -H "Content-Type: multipart/form-data" '
 			.. '-F model="whisper-1" -F language="'
 			.. language
