@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- Vault module for	managing secrets
+-- Vault module for managing secrets
 --------------------------------------------------------------------------------
 
 local logger = require("gp.logger")
