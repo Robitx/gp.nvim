@@ -49,9 +49,11 @@ local config = {
 		ollama = {
 			disable = true,
 			endpoint = "http://localhost:11434/v1/chat/completions",
+			secret = "dummy_secret",
 		},
 		lmstudio = {
 			disable = true,
+			secret = "dummy_secret",
 			endpoint = "http://localhost:1234/v1/chat/completions",
 		},
 		googleai = {
