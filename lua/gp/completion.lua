@@ -11,16 +11,7 @@ end
 
 source.get_trigger_characters = function()
 	print("in get_trigger_characters...")
-	return { "@", ":" }
-	-- return { "@" }
-end
-
-source.get_keyword_pattern = function()
-	print("in get_keyword_pattern...")
-	-- return [[@code:[\w:]*]]
-	-- return [[@([\w-]+)(?::([\w-]+))?]]
-	-- return [[@file:]]
-	return [[@(code|file):?]]
+	return { "@", ":", "/" }
 end
 
 source.setup_for_buffer = function(bufnr)
@@ -57,54 +48,124 @@ end
 
 source.register_cmd_source = function()
 	print("registering completion src")
-	local s = source.new()
-	print("new instance: ")
-	print(vim.inspect(s))
-	require("cmp").register_source(source.src_name, s)
+	require("cmp").register_source(source.src_name, source.new())
 end
 
-local function get_project_files()
-	-- Assuming the cwd is the project root directory for now
-	local cwd = vim.fn.getcwd()
-	local handle = vim.loop.fs_scandir(cwd)
+local function extract_cmd(request)
+	local target = request.context.cursor_before_line
+	local start = target:match(".*()@")
+	if start then
+		return string.sub(target, start, request.offset)
+	end
+end
 
+local function cmd_split(cmd)
+	return vim.split(cmd, ":", { plain = true })
+end
+
+local function path_split(path)
+	return vim.split(path, "/")
+end
+
+local function path_join(...)
+	local args = { ... }
+	local parts = {}
+
+	for i, part in ipairs(args) do
+		if type(part) ~= "string" then
+			error("Argument #" .. i .. " is not a string", 2)
+		end
+
+		-- Remove leading/trailing separators (both / and \)
+		part = part:gsub("^[/\\]+", ""):gsub("[/\\]+$", "")
+
+		if #part > 0 then
+			table.insert(parts, part)
+		end
+	end
+
+	local result = table.concat(parts, "/")
+
+	if args[1]:match("^[/\\]") then
+		result = "/" .. result
+	end
+
+	return result
+end
+
+local function completion_items_for_path(path)
+	local cmp = require("cmp")
+
+	-- The incoming path should either be
+	-- - A relative path that references a directory
+	-- - A relative path + partial filename as last component-
+	-- We need a bit of logic to figure out which directory content to return
+
+	--------------------------------------------------------------------
+	-- Figure out the full path of the directory we're trying to list --
+	--------------------------------------------------------------------
+	-- Split the path into component parts
+	local path_parts = path_split(path)
+	if path[#path] ~= "/" then
+		table.remove(path_parts)
+	end
+
+	-- Assuming the cwd is the project root directory...
+	local cwd = vim.fn.getcwd()
+	local target_dir = path_join(cwd, unpack(path_parts))
+
+	--------------------------------------------
+	-- List the items in the target directory --
+	--------------------------------------------
+	local handle = vim.loop.fs_scandir(target_dir)
 	local files = {}
 
-	if handle then
-		while true do
-			local name, type = vim.loop.fs_scandir_next(handle)
-			if not name then
-				break
-			end
+	if not handle then
+		return files
+	end
 
-			if type == "file" then
-				table.insert(files, {
-					label = name,
-					kind = require("cmp").lsp.CompletionItemKind.File,
-				})
-			end
+	while true do
+		local name, type = vim.loop.fs_scandir_next(handle)
+		if not name then
+			break
 		end
+
+		local item_name, item_kind
+		if type == "file" then
+			item_kind = cmp.lsp.CompletionItemKind.File
+			item_name = name
+		elseif type == "directory" then
+			item_kind = cmp.lsp.CompletionItemKind.Folder
+			item_name = name .. "/"
+		end
+
+		table.insert(files, {
+			label = item_name,
+			kind = item_kind,
+		})
 	end
 
 	return files
 end
 
 source.complete = function(self, request, callback)
-	print("[complete] Function called")
 	local input = string.sub(request.context.cursor_before_line, request.offset - 1)
-	print("[complete] input: '" .. input .. "'")
-	print("[complete] offset: " .. request.offset)
-	print("[complete] cursor_before_line: '" .. request.context.cursor_before_line .. "'")
+	local cmd = extract_cmd(request)
+	local cmd_parts = cmd_split(cmd)
 
 	local items = {}
 	local isIncomplete = true
 
-	if request.context.cursor_before_line:match("^@file:$") then
-		print("[complete] @file: case")
-		items = {
-			{ label = "file1.lua", kind = require("cmp").lsp.CompletionItemKind.File },
-			{ label = "file2.lua", kind = require("cmp").lsp.CompletionItemKind.File },
-		}
+	if cmd_parts[1]:match("@file") then
+		-- What's the path we're trying to provide completion for?
+		local path = cmd_parts[2]
+
+		-- List the items in the specified directory
+		items = completion_items_for_path(path)
+
+		-- Say that the entire list has been provided
+		-- cmp won't call us again to provide an updated list
+		isIncomplete = false
 	elseif input:match("^@code:") then
 		print("[complete] @code: case")
 		local parts = vim.split(input, ":", { plain = true })
@@ -127,6 +188,7 @@ source.complete = function(self, request, callback)
 			{ label = "code", kind = require("cmp").lsp.CompletionItemKind.Keyword },
 			{ label = "file", kind = require("cmp").lsp.CompletionItemKind.Keyword },
 		}
+		isIncomplete = false
 	else
 		print("[complete] default case")
 		isIncomplete = false
