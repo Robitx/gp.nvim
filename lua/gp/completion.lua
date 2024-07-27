@@ -1,4 +1,5 @@
-print("top of gp.completion.lua")
+local u = require("gp.utils")
+local context = require("gp.context")
 
 -- Gets a buffer variable or returns the default
 local function buf_get_var(buf, var_name, default)
@@ -80,40 +81,6 @@ local function extract_cmd(request)
 	end
 end
 
-local function cmd_split(cmd)
-	return vim.split(cmd, ":", { plain = true })
-end
-
-local function path_split(path)
-	return vim.split(path, "/")
-end
-
-local function path_join(...)
-	local args = { ... }
-	local parts = {}
-
-	for i, part in ipairs(args) do
-		if type(part) ~= "string" then
-			error("Argument #" .. i .. " is not a string", 2)
-		end
-
-		-- Remove leading/trailing separators (both / and \)
-		part = part:gsub("^[/\\]+", ""):gsub("[/\\]+$", "")
-
-		if #part > 0 then
-			table.insert(parts, part)
-		end
-	end
-
-	local result = table.concat(parts, "/")
-
-	if args[1]:match("^[/\\]") then
-		result = "/" .. result
-	end
-
-	return result
-end
-
 local function completion_items_for_path(path)
 	local cmp = require("cmp")
 
@@ -126,14 +93,14 @@ local function completion_items_for_path(path)
 	-- Figure out the full path of the directory we're trying to list --
 	--------------------------------------------------------------------
 	-- Split the path into component parts
-	local path_parts = path_split(path)
+	local path_parts = u.path_split(path)
 	if path[#path] ~= "/" then
 		table.remove(path_parts)
 	end
 
 	-- Assuming the cwd is the project root directory...
 	local cwd = vim.fn.getcwd()
-	local target_dir = path_join(cwd, unpack(path_parts))
+	local target_dir = u.path_join(cwd, unpack(path_parts))
 
 	--------------------------------------------
 	-- List the items in the target directory --
@@ -178,7 +145,7 @@ source.complete = function(self, request, callback)
 	end
 
 	print("[comp] cmd: '" .. cmd .. "'")
-	local cmd_parts = cmd_split(cmd)
+	local cmd_parts = context.cmd_split(cmd)
 
 	local items = {}
 	local isIncomplete = true
@@ -230,5 +197,4 @@ end
 
 source.setup_autocmd_for_markdown()
 
-print("end of gp.completion.lua")
 return source

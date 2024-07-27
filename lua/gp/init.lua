@@ -2358,6 +2358,11 @@ M.chat_respond = function(params)
 	local last_content_line = M._H.last_content_line(buf)
 	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
+	-- insert requested context in the message the user just entered
+	local context = require("gp.context")
+	messages[#messages].content = context.insert_contexts(messages[#messages].content)
+	print(vim.inspect(messages[#messages]))
+
 	-- call the model and write response
 	M.query(
 		buf,
