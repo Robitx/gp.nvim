@@ -1,3 +1,7 @@
+--------------------------------------------------------------------------------
+-- Whisper module for transcribing speech
+--------------------------------------------------------------------------------
+
 local uv = vim.uv or vim.loop
 
 local logger = require("gp.logger")
