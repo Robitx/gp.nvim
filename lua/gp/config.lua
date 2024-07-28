@@ -367,6 +367,7 @@ local config = {
 	whisper = {
 		-- you can disable whisper completely by whisper = {disable = true}
 		disable = false,
+
 		-- OpenAI audio/transcriptions api endpoint to transcribe audio to text
 		endpoint = "https://api.openai.com/v1/audio/transcriptions",
 		-- directory for storing whisper files
@@ -399,12 +400,13 @@ local config = {
 		-- you can disable image generation logic completely by image = {disable = true}
 		disable = false,
 
-		-- required openai api key (string or table with command and arguments)
-		-- openai_api_key = { "cat", "path_to/openai_api_key" },
-		-- openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },
-		-- openai_api_key: "sk-...",
-		-- openai_api_key = os.getenv("env_name.."),
-		openai_api_key = os.getenv("OPENAI_API_KEY"),
+		-- openai api key (string or table with command and arguments)
+		-- secret = { "cat", "path_to/openai_api_key" },
+		-- secret = { "bw", "get", "password", "OPENAI_API_KEY" },
+		-- secret =  "sk-...",
+		-- secret = os.getenv("env_name.."),
+		-- if missing openai_api_key is used
+		secret = os.getenv("OPENAI_API_KEY"),
 
 		-- image prompt prefix for asking user for input (supports {{agent}} template variable)
 		prompt_prefix_template = "🖌️ {{agent}} ~ ",

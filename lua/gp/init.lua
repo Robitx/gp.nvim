@@ -51,18 +51,26 @@ M.setup = function(opts)
 
 	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
 
-	-- TODO: image.secret
+	M.vault.setup({
+		state_dir = opts.state_dir or M.config.state_dir,
+		curl_params = opts.curl_params or M.config.curl_params,
+	})
+
 	local image_opts = opts.image or {}
 	image_opts.state_dir = opts.state_dir or M.config.state_dir
 	image_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
+	image_opts.secret = image_opts.secret or opts.openai_api_key or M.config.openai_api_key
 	M.imager.setup(image_opts)
+	M.config.image = nil
+	opts.image = nil
 
-	-- TODO: whisper.secret
 	local whisper_opts = opts.whisper or {}
 	whisper_opts.style_popup_border = opts.style_popup_border or M.config.style_popup_border
 	whisper_opts.curl_params = opts.curl_params or M.config.curl_params
 	whisper_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
 	M.whisper.setup(whisper_opts)
+	M.config.whisper = nil
+	opts.whisper = nil
 
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents", "providers" }
@@ -204,11 +212,6 @@ M.setup = function(opts)
 		M.logger.error("curl is not installed, run :checkhealth gp")
 	end
 
-	M.vault.setup({
-		state_dir = M.config.state_dir,
-		curl_params = M.config.curl_params,
-	})
-
 	for name, provider in pairs(M.providers) do
 		if name == "copilot" then
 			M.vault.resolve_secret(name, provider.secret, M.vault.refresh_copilot_bearer)
@@ -218,7 +221,9 @@ M.setup = function(opts)
 		provider.secret = nil
 	end
 	M.vault.resolve_secret("openai_api_key", M.config.openai_api_key)
-	M.vault.resolve_secret("openai_api_key", image_opts.openai_api_key)
+	M.config.openai_api_key = nil
+
+	M.logger.debug("setup finished\n" .. vim.inspect(M))
 end
 
 M.refresh_state = function()
