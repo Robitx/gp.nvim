@@ -1786,7 +1786,9 @@ M.prep_chat = function(buf, file_name)
 
 	-- make last.md a symlink to the last opened chat file
 	local last = M.config.chat_dir .. "/last.md"
-	if file_name ~= last then
+	if file_name ~= last and vim.fn.has("win32") then
+		os.execute("pwsh -c New-Item -Force -ItemType SymbolicLink -Path " .. last .. " -Target " .. file_name)
+	elseif file_name ~= last then
 		os.execute("ln -sf " .. file_name .. " " .. last)
 	end
 end
