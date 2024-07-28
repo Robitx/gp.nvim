@@ -321,4 +321,32 @@ W.cmd.Whisper = function(params)
 	end, language)
 end
 
+W.check_health = function()
+	if W.disabled then
+		vim.health.warn("whisper is disabled")
+		return
+	end
+	if vim.fn.executable("sox") == 1 then
+		vim.health.ok("sox is installed")
+		local output = vim.fn.system("sox -h | grep -i mp3 | wc -l 2>/dev/null")
+		if output:sub(1, 1) == "0" then
+			vim.health.error("sox is not compiled with mp3 support" .. "\n  on debian/ubuntu install libsox-fmt-mp3")
+		else
+			vim.health.ok("sox is compiled with mp3 support")
+		end
+	else
+		vim.health.warn("sox is not installed")
+	end
+
+	if vim.fn.executable("arecord") == 1 then
+		vim.health.ok("arecord found - will be used for recording (sox for post-processing)")
+	elseif vim.fn.executable("ffmpeg") == 1 then
+		local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
+		devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
+		if devices == "1" then
+			vim.health.ok("ffmpeg with avfoundation found - will be used for recording (sox for post-processing)")
+		end
+	end
+end
+
 return W
