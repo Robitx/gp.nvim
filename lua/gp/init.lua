@@ -590,7 +590,7 @@ M.query = function(buf, provider, payload, handler, on_exit, callback)
 	end
 
 	if provider == "copilot" then
-		M.refresh_copilot_bearer()
+		M.vault.refresh_copilot_bearer()
 		bearer = M.vault.get_secret("copilot_bearer")
 		if not bearer then
 			return
