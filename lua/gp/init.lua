@@ -173,7 +173,10 @@ M.setup = function(opts)
 	-- register user commands
 	for hook, _ in pairs(M.hooks) do
 		M.helpers.create_user_command(M.config.cmd_prefix .. hook, function(params)
-			M.call_hook(hook, params)
+			if M.hooks[hook] ~= nil then
+				return M.hooks[hook](M, params)
+			end
+			M.logger.error("The hook '" .. hook .. "' does not exist.")
 		end)
 	end
 
@@ -335,14 +338,6 @@ M.prepare_commands = function()
 			end
 		end
 	end
-end
-
--- hook caller
-M.call_hook = function(name, params)
-	if M.hooks[name] ~= nil then
-		return M.hooks[name](M, params)
-	end
-	M.logger.error("The hook '" .. name .. "' does not exist.")
 end
 
 ---@param messages table
