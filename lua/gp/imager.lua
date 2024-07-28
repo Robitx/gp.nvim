@@ -10,6 +10,7 @@ local default_config = require("gp.config")
 local I = {
 	config = {},
 	_state = {},
+	_agents = {},
 	cmd = {},
 	disabled = false,
 }
@@ -62,7 +63,6 @@ I.setup = function(opts)
 		end
 	end
 
-	I._agents = {}
 	for name, _ in pairs(I.agents) do
 		table.insert(I._agents, name)
 	end
@@ -71,21 +71,13 @@ I.setup = function(opts)
 	I.refresh()
 
 	for cmd, _ in pairs(I.cmd) do
-		-- TODO: this could be a helper function
-		vim.api.nvim_create_user_command(I.config.cmd_prefix .. cmd, function(params)
-			I.cmd[cmd](params)
-		end, {
-			nargs = "?",
-			range = true,
-			desc = "GPT Prompt plugin",
-			complete = function()
-				if cmd == "ImageAgent" then
-					return I._agents
-				end
+		helpers.create_user_command(I.config.cmd_prefix .. cmd, I.cmd[cmd],  function()
+			if cmd == "ImageAgent" then
+				return I._agents
+			end
 
-				return {}
-			end,
-		})
+			return {}
+		end)
 	end
 
 	logger.debug("imager setup finished\n" .. vim.inspect(I))

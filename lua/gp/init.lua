@@ -166,9 +166,9 @@ M.setup = function(opts)
 
 	-- register user commands
 	for hook, _ in pairs(M.hooks) do
-		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
+		M.helpers.create_user_command(M.config.cmd_prefix .. hook, function(params)
 			M.call_hook(hook, params)
-		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
+		end)
 	end
 
 	local completions = {
@@ -181,30 +181,20 @@ M.setup = function(opts)
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
-			-- TODO: this could be a helper function
-			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
-				M.cmd[cmd](params)
-			end, {
-				nargs = "?",
-				range = true,
-				desc = "GPT Prompt plugin",
-				complete = function()
-					if completions[cmd] then
-						return completions[cmd]
+			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, M.cmd[cmd], function()
+				if completions[cmd] then
+					return completions[cmd]
+				end
+				if cmd == "Agent" then
+					local buf = vim.api.nvim_get_current_buf()
+					local file_name = vim.api.nvim_buf_get_name(buf)
+					if M.not_chat(buf, file_name) == nil then
+						return M._chat_agents
 					end
-
-					if cmd == "Agent" then
-						local buf = vim.api.nvim_get_current_buf()
-						local file_name = vim.api.nvim_buf_get_name(buf)
-						if M.not_chat(buf, file_name) == nil then
-							return M._chat_agents
-						end
-						return M._command_agents
-					end
-
-					return {}
-				end,
-			})
+					return M._command_agents
+				end
+				return {}
+			end)
 		end
 	end
 

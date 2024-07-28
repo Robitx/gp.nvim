@@ -241,4 +241,20 @@ _H.prepare_dir = function(dir, name)
 	return dir
 end
 
+---@param cmd_name string # name of the command
+---@param cmd_func function # function to be executed when the command is called
+---@param completion_func function | nil # optional function returning table for completion
+---@param desc string |	nil # description of the command
+_H.create_user_command = function(cmd_name, cmd_func, completion_func, desc)
+	logger.debug("creating user command: " .. cmd_name)
+	vim.api.nvim_create_user_command(cmd_name, cmd_func, {
+		nargs = "?",
+		range = true,
+		desc = desc or "Gp.nvim command",
+		complete = function()
+			return completion_func and completion_func() or {}
+		end,
+	})
+end
+
 return _H
