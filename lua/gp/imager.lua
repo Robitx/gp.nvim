@@ -83,7 +83,7 @@ I.setup = function(opts)
 	vault.resolve_secret("imager_secret", I.config.secret)
 	I.config.secret = nil
 
-	logger.debug("imager setup finished\n" .. vim.inspect(I))
+	logger.debug("imager setup finished")
 end
 
 I.refresh = function()

@@ -237,7 +237,7 @@ _H.prepare_dir = function(dir, name)
 
 	dir = vim.fn.resolve(dir)
 
-	logger.debug("resolved " .. name .. "directory: " .. odir .. " -> " .. dir)
+	logger.debug("resolved " .. name .. "directory:\n" .. odir .. " -> " .. dir)
 	return dir
 end
 
