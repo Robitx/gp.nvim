@@ -14,20 +14,6 @@ function M.check()
 		else
 			vim.health.error("require('gp').setup() has not been called")
 		end
-
-		--TODO: obsolete
-		---@diagnostic disable-next-line: undefined-field
-		local api_key = gp.config.openai_api_key
-
-		if type(api_key) == "table" then
-			vim.health.error(
-				"require('gp').setup({openai_api_key: ???}) is still an unresolved command: " .. vim.inspect(api_key)
-			)
-		elseif api_key and string.match(api_key, "%S") then
-			vim.health.ok("config.openai_api_key is set")
-		else
-			vim.health.error("require('gp').setup({openai_api_key: ???}) is not set: " .. vim.inspect(api_key))
-		end
 	end
 
 	if vim.fn.executable("curl") == 1 then
