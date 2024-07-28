@@ -4,8 +4,6 @@
 --------------------------------------------------------------------------------
 -- Module structure
 --------------------------------------------------------------------------------
-local uv = vim.uv or vim.loop
-
 local config = require("gp.config")
 
 local M = {
@@ -223,7 +221,7 @@ M.setup = function(opts)
 	M.vault.resolve_secret("openai_api_key", M.config.openai_api_key)
 	M.config.openai_api_key = nil
 
-	M.logger.debug("setup finished\n" .. vim.inspect(M))
+	M.logger.debug("setup finished")
 end
 
 M.refresh_state = function()
@@ -1141,15 +1139,7 @@ end
 M.new_chat = function(params, toggle, system_prompt, agent)
 	M._toggle_close(M._toggle_kind.popup)
 
-	-- prepare filename
-	local time = os.date("%Y-%m-%d.%H-%M-%S")
-	local stamp = tostring(math.floor(uv.hrtime() / 1000000) % 1000)
-	-- make sure stamp is 3 digits
-	while #stamp < 3 do
-		stamp = "0" .. stamp
-	end
-	time = time .. "." .. stamp
-	local filename = M.config.chat_dir .. "/" .. time .. ".md"
+	local filename = M.config.chat_dir .. "/" .. M.logger.now() .. ".md"
 
 	-- encode as json if model is a table
 	local model = ""

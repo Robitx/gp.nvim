@@ -35,7 +35,7 @@ W.setup = function(opts)
 	for cmd, _ in pairs(W.cmd) do
 		helpers.create_user_command(W.config.cmd_prefix .. cmd, W.cmd[cmd])
 	end
-	logger.debug("whisper setup finished\n" .. vim.inspect(W.config))
+	logger.debug("whisper setup finished")
 end
 
 ---@param callback function # callback function(text)

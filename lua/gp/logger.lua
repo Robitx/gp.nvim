@@ -1,6 +1,7 @@
 --------------------------------------------------------------------------------
 -- Logger module
 --------------------------------------------------------------------------------
+local uv = vim.uv or vim.loop
 
 local M = {}
 
@@ -9,6 +10,17 @@ local uuid = ""
 local store_sensitive = false
 
 M._log_history = {}
+
+---@return string # formatted time with milliseconds
+M.now = function()
+	local time = os.date("%Y-%m-%d.%H-%M-%S")
+	local stamp = tostring(math.floor(uv.hrtime() / 1000000) % 1000)
+	-- make sure stamp is 3 digits
+	while #stamp < 3 do
+		stamp = stamp .. "0"
+	end
+	return time .. "." .. stamp
+end
 
 ---@param path string # path to log file
 ---@param sensitive boolean | nil # whether to store sensitive data in logs
@@ -43,7 +55,7 @@ local log = function(msg, level, slevel, sensitive)
 		end
 		raw = raw:gsub("([^\n]+)", "[SENSITIVE DATA] %1")
 	end
-	raw = string.format("[%s] [%s] %s: %s", os.date("%Y-%m-%d %H:%M:%S"), uuid, slevel, raw)
+	raw = string.format("[%s] [%s] %s: %s", M.now(), uuid, slevel, raw)
 
 	if not sensitive then
 		M._log_history[#M._log_history + 1] = raw
