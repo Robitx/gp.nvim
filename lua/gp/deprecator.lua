@@ -11,11 +11,11 @@ M._deprecated = {}
 
 local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
 
-local image_nested = function(variable)
-	local new_variable = variable:gsub("image_", "")
+local nested = function(variable, prefix)
+	local new_variable = variable:gsub(prefix .. "_", "")
 	return render.template(
-		"`{{old}}`\nPlease use `image = { {{new}} = ... }`",
-		{ ["{{old}}"] = variable, ["{{new}}"] = new_variable }
+		"`{{old}}`\nPlease use `{{prefix}} = { {{new}} = ... }`",
+		{ ["{{old}}"] = variable, ["{{new}}"] = new_variable, ["{{prefix}}"] = prefix }
 	)
 end
 
@@ -44,6 +44,8 @@ local deprecated = {
 		.. "\nThe `openai_api_key` is still supported for backwards compatibility,\n"
 		.. "and automatically converted to `providers.openai.secret` if the new config is not set.",
 	image_dir = "`image_dir`\nPlease use `image = { store_dir = ... }`",
+	whisper_dir = "`whisper_dir`\nPlease use `whisper = { store_dir = ... }`",
+	whisper_api_endpoint = "`whisper_api_endpoint`\nPlease use `whisper = { endpoint = ... }`",
 }
 
 M.is_valid = function(k, v)
@@ -52,7 +54,11 @@ M.is_valid = function(k, v)
 		return false
 	end
 	if helpers.starts_with(k, "image_") then
-		table.insert(M._deprecated, { name = k, msg = image_nested(k), value = v })
+		table.insert(M._deprecated, { name = k, msg = nested(k, "image"), value = v })
+		return false
+	end
+	if helpers.starts_with(k, "whisper_") then
+		table.insert(M._deprecated, { name = k, msg = nested(k, "whisper"), value = v })
 		return false
 	end
 	return true

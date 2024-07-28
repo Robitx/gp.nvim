@@ -16,14 +16,15 @@ local M = {
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
 	defaults = require("gp.defaults"), -- some useful defaults
+	deprecator = require("gp.deprecator"), -- handle deprecated options
+	helpers = require("gp.helper"), -- helper functions
+	imager = require("gp.imager"), -- imager module
 	logger = require("gp.logger"), -- logger module
+	render = require("gp.render"), -- render module
 	spinner = require("gp.spinner"), -- spinner module
 	tasker = require("gp.tasker"), -- tasker module
-	helpers = require("gp.helper"), -- helper functions
-	deprecator = require("gp.deprecator"), -- handle deprecated options
-	render = require("gp.render"), -- render module
-	imager = require("gp.imager"), -- imager module
 	vault = require("gp.vault"), -- vault module
+	whisper = require("gp.whisper"), -- whisper module
 }
 
 --------------------------------------------------------------------------------
@@ -50,10 +51,18 @@ M.setup = function(opts)
 
 	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
 
+	-- TODO: image.secret
 	local image_opts = opts.image or {}
 	image_opts.state_dir = opts.state_dir or M.config.state_dir
 	image_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
 	M.imager.setup(image_opts)
+
+	-- TODO: whisper.secret
+	local whisper_opts = opts.whisper or {}
+	whisper_opts.style_popup_border = opts.style_popup_border or M.config.style_popup_border
+	whisper_opts.curl_params = opts.curl_params or M.config.curl_params
+	whisper_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
+	M.whisper.setup(whisper_opts)
 
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents", "providers" }
@@ -172,6 +181,7 @@ M.setup = function(opts)
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
+			-- TODO: this could be a helper function
 			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
 				M.cmd[cmd](params)
 			end, {
@@ -322,12 +332,14 @@ M.prepare_commands = function()
 			cmd(params)
 		end
 
-		M.cmd["Whisper" .. command] = function(params)
-			M.Whisper(M.config.whisper_language, function(text)
-				vim.schedule(function()
-					cmd(params, text)
+		if not M.whisper.disabled then
+			M.cmd["Whisper" .. command] = function(params)
+				M.whisper.Whisper(function(text)
+					vim.schedule(function()
+						cmd(params, text)
+					end)
 				end)
-			end)
+			end
 		end
 	end
 end
@@ -2382,287 +2394,6 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			end
 			cb(input)
 		end)
-	end)
-end
-
----@param callback function # callback function(text)
-M.Whisper = function(language, callback)
-	-- make sure sox is installed
-	if vim.fn.executable("sox") == 0 then
-		M.logger.error("sox is not installed")
-		return
-	end
-
-	local bearer = M.vault.get("openai_api_key")
-	if not bearer then
-		M.logger.error("OpenAI API key not found")
-		return
-	end
-
-	local rec_file = M.config.whisper_dir .. "/rec.wav"
-	local rec_options = {
-		sox = {
-			cmd = "sox",
-			opts = {
-				"-c",
-				"1",
-				"--buffer",
-				"32",
-				"-d",
-				"rec.wav",
-				"trim",
-				"0",
-				"3600",
-			},
-			exit_code = 0,
-		},
-		arecord = {
-			cmd = "arecord",
-			opts = {
-				"-c",
-				"1",
-				"-f",
-				"S16_LE",
-				"-r",
-				"48000",
-				"-d",
-				3600,
-				"rec.wav",
-			},
-			exit_code = 1,
-		},
-		ffmpeg = {
-			cmd = "ffmpeg",
-			opts = {
-				"-y",
-				"-f",
-				"avfoundation",
-				"-i",
-				":0",
-				"-t",
-				"3600",
-				"rec.wav",
-			},
-			exit_code = 255,
-		},
-	}
-
-	local gid = M.helpers.create_augroup("GpWhisper", { clear = true })
-
-	-- create popup
-	local buf, _, close_popup, _ = M.render.popup(
-		nil,
-		M._Name .. " Whisper",
-		function(w, h)
-			return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
-		end,
-		{ gid = gid, on_leave = false, escape = false, persist = false },
-		{ border = M.config.style_popup_border or "single" }
-	)
-
-	-- animated instructions in the popup
-	local counter = 0
-	local timer = uv.new_timer()
-	timer:start(
-		0,
-		200,
-		vim.schedule_wrap(function()
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-					"    ",
-					"    Speak 👄 loudly 📣 into the microphone 🎤: ",
-					"    " .. string.rep("👂", counter),
-					"    ",
-					"    Pressing <Enter> starts the transcription.",
-					"    ",
-					"    Cancel the recording with <esc>/<C-c> or :GpStop.",
-					"    ",
-					"    The last recording is in /tmp/gp_whisper/.",
-				})
-			end
-			counter = counter + 1
-			if counter % 22 == 0 then
-				counter = 0
-			end
-		end)
-	)
-
-	local close = M.tasker.once(function()
-		if timer then
-			timer:stop()
-			timer:close()
-		end
-		close_popup()
-		vim.api.nvim_del_augroup_by_id(gid)
-		M.cmd.Stop()
-	end)
-
-	M.helpers.set_keymap({ buf }, { "n", "i", "v" }, "<esc>", function()
-		M.cmd.Stop()
-	end)
-
-	M.helpers.set_keymap({ buf }, { "n", "i", "v" }, "<C-c>", function()
-		M.cmd.Stop()
-	end)
-
-	local continue = false
-	M.helpers.set_keymap({ buf }, { "n", "i", "v" }, "<cr>", function()
-		continue = true
-		vim.defer_fn(function()
-			M.cmd.Stop()
-		end, 300)
-	end)
-
-	-- cleanup on buffer exit
-	M.helpers.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
-
-	local curl_params = M.config.curl_params or {}
-	local curl = "curl" .. " " .. table.concat(curl_params, " ")
-
-	-- transcribe the recording
-	local transcribe = function()
-		local cmd = "cd "
-			.. M.config.whisper_dir
-			.. " && "
-			.. "export LC_NUMERIC='C' && "
-			-- normalize volume to -3dB
-			.. "sox --norm=-3 rec.wav norm.wav && "
-			-- get RMS level dB * silence threshold
-			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
-			.. " | sed -e 's/.* //' | awk '{print $1*"
-			.. M.config.whisper_silence
-			.. "}') && "
-			-- remove silence, speed up, pad and convert to mp3
-			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
-			.. " pad 0.1 0.1 tempo "
-			.. M.config.whisper_tempo
-			.. " && "
-			-- call openai
-			.. curl
-			.. " --max-time 20 "
-			.. M.config.whisper_api_endpoint
-			.. ' -s -H "Authorization: Bearer '
-			.. bearer
-			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="'
-			.. language
-			.. '" -F file="@final.mp3" '
-			.. '-F response_format="json"'
-
-		M.tasker.run(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
-			if code ~= 0 then
-				M.logger.error(string.format("Whisper query exited: %d, %d", code, signal))
-				return
-			end
-
-			if not stdout or stdout == "" or #stdout < 11 then
-				M.logger.error("Whisper query, no stdout: " .. vim.inspect(stdout))
-				return
-			end
-			local text = vim.json.decode(stdout).text
-			if not text then
-				M.logger.error("Whisper query, no text: " .. vim.inspect(stdout))
-				return
-			end
-
-			text = table.concat(vim.split(text, "\n"), " ")
-			text = text:gsub("%s+$", "")
-
-			if callback and stdout then
-				callback(text)
-			end
-		end)
-	end
-
-	local cmd = {}
-
-	local rec_cmd = M.config.whisper_rec_cmd
-	-- if rec_cmd not set explicitly, try to autodetect
-	if not rec_cmd then
-		rec_cmd = "sox"
-		if vim.fn.executable("ffmpeg") == 1 then
-			local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
-			devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
-			if devices == "1" then
-				rec_cmd = "ffmpeg"
-			end
-		end
-		if vim.fn.executable("arecord") == 1 then
-			rec_cmd = "arecord"
-		end
-	end
-
-	if type(rec_cmd) == "table" and rec_cmd[1] and rec_options[rec_cmd[1]] then
-		rec_cmd = vim.deepcopy(rec_cmd)
-		cmd.cmd = table.remove(rec_cmd, 1)
-		cmd.exit_code = rec_options[cmd.cmd].exit_code
-		cmd.opts = rec_cmd
-	elseif type(rec_cmd) == "string" and rec_options[rec_cmd] then
-		cmd = rec_options[rec_cmd]
-	else
-		M.logger.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
-		close()
-		return
-	end
-	for i, v in ipairs(cmd.opts) do
-		if v == "rec.wav" then
-			cmd.opts[i] = rec_file
-		end
-	end
-
-	M.tasker.run(nil, cmd.cmd, cmd.opts, function(code, signal, stdout, stderr)
-		close()
-
-		if code and code ~= cmd.exit_code then
-			M.logger.error(
-				cmd.cmd
-					.. " exited with code and signal:\ncode: "
-					.. code
-					.. ", signal: "
-					.. signal
-					.. "\nstdout: "
-					.. vim.inspect(stdout)
-					.. "\nstderr: "
-					.. vim.inspect(stderr)
-			)
-			return
-		end
-
-		if not continue then
-			return
-		end
-
-		vim.schedule(function()
-			transcribe()
-		end)
-	end)
-end
-
-M.cmd.Whisper = function(params)
-	local buf = vim.api.nvim_get_current_buf()
-	local start_line = vim.api.nvim_win_get_cursor(0)[1]
-	local end_line = start_line
-
-	if params.range == 2 then
-		start_line = params.line1
-		end_line = params.line2
-	end
-
-	local args = vim.split(params.args, " ")
-
-	local language = config.whisper_language
-	if args[1] ~= "" then
-		language = args[1]
-	end
-
-	M.Whisper(language, function(text)
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-
-		if text then
-			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
-		end
 	end)
 end
 
