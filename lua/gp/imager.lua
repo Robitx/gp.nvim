@@ -1,3 +1,7 @@
+--------------------------------------------------------------------------------
+-- Imager module for generating images
+--------------------------------------------------------------------------------
+
 local logger = require("gp.logger")
 local tasker = require("gp.tasker")
 local spinner = require("gp.spinner")
