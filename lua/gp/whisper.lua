@@ -33,17 +33,7 @@ W.setup = function(opts)
 	W.config.store_dir = helpers.prepare_dir(W.config.store_dir, "whisper store")
 
 	for cmd, _ in pairs(W.cmd) do
-		-- TODO: this could be a helper function
-		vim.api.nvim_create_user_command(W.config.cmd_prefix .. cmd, function(params)
-			W.cmd[cmd](params)
-		end, {
-			nargs = "?",
-			range = true,
-			desc = "GPT Prompt plugin",
-			complete = function()
-				return {}
-			end,
-		})
+		helpers.create_user_command(W.config.cmd_prefix .. cmd, W.cmd[cmd])
 	end
 	logger.debug("whisper setup finished\n" .. vim.inspect(W.config))
 end
