@@ -8,7 +8,7 @@ local helpers = require("gp.helper")
 local default_config = require("gp.config")
 
 local V = {
-	_secrets = {}, -- obfuscated secrets
+	_obfuscated_secrets = {},
 	_state = {},
 	config = {},
 }
@@ -26,6 +26,8 @@ V.setup = function(opts)
 
 	V.config.curl_params = opts.curl_params or default_config.curl_params
 	V.config.state_dir = opts.state_dir or default_config.state_dir
+
+	helpers.prepare_dir(V.config.state_dir, "vault state")
 
 	logger.debug("vault setup finished\n" .. vim.inspect(V), true)
 end
@@ -68,7 +70,7 @@ V.resolve_secret = function(name, secret, callback)
 		end
 		logger.debug("vault resolver finished for " .. name .. ": " .. vim.inspect(secrets[name]), true)
 
-		V._secrets[name] = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
+		V._obfuscated_secrets[name] = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
 
 		if callback then
 			callback()

@@ -80,6 +80,9 @@ I.setup = function(opts)
 		end)
 	end
 
+	vault.resolve_secret("imager_secret", I.config.secret)
+	I.config.secret = nil
+
 	logger.debug("imager setup finished\n" .. vim.inspect(I))
 end
 
@@ -150,7 +153,7 @@ I.cmd.Image = function(params)
 end
 
 I.generate_image = function(prompt, model, quality, style, size)
-	local bearer = vault.get_secret("openai_api_key")
+	local bearer = vault.get_secret("imager_secret")
 	if not bearer then
 		return
 	end
