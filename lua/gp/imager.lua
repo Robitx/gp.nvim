@@ -11,6 +11,7 @@ local I = {
 	config = {},
 	_state = {},
 	cmd = {},
+	disabled = false,
 }
 
 ---@param opts table # user config
@@ -20,6 +21,7 @@ I.setup = function(opts)
 	I.config = vim.deepcopy(default_config.image)
 
 	if opts.disable then
+		I.disabled = true
 		logger.debug("imager is disabled")
 		return
 	end
@@ -69,6 +71,7 @@ I.setup = function(opts)
 	I.refresh()
 
 	for cmd, _ in pairs(I.cmd) do
+		-- TODO: this could be a helper function
 		vim.api.nvim_create_user_command(I.config.cmd_prefix .. cmd, function(params)
 			I.cmd[cmd](params)
 		end, {
