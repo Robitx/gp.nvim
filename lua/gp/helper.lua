@@ -20,6 +20,17 @@ end
 ---@param callback function | string # callback or string to set keymap
 ---@param desc string | nil # optional description for keymap
 _H.set_keymap = function(buffers, mode, key, callback, desc)
+	logger.debug(
+		"registering shortcut:"
+			.. " mode: "
+			.. vim.inspect(mode)
+			.. " key: "
+			.. key
+			.. " buffers: "
+			.. vim.inspect(buffers)
+			.. " callback: "
+			.. vim.inspect(callback)
+	)
 	for _, buf in ipairs(buffers) do
 		vim.keymap.set(mode, key, callback, {
 			noremap = true,
@@ -64,6 +75,7 @@ end
 
 ---@param file string | nil # name of the file to delete
 _H.delete_file = function(file)
+	logger.debug("deleting file: " .. vim.inspect(file))
 	if file == nil then
 		return
 	end
