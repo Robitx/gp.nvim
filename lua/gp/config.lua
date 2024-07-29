@@ -347,12 +347,33 @@ local config = {
 	template_rewrite = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
+	template_rewrite_with_file = "I have the following file {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{file_content}}\n```"
+		.. "\n\n I want to update the following code block"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```"
+		.. "\n\nInstructions: "
+		.. "\n- {{command}}"
+		.. "\n- Respond exclusively with the snippet that should replace the selection above.",
 	template_append = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
+	template_append_with_file = "I have the following file {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{file_content}}\n```"
+		.. "\n\n I want to append after the following code block"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```"
+		.. "\n\nInstructions: "
+		.. "\n- {{command}}"
+		.. "\n- Respond exclusively with the snippet that should be appended after the selection above.",
 	template_prepend = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
+	template_prepend_with_file = "I have the following file {{filename}}:"
+		.. "\n\n```{{filetype}}\n{{file_content}}\n```"
+		.. "\n\n I want to prepend before the following code block"
+		.. "\n\n```{{filetype}}\n{{selection}}\n```"
+		.. "\n\nInstructions: "
+		.. "\n- {{command}}"
+		.. "\n- Respond exclusively with the snippet that should be prepended after the selection above.",
 	template_command = "{{command}}",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart

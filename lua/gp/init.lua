@@ -631,6 +631,7 @@ M.template_render = function(template, command, selection, filetype, filename)
 		["{{selection}}"] = selection,
 		["{{filetype}}"] = filetype,
 		["{{filename}}"] = filename,
+		["{{file_content}}"] = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 	}
 	return _H.template_render(template, key_value_pairs)
 end
@@ -1069,6 +1070,9 @@ M.Target = {
 	append = 1, -- for appending after the selection, range or the current line
 	prepend = 2, -- for prepending before the selection, range or the current line
 	popup = 3, -- for writing into the popup window
+	rewriteWithFile = 4, -- for replacing the selection, range or the current line with the full file as context
+	appendWithFile = 5, -- for appending after the selection, range or the current line with the full file as context
+	prependWithFile = 6, -- for appending after the selection, range or the current line with the full file as context
 
 	-- for writing into a new buffer
 	---@param filetype nil | string # nil = same as the original buffer
@@ -1119,12 +1123,16 @@ M.prepare_commands = function()
 				-- rewrite needs custom template
 				if target == M.Target.rewrite then
 					template = M.config.template_rewrite
-				end
-				if target == M.Target.append then
+				elseif target == M.Target.rewriteWithFile then
+					template = M.config.template_rewrite_with_file
+				elseif target == M.Target.append then
 					template = M.config.template_append
-				end
-				if target == M.Target.prepend then
+				elseif target == M.Target.appendWithFile then
+					template = M.config.template_append_with_file
+				elseif target == M.Target.prepend then
 					template = M.config.template_prepend
+				elseif target == M.Target.prependWithFile then
+					template = M.config.template_prepend_with_file
 				end
 			end
 			M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
@@ -3125,6 +3133,11 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
 			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+		elseif target == M.Target.rewriteWithFile then
+			-- delete selection
+			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+			-- prepare handler
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
@@ -3132,7 +3145,21 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
 			handler = M.create_handler(buf, win, end_line, true, prefix, cursor)
+		elseif target == M.Target.appendWithFile then
+			-- move cursor to the end of the selection
+			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
+			-- put newline after selection
+			vim.api.nvim_put({ "" }, "l", true, true)
+			-- prepare handler
+			handler = M.create_handler(buf, win, end_line, true, prefix, cursor)
 		elseif target == M.Target.prepend then
+			-- move cursor to the start of the selection
+			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+			-- put newline before selection
+			vim.api.nvim_put({ "" }, "l", false, true)
+			-- prepare handler
+			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+		elseif target == M.Target.prependWithFile then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
