@@ -19,6 +19,16 @@ local function read_file(filepath)
 	return content
 end
 
+function file_exists(path)
+	local file = io.open(path, "r")
+	if file then
+		file:close()
+		return true
+	else
+		return false
+	end
+end
+
 -- Given a single message, parse out all the context insertion
 -- commands, then return a new message with all the requested
 -- context inserted
@@ -66,9 +76,9 @@ function M.insert_contexts(msg)
 	end
 end
 
-function find_plugin_path(plugin_name)
+function M.find_plugin_path(plugin_name)
 	local paths = vim.api.nvim_list_runtime_paths()
-	for path in paths do
+	for _, path in ipairs(paths) do
 		local components = u.path_split(path)
 		if components[#components] == plugin_name then
 			return path
@@ -76,6 +86,9 @@ function find_plugin_path(plugin_name)
 	end
 end
 
+-- Runs the supplied query on the supplied source file.
+-- Returns all the captures as is. It is up to the caller to
+-- know what the expected output is and to reshape the data.
 function M.treesitter_query(src_filepath, query_filepath)
 	-- Read the source file content
 	---WARNING: This is probably not a good idea for very large files
@@ -130,13 +143,59 @@ function M.treesitter_query(src_filepath, query_filepath)
 		})
 	end
 
+	return captures
+end
+
+function M.treesitter_extract_function_definitions(src_filepath)
+	-- Make sure we can locate the source file
+	if not file_exists(src_filepath) then
+		logger.error("Unable to locate src file: " .. src_filepath)
+		return nil
+	end
+
+	-- Get the filetype of the source file
+	local filetype = vim.filetype.match({ filename = src_filepath })
+	if not filetype then
+		logger.error("Unable to determine filetype for: " .. src_filepath)
+		return nil
+	end
+
+	-- We'll use the reported filetype as the name of the language
+	-- Try to locate a query file we can use to extract function definitions
+	local plugin_path = M.find_plugin_path("gp.nvim")
+	if not plugin_path then
+		logger.error("Unable to locate path for gp.nvim...")
+		return nil
+	end
+
+	-- Find the query file that's approprite for the language
+	local query_filepath = u.path_join(plugin_path, "data/ts_queries/" .. filetype .. ".scm")
+	if not file_exists(query_filepath) then
+		logger.error("Unable to find function extraction ts query file: " .. query_filepath)
+		return nil
+	end
+
+	-- Run the query
+	local captures = M.treesitter_query(src_filepath, query_filepath)
+	if not captures then
+		return nil
+	end
+
 	-- Reshape the captures into a structure we'd like to work with
 	local results = {}
 	for i = 1, #captures, 2 do
-		local fn_body = captures[i]
-		assert(fn_body.name == "body")
-		local fn_name = captures[i + 1]
-		assert(fn_name.name == "name")
+		-- The captures may arrive out of order.
+		-- We're only expecting the query to contain @name and @body returned
+		-- Sort out their ordering here.
+		local caps = { captures[i], captures[i + 1] }
+		local named_caps = {}
+		for _, item in ipairs(caps) do
+			named_caps[item.name] = item
+		end
+		local fn_name = named_caps.name
+		local fn_body = named_caps.body
+		assert(fn_name)
+		assert(fn_body)
 
 		table.insert(results, {
 			file = src_filepath,
