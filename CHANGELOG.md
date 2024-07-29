@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.5.0](https://github.com/Robitx/gp.nvim/compare/v3.4.1...v3.5.0) (2024-07-29)
+
+
+### Features
+
+* capture the preceding number for ChatRespond ([#178](https://github.com/Robitx/gp.nvim/issues/178)) ([14a37df](https://github.com/Robitx/gp.nvim/commit/14a37dfed125782a5a337b26c06201a30d02ca6e))
+* configurable sensitive logging to file ([7794e8a](https://github.com/Robitx/gp.nvim/commit/7794e8adf361682ab1488bd910be4ba3828aab03))
+* deprecate image_ conf vars in favor of nesting under image table ([dcf116a](https://github.com/Robitx/gp.nvim/commit/dcf116a3390150e2d975e8e74be5fec7c35370e3))
+* **logger:** sensitive flag ([85a5f1c](https://github.com/Robitx/gp.nvim/commit/85a5f1cfd976a70677092165b5b1923c9acf9638))
+* reuse chat_confirm_delete shortcut in chat picker ([919fdd4](https://github.com/Robitx/gp.nvim/commit/919fdd49fa42a9c2bef3ce85f1532d891c71b953))
+* truncating log file and GpInspectLog ([bf38d16](https://github.com/Robitx/gp.nvim/commit/bf38d16e7151db86287ca54b167b8afd990a632a))
+
+
+### Bug Fixes
+
+* rm obsolete api key validation ([352b0c3](https://github.com/Robitx/gp.nvim/commit/352b0c363bfb1574528743f5771dbd1efbba0046))
+
 ## [3.4.1](https://github.com/Robitx/gp.nvim/compare/v3.4.0...v3.4.1) (2024-07-26)
 
 
