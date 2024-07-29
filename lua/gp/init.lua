@@ -1158,7 +1158,7 @@ M.cmd.ChatFinder = function()
 	local right = M.config.style_chat_finder_margin_right or 2
 	local picker_buf, picker_win, picker_close, picker_resize = M.render.popup(
 		nil,
-		"Picker: j/k <Esc>|exit <Enter>|open dd|del i|srch",
+		"Picker: j/k <Esc>|exit <Enter>|open " .. M.config.chat_shortcut_delete.shortcut .. "|del i|srch",
 		function(w, h)
 			local wh = h - top - bottom - 2
 			local ww = w - left - right - 2
@@ -1185,7 +1185,7 @@ M.cmd.ChatFinder = function()
 	local command_buf, command_win, command_close, command_resize = M.render.popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
-			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>|open/float/split/vsplit/tab/toggle",
+			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
 		function(w, h)
 			return w - left - right, 1, h - bottom, left
 		end,
@@ -1380,7 +1380,7 @@ M.cmd.ChatFinder = function()
 	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
 		open_chat(M.BufTarget.tabnew, false)
 	end)
-	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>t", function()
 		local target = M.resolve_buf_target(M.config.toggle_target)
 		open_chat(target, true)
 	end)
@@ -1408,25 +1408,30 @@ M.cmd.ChatFinder = function()
 	end)
 
 	-- dd on picker or preview window will delete file
-	M.helpers.set_keymap({ picker_buf, preview_buf }, "n", "dd", function()
-		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
-		local file = picker_files[index]
+	M.helpers.set_keymap(
+		{ command_buf, picker_buf, preview_buf },
+		{ "i", "n", "v" },
+		M.config.chat_shortcut_delete.shortcut,
+		function()
+			local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+			local file = picker_files[index]
 
-		-- delete without confirmation
-		if not M.config.chat_confirm_delete then
-			M.helpers.delete_file(file)
-			refresh_picker()
-			return
-		end
-
-		-- ask for confirmation
-		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
-			if input and input:lower() == "y" then
+			-- delete without confirmation
+			if not M.config.chat_confirm_delete then
 				M.helpers.delete_file(file)
 				refresh_picker()
+				return
 			end
-		end)
-	end)
+
+			-- ask for confirmation
+			vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
+				if input and input:lower() == "y" then
+					M.helpers.delete_file(file)
+					refresh_picker()
+				end
+			end)
+		end
+	)
 end
 
 --------------------------------------------------------------------------------
