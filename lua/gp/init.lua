@@ -2,712 +2,33 @@
 -- https://github.com/Robitx/gp.nvim/
 
 --------------------------------------------------------------------------------
--- Default config
---------------------------------------------------------------------------------
-
-local config = require("gp.config")
-
-local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
-local deprecated = {
-	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target` which is also used by other commands",
-	command_model = "`command_model`\n" .. switch_to_agent,
-	command_system_prompt = "`command_system_prompt`\n" .. switch_to_agent,
-	chat_custom_instructions = "`chat_custom_instructions`\n" .. switch_to_agent,
-	chat_model = "`chat_model`\n" .. switch_to_agent,
-	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
-	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
-		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
-	whisper_max_time = "`whisper_max_time`\nPlease use fully customizable `whisper_rec_cmd`",
-
-	openai_api_endpoint = "`openai_api_endpoint`\n\n"
-		.. "********************************************************************************\n"
-		.. "********************************************************************************\n"
-		.. "Gp.nvim finally supports multiple LLM providers; sorry it took so long.\n"
-		.. "I've dreaded merging this, because I hate breaking people's setups.\n"
-		.. "But this change is necessary for future improvements.\n\n"
-		.. "Migration hints are below; for more help, try the readme docs or open an issue.\n"
-		.. "********************************************************************************\n"
-		.. "********************************************************************************\n\n"
-		.. "If you're using the `https://api.openai.com/v1/chat/completions` endpoint,\n"
-		.. "just drop `openai_api_endpoint` in your config and you're done."
-		.. "\n\nOtherwise sorry for probably breaking your setup, "
-		.. "please use `endpoint` and `secret` fields in:\n\nproviders "
-		.. "= {\n  openai = {\n    endpoint = '...',\n    secret = '...'\n   },"
-		.. "\n  -- azure = {...},\n  -- copilot = {...},\n  -- ollama = {...},\n  -- googleai= {...},\n  -- pplx = {...},\n  -- anthropic = {...},\n},\n"
-		.. "\nThe `openai_api_key` is still supported for backwards compatibility,\n"
-		.. "and automatically converted to `providers.openai.secret` if the new config is not set.",
-}
-
---------------------------------------------------------------------------------
 -- Module structure
 --------------------------------------------------------------------------------
+local config = require("gp.config")
 
-local _H = {}
 local M = {
-	_H = _H, -- helper functions
 	_Name = "Gp", -- plugin name
-	_handles = {}, -- handles for running processes
-	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
-	_deprecated = {}, -- table of deprecated options
 	agents = {}, -- table of agents
-	image_agents = {}, -- table of image agents
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
-	spinner = require("gp.spinner"), -- spinner module
 	defaults = require("gp.defaults"), -- some useful defaults
+	deprecator = require("gp.deprecator"), -- handle deprecated options
+	dispatcher = require("gp.dispatcher"), -- handle communication with LLM providers
+	helpers = require("gp.helper"), -- helper functions
+	imager = require("gp.imager"), -- image generation module
 	logger = require("gp.logger"), -- logger module
+	render = require("gp.render"), -- render module
+	spinner = require("gp.spinner"), -- spinner module
+	tasker = require("gp.tasker"), -- tasker module
+	vault = require("gp.vault"), -- handles secrets
+	whisper = require("gp.whisper"), -- whisper module
 }
-
---------------------------------------------------------------------------------
--- Generic helper functions
---------------------------------------------------------------------------------
-
----@param fn function # function to wrap so it only gets called once
-_H.once = function(fn)
-	local once = false
-	return function(...)
-		if once then
-			return
-		end
-		once = true
-		fn(...)
-	end
-end
-
----@param keys string # string of keystrokes
----@param mode string # string of vim mode ('n', 'i', 'c', etc.), default is 'n'
-_H.feedkeys = function(keys, mode)
-	mode = mode or "n"
-	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
-	vim.api.nvim_feedkeys(keys, mode, true)
-end
-
----@param buffers table # table of buffers
----@param mode table | string # mode(s) to set keymap for
----@param key string # shortcut key
----@param callback function | string # callback or string to set keymap
----@param desc string | nil # optional description for keymap
-_H.set_keymap = function(buffers, mode, key, callback, desc)
-	for _, buf in ipairs(buffers) do
-		vim.keymap.set(mode, key, callback, {
-			noremap = true,
-			silent = true,
-			nowait = true,
-			buffer = buf,
-			desc = desc,
-		})
-	end
-end
-
----@param events string | table # events to listen to
----@param buffers table | nil # buffers to listen to (nil for all buffers)
----@param callback function # callback to call
----@param gid number # augroup id
-_H.autocmd = function(events, buffers, callback, gid)
-	if buffers then
-		for _, buf in ipairs(buffers) do
-			vim.api.nvim_create_autocmd(events, {
-				group = gid,
-				buffer = buf,
-				callback = vim.schedule_wrap(callback),
-			})
-		end
-	else
-		vim.api.nvim_create_autocmd(events, {
-			group = gid,
-			callback = vim.schedule_wrap(callback),
-		})
-	end
-end
-
----@param file_name string # name of the file for which to delete buffers
-_H.delete_buffer = function(file_name)
-	-- iterate over buffer list and close all buffers with the same name
-	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file_name then
-			vim.api.nvim_buf_delete(b, { force = true })
-		end
-	end
-end
-
----@param file string | nil # name of the file to delete
-_H.delete_file = function(file)
-	if file == nil then
-		return
-	end
-	M._H.delete_buffer(file)
-	os.remove(file)
-end
-
----@param file_name string # name of the file for which to get buffer
----@return number | nil # buffer number
-_H.get_buffer = function(file_name)
-	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(b) then
-			if _H.ends_with(vim.api.nvim_buf_get_name(b), file_name) then
-				return b
-			end
-		end
-	end
-	return nil
-end
-
----@return string # returns unique uuid
-_H.uuid = function()
-	local random = math.random
-	local template = "xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx"
-	local result = string.gsub(template, "[xy]", function(c)
-		local v = (c == "x") and random(0, 0xf) or random(8, 0xb)
-		return string.format("%x", v)
-	end)
-	return result
-end
-
----@param name string # name of the augroup
----@param opts table | nil # options for the augroup
----@return number # returns augroup id
-_H.create_augroup = function(name, opts)
-	return vim.api.nvim_create_augroup(name .. "_" .. _H.uuid(), opts or { clear = true })
-end
-
--- stop receiving gpt responses for all processes and clean the handles
----@param signal number | nil # signal to send to the process
-M.cmd.Stop = function(signal)
-	if M._handles == {} then
-		return
-	end
-
-	for _, handle_info in ipairs(M._handles) do
-		if handle_info.handle ~= nil and not handle_info.handle:is_closing() then
-			vim.loop.kill(handle_info.pid, signal or 15)
-		end
-	end
-
-	M._handles = {}
-end
-
--- add a process handle and its corresponding pid to the _handles table
----@param handle userdata # the Lua uv handle
----@param pid number # the process id
----@param buf number | nil # buffer number
-M.add_handle = function(handle, pid, buf)
-	table.insert(M._handles, { handle = handle, pid = pid, buf = buf })
-end
-
---- Check if there is no other pid running for the given buffer
----@param buf number | nil # buffer number
----@return boolean
-M.can_handle = function(buf)
-	if buf == nil then
-		return true
-	end
-	for _, handle_info in ipairs(M._handles) do
-		if handle_info.buf == buf then
-			return false
-		end
-	end
-	return true
-end
-
--- remove a process handle from the _handles table using its pid
----@param pid number # the process id to find the corresponding handle
-M.remove_handle = function(pid)
-	for i, handle_info in ipairs(M._handles) do
-		if handle_info.pid == pid then
-			table.remove(M._handles, i)
-			return
-		end
-	end
-end
-
----@param buf number # buffer number
-_H.undojoin = function(buf)
-	if not buf or not vim.api.nvim_buf_is_loaded(buf) then
-		return
-	end
-	local status, result = pcall(vim.cmd.undojoin)
-	if not status then
-		if result:match("E790") then
-			return
-		end
-		M.logger.error("Error running undojoin: " .. vim.inspect(result))
-	end
-end
-
----@param buf number | nil # buffer number
----@param cmd string # command to execute
----@param args table # arguments for command
----@param callback function | nil # exit callback function(code, signal, stdout_data, stderr_data)
----@param out_reader function | nil # stdout reader function(err, data)
----@param err_reader function | nil # stderr reader function(err, data)
-_H.process = function(buf, cmd, args, callback, out_reader, err_reader)
-	local handle, pid
-	local stdout = vim.loop.new_pipe(false)
-	local stderr = vim.loop.new_pipe(false)
-	local stdout_data = ""
-	local stderr_data = ""
-
-	if not M.can_handle(buf) then
-		M.logger.warning("Another Gp process is already running for this buffer.")
-		return
-	end
-
-	local on_exit = _H.once(vim.schedule_wrap(function(code, signal)
-		stdout:read_stop()
-		stderr:read_stop()
-		stdout:close()
-		stderr:close()
-		if handle and not handle:is_closing() then
-			handle:close()
-		end
-		if callback then
-			callback(code, signal, stdout_data, stderr_data)
-		end
-		M.remove_handle(pid)
-	end))
-
-	handle, pid = vim.loop.spawn(cmd, {
-		args = args,
-		stdio = { nil, stdout, stderr },
-		hide = true,
-		detach = true,
-	}, on_exit)
-
-	M.add_handle(handle, pid, buf)
-
-	vim.loop.read_start(stdout, function(err, data)
-		if err then
-			M.logger.error("Error reading stdout: " .. vim.inspect(err))
-		end
-		if data then
-			stdout_data = stdout_data .. data
-		end
-		if out_reader then
-			out_reader(err, data)
-		end
-	end)
-
-	vim.loop.read_start(stderr, function(err, data)
-		if err then
-			M.logger.error("Error reading stderr: " .. vim.inspect(err))
-		end
-		if data then
-			stderr_data = stderr_data .. data
-		end
-		if err_reader then
-			err_reader(err, data)
-		end
-	end)
-end
-
----@param buf number | nil # buffer number
----@param directory string # directory to search in
----@param pattern string # pattern to search for
----@param callback function # callback function(results, regex)
--- results: table of elements with file, lnum and line
--- regex: string - final regex used for search
-_H.grep_directory = function(buf, directory, pattern, callback)
-	pattern = pattern or ""
-	-- replace spaces with wildcards
-	pattern = pattern:gsub("%s+", ".*")
-	-- strip leading and trailing non alphanumeric characters
-	local re = pattern:gsub("^%W*(.-)%W*$", "%1")
-
-	_H.process(buf, "grep", { "-irEn", "--null", pattern, directory }, function(c, _, stdout, _)
-		local results = {}
-		if c ~= 0 then
-			callback(results, re)
-			return
-		end
-		for _, line in ipairs(vim.split(stdout, "\n")) do
-			line = line:gsub("^%s*(.-)%s*$", "%1")
-			-- line contains non whitespace characters
-			if line:match("%S") then
-				-- extract file path (until zero byte)
-				local file = line:match("^(.-)%z")
-				-- substract dir from file
-				local filename = vim.fn.fnamemodify(file, ":t")
-				local line_number = line:match("%z(%d+):")
-				local line_text = line:match("%z%d+:(.*)")
-				table.insert(results, {
-					file = filename,
-					lnum = line_number,
-					line = line_text,
-				})
-				-- extract line number
-			end
-		end
-		table.sort(results, function(a, b)
-			if a.file == b.file then
-				return a.lnum < b.lnum
-			else
-				return a.file > b.file
-			end
-		end)
-		callback(results, re)
-	end)
-end
-
----@param buf number | nil # buffer number
----@param title string # title of the popup
----@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
----@param opts table # options - gid=nul, on_leave=false, persist=false
----@param style table # style - border="single"
----returns table with buffer, window, close function, resize function
-_H.create_popup = function(buf, title, size_func, opts, style)
-	opts = opts or {}
-	style = style or {}
-	local border = style.border or "single"
-
-	-- create buffer
-	buf = buf or vim.api.nvim_create_buf(false, not opts.persist)
-
-	-- setting to the middle of the editor
-	local options = {
-		relative = "editor",
-		-- dummy values gets resized later
-		width = 10,
-		height = 10,
-		row = 10,
-		col = 10,
-		style = "minimal",
-		border = border,
-		title = title,
-		title_pos = "center",
-	}
-
-	-- open the window and return the buffer
-	local win = vim.api.nvim_open_win(buf, true, options)
-
-	local resize = function()
-		-- get editor dimensions
-		local ew = vim.api.nvim_get_option("columns")
-		local eh = vim.api.nvim_get_option("lines")
-
-		local w, h, r, c = size_func(ew, eh)
-
-		-- setting to the middle of the editor
-		local o = {
-			relative = "editor",
-			-- half of the editor width
-			width = math.floor(w),
-			-- half of the editor height
-			height = math.floor(h),
-			-- center of the editor
-			row = math.floor(r),
-			-- center of the editor
-			col = math.floor(c),
-		}
-		vim.api.nvim_win_set_config(win, o)
-	end
-
-	local pgid = opts.gid or M._H.create_augroup("GpPopup", { clear = true })
-
-	-- cleanup on exit
-	local close = _H.once(function()
-		vim.schedule(function()
-			-- delete only internal augroups
-			if not opts.gid then
-				vim.api.nvim_del_augroup_by_id(pgid)
-			end
-			if win and vim.api.nvim_win_is_valid(win) then
-				vim.api.nvim_win_close(win, true)
-			end
-			if opts.persist then
-				return
-			end
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_delete(buf, { force = true })
-			end
-		end)
-	end)
-
-	-- resize on vim resize
-	_H.autocmd("VimResized", { buf }, resize, pgid)
-
-	-- cleanup on buffer exit
-	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, pgid)
-
-	-- optional cleanup on buffer leave
-	if opts.on_leave then
-		-- close when entering non-popup buffer
-		_H.autocmd({ "BufEnter" }, nil, function(event)
-			local b = event.buf
-			if b ~= buf then
-				close()
-				-- make sure to set current buffer after close
-				vim.schedule(vim.schedule_wrap(function()
-					vim.api.nvim_set_current_buf(b)
-				end))
-			end
-		end, pgid)
-	end
-
-	-- cleanup on escape exit
-	if opts.escape then
-		_H.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
-		_H.set_keymap({ buf }, { "n", "v", "i" }, "<C-c>", close, title .. " close on escape")
-	end
-
-	resize()
-	return buf, win, close, resize
-end
-
----@param buf number # buffer number
----@return number # returns the first line with content of specified buffer
-_H.last_content_line = function(buf)
-	buf = buf or vim.api.nvim_get_current_buf()
-	-- go from end and return number of last nonwhitespace line
-	local line = vim.api.nvim_buf_line_count(buf)
-	while line > 0 do
-		local content = vim.api.nvim_buf_get_lines(buf, line - 1, line, false)[1]
-		if content:match("%S") then
-			return line
-		end
-		line = line - 1
-	end
-	return 0
-end
-
----@param buf number # buffer number
----@return string # returns filetype of specified buffer
-_H.get_filetype = function(buf)
-	return vim.api.nvim_buf_get_option(buf, "filetype")
-end
-
--- returns rendered template with specified key replaced by value
-_H.template_replace = function(template, key, value)
-	if template == nil then
-		return nil
-	end
-
-	if value == nil then
-		return template:gsub(key, "")
-	end
-
-	if type(value) == "table" then
-		value = table.concat(value, "\n")
-	end
-
-	value = value:gsub("%%", "%%%%")
-	template = template:gsub(key, value)
-	template = template:gsub("%%%%", "%%")
-	return template
-end
-
----@param template string | nil # template string
----@param key_value_pairs table # table with key value pairs
----@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
-_H.template_render = function(template, key_value_pairs)
-	if template == nil then
-		return nil
-	end
-
-	for key, value in pairs(key_value_pairs) do
-		template = _H.template_replace(template, key, value)
-	end
-
-	return template
-end
-
----@param line number # line number
----@param buf number # buffer number
----@param win number | nil # window number
-_H.cursor_to_line = function(line, buf, win)
-	-- don't manipulate cursor if user is elsewhere
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-
-	-- check if win is valid
-	if not win or not vim.api.nvim_win_is_valid(win) then
-		return
-	end
-
-	-- move cursor to the line
-	vim.api.nvim_win_set_cursor(win, { line, 0 })
-end
-
----@param str string # string to check
----@param start string # string to check for
-_H.starts_with = function(str, start)
-	return str:sub(1, #start) == start
-end
-
----@param str string # string to check
----@param ending string # string to check for
-_H.ends_with = function(str, ending)
-	return ending == "" or str:sub(-#ending) == ending
-end
 
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
-
----@param tbl table # the table to be stored
----@param file_path string # the file path where the table will be stored as json
-M.table_to_file = function(tbl, file_path)
-	local json = vim.json.encode(tbl)
-
-	local file = io.open(file_path, "w")
-	if not file then
-		M.logger.warning("Failed to open file for writing: " .. file_path)
-		return
-	end
-	file:write(json)
-	file:close()
-end
-
----@param file_path string # the file path from where to read the json into a table
----@return table | nil # the table read from the file, or nil if an error occurred
-M.file_to_table = function(file_path)
-	local file, err = io.open(file_path, "r")
-	if not file then
-		M.logger.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
-		return nil
-	end
-	local content = file:read("*a")
-	file:close()
-
-	if content == nil or content == "" then
-		M.logger.warning("Failed to read any content from file: " .. file_path)
-		return nil
-	end
-
-	local tbl = vim.json.decode(content)
-	return tbl
-end
-
--- helper function to find the root directory of the current git repository
----@param path string | nil  # optional path to start searching from
----@return string # returns the path of the git root dir or an empty string if not found
-_H.find_git_root = function(path)
-	local cwd = vim.fn.expand("%:p:h")
-	if path then
-		cwd = vim.fn.fnamemodify(path, ":p:h")
-	end
-	while cwd ~= "/" do
-		local files = vim.fn.readdir(cwd)
-		if vim.tbl_contains(files, ".git") then
-			return cwd
-		end
-		cwd = vim.fn.fnamemodify(cwd, ":h")
-	end
-	return ""
-end
-
--- tries to find an .gp.md file in the root of current git repo
----@return string # returns instructions from the .gp.md file
-M.repo_instructions = function()
-	local git_root = _H.find_git_root()
-
-	if git_root == "" then
-		return ""
-	end
-
-	local instruct_file = git_root .. "/.gp.md"
-
-	if vim.fn.filereadable(instruct_file) == 0 then
-		return ""
-	end
-
-	local lines = vim.fn.readfile(instruct_file)
-	return table.concat(lines, "\n")
-end
-
-M.template_render = function(template, command, selection, filetype, filename)
-	local git_root = _H.find_git_root(filename)
-	if git_root ~= "" then
-		local git_root_plus_one = vim.fn.fnamemodify(git_root, ":h")
-		if git_root_plus_one ~= "" then
-			filename = filename:sub(#git_root_plus_one + 2)
-		end
-	end
-
-	local key_value_pairs = {
-		["{{command}}"] = command,
-		["{{selection}}"] = selection,
-		["{{filetype}}"] = filetype,
-		["{{filename}}"] = filename,
-	}
-	return _H.template_render(template, key_value_pairs)
-end
-
----@param params table # table with command args
----@param origin_buf number # selection origin buffer
----@param target_buf number # selection target buffer
-M.append_selection = function(params, origin_buf, target_buf)
-	-- prepare selection
-	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
-	local selection = table.concat(lines, "\n")
-	if selection ~= "" then
-		local filetype = M._H.get_filetype(origin_buf)
-		local fname = vim.api.nvim_buf_get_name(origin_buf)
-		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
-		if rendered then
-			selection = rendered
-		end
-	end
-
-	-- delete whitespace lines at the end of the file
-	local last_content_line = M._H.last_content_line(target_buf)
-	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
-
-	-- insert selection lines
-	lines = vim.split("\n" .. selection, "\n")
-	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
-end
-
-function M.refresh_copilot_bearer()
-	if not M.providers.copilot or not M.providers.copilot.secret then
-		return
-	end
-	local secret = M.providers.copilot.secret
-
-	if type(secret) == "table" then
-		return
-	end
-
-	local bearer = M._state.copilot_bearer or {}
-	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
-		return
-	end
-
-	local curl_params = vim.deepcopy(M.config.curl_params or {})
-	local args = {
-		"-s",
-		"-v",
-		"https://api.github.com/copilot_internal/v2/token",
-		"-H",
-		"Content-Type: application/json",
-		"-H",
-		"accept: */*",
-		"-H",
-		"authorization: token " .. secret,
-		"-H",
-		"editor-version: vscode/1.90.2",
-		"-H",
-		"editor-plugin-version: copilot-chat/0.17.2024062801",
-		"-H",
-		"user-agent: GitHubCopilotChat/0.17.2024062801",
-	}
-
-	for _, arg in ipairs(args) do
-		table.insert(curl_params, arg)
-	end
-
-	M._H.process(nil, "curl", curl_params, function(code, signal, stdout, stderr)
-		if code ~= 0 then
-			M.logger.error(string.format("Copilot bearer resolve exited: %d, %d", code, signal, stderr))
-			return
-		end
-
-		M._state.copilot_bearer = vim.json.decode(stdout)
-		M.refresh_state()
-	end, nil, nil)
-end
 
 -- setup function
 M._setup_called = false
@@ -727,15 +48,49 @@ M.setup = function(opts)
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
+	local curl_params = opts.curl_params or M.config.curl_params
+	local cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
+	local state_dir = opts.state_dir or M.config.state_dir
+	local openai_api_key = opts.openai_api_key or M.config.openai_api_key
+
+	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
+
+	M.vault.setup({ state_dir = state_dir, curl_params = curl_params })
+
+	M.vault.resolve_secret("openai_api_key", openai_api_key)
+	M.config.openai_api_key = nil
+	opts.openai_api_key = nil
+
+	M.dispatcher.setup({ providers = opts.providers, curl_params = curl_params })
+	M.config.providers = nil
+	opts.providers = nil
+
+	local image_opts = opts.image or {}
+	image_opts.state_dir = state_dir
+	image_opts.cmd_prefix = cmd_prefix
+	image_opts.secret = image_opts.secret or openai_api_key
+	M.imager.setup(image_opts)
+	M.config.image = nil
+	opts.image = nil
+
+	local whisper_opts = opts.whisper or {}
+	whisper_opts.style_popup_border = opts.style_popup_border or M.config.style_popup_border
+	whisper_opts.curl_params = curl_params
+	whisper_opts.cmd_prefix = cmd_prefix
+	M.whisper.setup(whisper_opts)
+	M.config.whisper = nil
+	opts.whisper = nil
+
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents", "image_agents", "providers" }
+	local mergeTables = { "hooks", "agents" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
-		---@diagnostic disable-next-line: param-type-mismatch
+		---@diagnostic disable-next-line
 		for k, v in pairs(M.config[tbl]) do
-			if tbl == "hooks" or tbl == "providers" then
+			if tbl == "hooks" then
 				M[tbl][k] = v
-			elseif tbl == "agents" or tbl == "image_agents" then
+			elseif tbl == "agents" then
+				---@diagnostic disable-next-line
 				M[tbl][v.name] = v
 			end
 		end
@@ -745,16 +100,7 @@ M.setup = function(opts)
 		for k, v in pairs(opts[tbl]) do
 			if tbl == "hooks" then
 				M[tbl][k] = v
-			elseif tbl == "providers" then
-				M[tbl][k] = M[tbl][k] or {}
-				M[tbl][k].disable = false
-				for pk, pv in pairs(v) do
-					M[tbl][k][pk] = pv
-				end
-				if next(v) == nil then
-					M[tbl][k] = nil
-				end
-			elseif tbl == "agents" or tbl == "image_agents" then
+			elseif tbl == "agents" then
 				M[tbl][v.name] = v
 			end
 		end
@@ -762,44 +108,16 @@ M.setup = function(opts)
 	end
 
 	for k, v in pairs(opts) do
-		if deprecated[k] then
-			table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
-		else
+		if M.deprecator.is_valid(k, v) then
 			M.config[k] = v
 		end
 	end
-
-	M.logger.set_log_file(M.config.log_file)
-
-	if #M._deprecated > 0 then
-		local msg = "Hey there, I have good news and bad news for you.\n"
-			.. "\nThe good news is that you've updated gp.nvim and got some new features."
-			.. "\nThe bad news is that some of the config options you are using are deprecated:"
-		table.sort(M._deprecated, function(a, b)
-			return a.msg < b.msg
-		end)
-		for _, v in ipairs(M._deprecated) do
-			msg = msg .. "\n\n- " .. v.msg
-		end
-		msg = msg
-			.. "\n\nThis is shown only at startup and deprecated options are ignored"
-			.. "\nso everything should work without problems and you can deal with this later."
-			.. "\n\nYou can check deprecated options any time with `:checkhealth gp`"
-			.. "\nSorry for the inconvenience and thank you for using gp.nvim."
-		M.logger.info(msg)
-	end
+	M.deprecator.report()
 
 	-- make sure _dirs exists
 	for k, v in pairs(M.config) do
 		if k:match("_dir$") and type(v) == "string" then
-			local dir = v:gsub("/$", "")
-			M.config[k] = dir
-			if vim.fn.isdirectory(dir) == 0 then
-				if k ~= "whisper_dir" and k ~= "image_dir" then
-					M.logger.info("creating directory " .. dir)
-				end
-				vim.fn.mkdir(dir, "p")
-			end
+			M.config[k] = M.helpers.prepare_dir(v, k)
 		end
 	end
 
@@ -820,41 +138,13 @@ M.setup = function(opts)
 		end
 	end
 
-	for name, agent in pairs(M.image_agents) do
-		if type(agent) ~= "table" or agent.disable then
-			M.image_agents[name] = nil
-		elseif not agent.model then
-			M.logger.warning(
-				"Image agent "
-					.. name
-					.. " is missing model\n"
-					.. "If you want to disable an agent, use: { name = '"
-					.. name
-					.. "', disable = true },"
-			)
-			M.image_agents[name] = nil
-		end
-	end
-
-	-- remove invalid providers
-	for name, provider in pairs(M.providers) do
-		if type(provider) ~= "table" or provider.disable then
-			M.providers[name] = nil
-		elseif not provider.endpoint then
-			M.logger.warning("Provider " .. name .. " is missing endpoint")
-			M.providers[name] = nil
-		end
-	end
-
 	-- prepare agent completions
 	M._chat_agents = {}
 	M._command_agents = {}
 	for name, agent in pairs(M.agents) do
-		if not M.agents[name].provider then
-			M.agents[name].provider = "openai"
-		end
+		M.agents[name].provider = M.agents[name].provider or "openai"
 
-		if M.providers[M.agents[name].provider] then
+		if M.dispatcher.providers[M.agents[name].provider] then
 			if agent.command then
 				table.insert(M._command_agents, name)
 			end
@@ -868,19 +158,16 @@ M.setup = function(opts)
 	table.sort(M._chat_agents)
 	table.sort(M._command_agents)
 
-	M._image_agents = {}
-	for name, _ in pairs(M.image_agents) do
-		table.insert(M._image_agents, name)
-	end
-	table.sort(M._image_agents)
-
 	M.refresh_state()
 
 	-- register user commands
 	for hook, _ in pairs(M.hooks) do
-		vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
-			M.call_hook(hook, params)
-		end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
+		M.helpers.create_user_command(M.config.cmd_prefix .. hook, function(params)
+			if M.hooks[hook] ~= nil then
+				return M.hooks[hook](M, params)
+			end
+			M.logger.error("The hook '" .. hook .. "' does not exist.")
+		end)
 	end
 
 	local completions = {
@@ -893,33 +180,20 @@ M.setup = function(opts)
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
-			vim.api.nvim_create_user_command(M.config.cmd_prefix .. cmd, function(params)
-				M.cmd[cmd](params)
-			end, {
-				nargs = "?",
-				range = true,
-				desc = "GPT Prompt plugin",
-				complete = function()
-					if completions[cmd] then
-						return completions[cmd]
+			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, M.cmd[cmd], function()
+				if completions[cmd] then
+					return completions[cmd]
+				end
+				if cmd == "Agent" then
+					local buf = vim.api.nvim_get_current_buf()
+					local file_name = vim.api.nvim_buf_get_name(buf)
+					if M.not_chat(buf, file_name) == nil then
+						return M._chat_agents
 					end
-
-					if cmd == "Agent" then
-						local buf = vim.api.nvim_get_current_buf()
-						local file_name = vim.api.nvim_buf_get_name(buf)
-						if M.not_chat(buf, file_name) == nil then
-							return M._chat_agents
-						end
-						return M._command_agents
-					end
-
-					if cmd == "ImageAgent" then
-						return M._image_agents
-					end
-
-					return {}
-				end,
-			})
+					return M._command_agents
+				end
+				return {}
+			end)
 		end
 	end
 
@@ -929,100 +203,7 @@ M.setup = function(opts)
 		M.logger.error("curl is not installed, run :checkhealth gp")
 	end
 
-	for name, _ in pairs(M.providers) do
-		M.resolve_secret(name)
-	end
-	if not M.providers.openai then
-		M.providers.openai = {}
-		M.resolve_secret("openai", function()
-			M.providers.openai = nil
-		end)
-	end
-end
-
----@provider string # provider name
-function M.resolve_secret(provider, callback)
-	local post_process = function()
-		local p = M.providers[provider]
-		if p.secret and type(p.secret) == "string" then
-			p.secret = p.secret:gsub("^%s*(.-)%s*$", "%1")
-		end
-
-		if provider == "copilot" then
-			M.refresh_copilot_bearer()
-		end
-
-		-- backwards compatibility
-		if provider == "openai" then
-			M.config.openai_api_key = M.providers[provider].secret
-		end
-
-		if callback then
-			callback()
-		end
-	end
-
-	-- backwards compatibility
-	if provider == "openai" then
-		M.providers[provider].secret = M.providers[provider].secret or M.config.openai_api_key
-	end
-
-	local secret = M.providers[provider].secret
-	if secret and type(secret) == "table" then
-		---@diagnostic disable-next-line: param-type-mismatch
-		local copy = vim.deepcopy(secret)
-		---@diagnostic disable-next-line: param-type-mismatch
-		local cmd = table.remove(copy, 1)
-		local args = copy
-		---@diagnostic disable-next-line: param-type-mismatch
-		_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-			if code == 0 then
-				local content = stdout_data:match("^%s*(.-)%s*$")
-				if not string.match(content, "%S") then
-					M.logger.warning(
-						"response from the config.providers." .. provider .. ".secret command " .. vim.inspect(secret) .. " is empty"
-					)
-					return
-				end
-				M.providers[provider].secret = content
-				post_process()
-			else
-				M.logger.warning(
-					"config.providers."
-						.. provider
-						.. ".secret command "
-						.. vim.inspect(secret)
-						.. " to retrieve the secret failed:\ncode: "
-						.. code
-						.. ", signal: "
-						.. signal
-						.. "\nstdout: "
-						.. stdout_data
-						.. "\nstderr: "
-						.. stderr_data
-				)
-			end
-		end)
-	else
-		post_process()
-	end
-end
-
--- TODO: obsolete
-M.valid_api_key = function()
-	local api_key = M.config.openai_api_key
-
-	if type(api_key) == "table" then
-		M.logger.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
-		return false
-	end
-
-	if api_key and string.match(api_key, "%S") then
-		return true
-	end
-
-	M.logger.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
-	return false
+	M.logger.debug("setup finished")
 end
 
 M.refresh_state = function()
@@ -1030,8 +211,10 @@ M.refresh_state = function()
 
 	local state = {}
 	if vim.fn.filereadable(state_file) ~= 0 then
-		state = M.file_to_table(state_file) or {}
+		state = M.helpers.file_to_table(state_file) or {}
 	end
+
+	M.logger.debug("loaded state: " .. vim.inspect(state))
 
 	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
 	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
@@ -1043,19 +226,7 @@ M.refresh_state = function()
 		M._state.command_agent = M._command_agents[1]
 	end
 
-	M._state.image_agent = M._state.image_agent or state.image_agent or nil
-	if not M._state.image_agent == nil or not M.image_agents[M._state.image_agent] then
-		M._state.image_agent = M._image_agents[1]
-	end
-
-	local bearer = M._state.copilot_bearer or state.copilot_bearer or nil
-	if bearer and bearer.expires_at and bearer.expires_at < os.time() then
-		bearer = nil
-		M.refresh_copilot_bearer()
-	end
-	M._state.copilot_bearer = bearer
-
-	M.table_to_file(M._state, state_file)
+	M.helpers.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
 
@@ -1127,469 +298,36 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
+			if agent then
+				M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
+			end
 		end
 
 		M.cmd[command] = function(params)
 			cmd(params)
 		end
 
-		M.cmd["Whisper" .. command] = function(params)
-			M.Whisper(M.config.whisper_language, function(text)
-				vim.schedule(function()
-					cmd(params, text)
-				end)
-			end)
-		end
-	end
-end
-
--- hook caller
-M.call_hook = function(name, params)
-	if M.hooks[name] ~= nil then
-		return M.hooks[name](M, params)
-	end
-	M.logger.error("The hook '" .. name .. "' does not exist.")
-end
-
----@param messages table
----@param model string | table
----@param provider string | nil
-M.prepare_payload = function(messages, model, provider)
-	if type(model) == "string" then
-		return {
-			model = model,
-			stream = true,
-			messages = messages,
-		}
-	end
-
-	if provider == "googleai" then
-		for i, message in ipairs(messages) do
-			if message.role == "system" then
-				messages[i].role = "user"
-			end
-			if message.role == "assistant" then
-				messages[i].role = "model"
-			end
-			if message.content then
-				messages[i].parts = {
-					{
-						text = message.content,
-					},
-				}
-				messages[i].content = nil
-			end
-		end
-		local i = 1
-		while i < #messages do
-			if messages[i].role == messages[i + 1].role then
-				table.insert(messages[i].parts, {
-					text = messages[i + 1].parts[1].text,
-				})
-				table.remove(messages, i + 1)
-			else
-				i = i + 1
-			end
-		end
-		local payload = {
-			contents = messages,
-			safetySettings = {
-				{
-					category = "HARM_CATEGORY_HARASSMENT",
-					threshold = "BLOCK_NONE",
-				},
-				{
-					category = "HARM_CATEGORY_HATE_SPEECH",
-					threshold = "BLOCK_NONE",
-				},
-				{
-					category = "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-					threshold = "BLOCK_NONE",
-				},
-				{
-					category = "HARM_CATEGORY_DANGEROUS_CONTENT",
-					threshold = "BLOCK_NONE",
-				},
-			},
-			generationConfig = {
-				temperature = math.max(0, math.min(2, model.temperature or 1)),
-				maxOutputTokens = model.max_tokens or 8192,
-				topP = math.max(0, math.min(1, model.top_p or 1)),
-				topK = model.top_k or 100,
-			},
-			model = model.model,
-		}
-		return payload
-	end
-
-	if provider == "anthropic" then
-		local system = ""
-		local i = 1
-		while i < #messages do
-			if messages[i].role == "system" then
-				system = system .. messages[i].content .. "\n"
-				table.remove(messages, i)
-			else
-				i = i + 1
-			end
-		end
-
-		local payload = {
-			model = model.model,
-			stream = true,
-			messages = messages,
-			system = system,
-			max_tokens = model.max_tokens or 4096,
-			temperature = math.max(0, math.min(2, model.temperature or 1)),
-			top_p = math.max(0, math.min(1, model.top_p or 1)),
-		}
-		return payload
-	end
-
-	return {
-		model = model.model,
-		stream = true,
-		messages = messages,
-		temperature = math.max(0, math.min(2, model.temperature or 1)),
-		top_p = math.max(0, math.min(1, model.top_p or 1)),
-	}
-end
-
----@param N number # number of queries to keep
----@param age number # age of queries to keep in seconds
-function M.cleanup_old_queries(N, age)
-	local current_time = os.time()
-
-	local query_count = 0
-	for _ in pairs(M._queries) do
-		query_count = query_count + 1
-	end
-
-	if query_count <= N then
-		return
-	end
-
-	for qid, query_data in pairs(M._queries) do
-		if current_time - query_data.timestamp > age then
-			M._queries[qid] = nil
-		end
-	end
-end
-
----@param qid string # query id
----@return table | nil # query data
-function M.get_query(qid)
-	if not M._queries[qid] then
-		M.logger.error("Query with ID " .. tostring(qid) .. " not found.")
-		return nil
-	end
-	return M._queries[qid]
-end
-
--- gpt query
----@param buf number | nil # buffer number
----@param provider string # provider name
----@param payload table # payload for api
----@param handler function # response handler
----@param on_exit function | nil # optional on_exit handler
----@param callback function | nil # optional callback handler
-M.query = function(buf, provider, payload, handler, on_exit, callback)
-	-- make sure handler is a function
-	if type(handler) ~= "function" then
-		M.logger.error(
-			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
-		)
-		return
-	end
-
-	if not M.valid_api_key() then
-		return
-	end
-
-	local qid = M._H.uuid()
-	M._queries[qid] = {
-		timestamp = os.time(),
-		buf = buf,
-		provider = provider,
-		payload = payload,
-		handler = handler,
-		on_exit = on_exit,
-		raw_response = "",
-		response = "",
-		first_line = -1,
-		last_line = -1,
-		ns_id = nil,
-		ex_id = nil,
-	}
-
-	M.cleanup_old_queries(8, 60)
-
-	local out_reader = function()
-		local buffer = ""
-
-		---@param lines_chunk string
-		local function process_lines(lines_chunk)
-			local qt = M.get_query(qid)
-			if not qt then
-				return
-			end
-
-			local lines = vim.split(lines_chunk, "\n")
-			for _, line in ipairs(lines) do
-				if line ~= "" and line ~= nil then
-					qt.raw_response = qt.raw_response .. line .. "\n"
-				end
-				line = line:gsub("^data: ", "")
-				local content = ""
-				if line:match("choices") and line:match("delta") and line:match("content") then
-					line = vim.json.decode(line)
-					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
-						content = line.choices[1].delta.content
-					end
-				end
-
-				if qt.provider == "anthropic" and line:match('"text":') then
-					if line:match("content_block_start") or line:match("content_block_delta") then
-						line = vim.json.decode(line)
-						if line.delta and line.delta.text then
-							content = line.delta.text
-						end
-						if line.content_block and line.content_block.text then
-							content = line.content_block.text
-						end
-					end
-				end
-
-				if qt.provider == "googleai" then
-					if line:match('"text":') then
-						content = vim.json.decode("{" .. line .. "}").text
-					end
-				end
-
-				if content and type(content) == "string" then
-					qt.response = qt.response .. content
-					handler(qid, content)
-				end
-			end
-		end
-
-		-- closure for vim.loop.read_start(stdout, fn)
-		return function(err, chunk)
-			local qt = M.get_query(qid)
-			if not qt then
-				return
-			end
-
-			if err then
-				M.logger.error(qt.provider .. " query stdout error: " .. vim.inspect(err))
-			elseif chunk then
-				-- add the incoming chunk to the buffer
-				buffer = buffer .. chunk
-				local last_newline_pos = buffer:find("\n[^\n]*$")
-				if last_newline_pos then
-					local complete_lines = buffer:sub(1, last_newline_pos - 1)
-					-- save the rest of the buffer for the next chunk
-					buffer = buffer:sub(last_newline_pos + 1)
-
-					process_lines(complete_lines)
-				end
-				-- chunk is nil when EOF is reached
-			else
-				-- if there's remaining data in the buffer, process it
-				if #buffer > 0 then
-					process_lines(buffer)
-				end
-
-				if qt.response == "" then
-					M.logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
-				end
-
-				-- optional on_exit handler
-				if type(on_exit) == "function" then
-					on_exit(qid)
-					if qt.ns_id and qt.buf then
-						vim.schedule(function()
-							vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
-						end)
-					end
-				end
-
-				-- optional callback handler
-				if type(callback) == "function" then
+		if not M.whisper.disabled then
+			M.cmd["Whisper" .. command] = function(params)
+				M.whisper.Whisper(function(text)
 					vim.schedule(function()
-						callback(qt.response)
+						cmd(params, text)
 					end)
-				end
+				end)
 			end
 		end
 	end
-
-	---TODO: this could be moved to a separate function returning endpoint and headers
-	local endpoint = M.providers[provider].endpoint
-	local bearer = M.providers[provider].secret
-	local headers = {}
-
-	if provider == "copilot" then
-		M.refresh_copilot_bearer()
-		---@diagnostic disable-next-line: undefined-field
-		bearer = M._state.copilot_bearer.token or ""
-		headers = {
-			"-H",
-			"editor-version: vscode/1.85.1",
-			"-H",
-			"Authorization: Bearer " .. bearer,
-		}
-	elseif provider == "openai" then
-		headers = {
-			"-H",
-			"Authorization: Bearer " .. bearer,
-			-- backwards compatibility
-			"-H",
-			"api-key: " .. bearer,
-		}
-	elseif provider == "googleai" then
-		headers = {}
-		endpoint = M._H.template_replace(endpoint, "{{secret}}", bearer)
-		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
-		payload.model = nil
-	elseif provider == "anthropic" then
-		headers = {
-			"-H",
-			"x-api-key: " .. bearer,
-			"-H",
-			"anthropic-version: 2023-06-01",
-			"-H",
-			"anthropic-beta: messages-2023-12-15",
-		}
-	elseif provider == "azure" then
-		headers = {
-			"-H",
-			"api-key: " .. bearer,
-		}
-		endpoint = M._H.template_replace(endpoint, "{{model}}", payload.model)
-	else -- default to openai compatible headers
-		headers = {
-			"-H",
-			"Authorization: Bearer " .. bearer,
-		}
-	end
-
-	local curl_params = vim.deepcopy(M.config.curl_params or {})
-	local args = {
-		"--no-buffer",
-		"-s",
-		endpoint,
-		"-H",
-		"Content-Type: application/json",
-		"-d",
-		vim.json.encode(payload),
-		--[[ "--doesnt_exist" ]]
-	}
-
-	for _, arg in ipairs(args) do
-		table.insert(curl_params, arg)
-	end
-
-	for _, header in ipairs(headers) do
-		table.insert(curl_params, header)
-	end
-
-	M._H.process(buf, "curl", curl_params, nil, out_reader(), nil)
 end
 
--- response handler
----@param buf number | nil # buffer to insert response into
----@param win number | nil # window to insert response into
----@param line number | nil # line to insert response into
----@param first_undojoin boolean | nil # whether to skip first undojoin
----@param prefix string | nil # prefix to insert before each response line
----@param cursor boolean # whether to move cursor to the end of the response
-M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
-	buf = buf or vim.api.nvim_get_current_buf()
-	prefix = prefix or ""
-	local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
-	local finished_lines = 0
-	local skip_first_undojoin = not first_undojoin
-
-	local hl_handler_group = "GpHandlerStandout"
-	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
-
-	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M._H.uuid())
-
-	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
-		strict = false,
-		right_gravity = false,
-	})
-
-	local response = ""
-	return vim.schedule_wrap(function(qid, chunk)
-		local qt = M.get_query(qid)
-		if not qt then
-			return
-		end
-		-- if buf is not valid, stop
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-		-- undojoin takes previous change into account, so skip it for the first chunk
-		if skip_first_undojoin then
-			skip_first_undojoin = false
-		else
-			M._H.undojoin(buf)
-		end
-
-		if not qt.ns_id then
-			qt.ns_id = ns_id
-		end
-
-		if not qt.ex_id then
-			qt.ex_id = ex_id
-		end
-
-		first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
-
-		-- clean previous response
-		local line_count = #vim.split(response, "\n")
-		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + line_count, false, {})
-
-		-- append new response
-		response = response .. chunk
-		M._H.undojoin(buf)
-
-		-- prepend prefix to each line
-		local lines = vim.split(response, "\n")
-		for i, l in ipairs(lines) do
-			lines[i] = prefix .. l
-		end
-
-		local unfinished_lines = {}
-		for i = finished_lines + 1, #lines do
-			table.insert(unfinished_lines, lines[i])
-		end
-
-		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + finished_lines, false, unfinished_lines)
-
-		local new_finished_lines = math.max(0, #lines - 1)
-		for i = finished_lines, new_finished_lines do
-			vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
-		end
-		finished_lines = new_finished_lines
-
-		local end_line = first_line + #vim.split(response, "\n")
-		qt.first_line = first_line
-		qt.last_line = end_line - 1
-
-		-- move cursor to the end of the response
-		if cursor then
-			M._H.cursor_to_line(end_line, buf, win)
-		end
-	end)
+-- stop receiving gpt responses for all processes and clean the handles
+---@param signal number | nil # signal to send to the process
+M.cmd.Stop = function(signal)
+	M.tasker.stop(signal)
 end
 
---------------------
+--------------------------------------------------------------------------------
 -- Chat logic
---------------------
+--------------------------------------------------------------------------------
 
 M._toggle = {}
 
@@ -1659,7 +397,7 @@ M.prep_md = function(buf)
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
-	M._H.feedkeys("<esc>", "xn")
+	M.helpers.feedkeys("<esc>", "xn")
 end
 
 ---@param buf number # buffer number
@@ -1670,7 +408,7 @@ M.not_chat = function(buf, file_name)
 	local chat_dir = vim.fn.resolve(M.config.chat_dir)
 	file_name = file_name:gsub("\\", "/")
 	chat_dir = chat_dir:gsub("\\", "/")
-	if not _H.starts_with(file_name, chat_dir) then
+	if not M.helpers.starts_with(file_name, chat_dir) then
 		return "resolved file (" .. file_name .. ") not in chat dir (" .. chat_dir .. ")"
 	end
 
@@ -1732,7 +470,7 @@ M.prep_chat = function(buf, file_name)
 	M.prep_md(buf)
 
 	if M.config.chat_prompt_buf_type then
-		vim.api.nvim_buf_set_option(buf, "buftype", "prompt")
+		vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
 		vim.fn.prompt_setprompt(buf, "")
 		vim.fn.prompt_setcallback(buf, function()
 			M.cmd.ChatRespond({ args = "" })
@@ -1758,23 +496,23 @@ M.prep_chat = function(buf, file_name)
 		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
 		for _, mode in ipairs(rc.modes) do
 			if mode == "n" or mode == "i" then
-				_H.set_keymap({ buf }, mode, rc.shortcut, function()
+				M.helpers.set_keymap({ buf }, mode, rc.shortcut, function()
 					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
 					-- go to normal mode
 					vim.api.nvim_command("stopinsert")
-					M._H.feedkeys("<esc>", "xn")
+					M.helpers.feedkeys("<esc>", "xn")
 				end, rc.comment)
 			else
-				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
+				M.helpers.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
 			end
 		end
 	end
 
 	local ds = M.config.chat_shortcut_delete
-	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+	M.helpers.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
 
 	local ss = M.config.chat_shortcut_stop
-	_H.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
+	M.helpers.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
 
 	-- conceal parameters in model header so it's not distracting
 	if M.config.chat_conceal_model_params then
@@ -1795,22 +533,10 @@ M.prep_chat = function(buf, file_name)
 	end
 end
 
-M.prep_context = function(buf, file_name)
-	if not _H.ends_with(file_name, ".gp.md") then
-		return
-	end
-
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-
-	M.prep_md(buf)
-end
-
 M.buf_handler = function()
-	local gid = M._H.create_augroup("GpBufHandler", { clear = true })
+	local gid = M.helpers.create_augroup("GpBufHandler", { clear = true })
 
-	_H.autocmd({ "BufEnter" }, nil, function(event)
+	M.helpers.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
 
 		if not vim.api.nvim_buf_is_valid(buf) then
@@ -1824,7 +550,7 @@ M.buf_handler = function()
 		M.prep_context(buf, file_name)
 	end, gid)
 
-	_H.autocmd({ "WinEnter" }, nil, function(event)
+	M.helpers.autocmd({ "WinEnter" }, nil, function(event)
 		local buf = event.buf
 
 		if not vim.api.nvim_buf_is_valid(buf) then
@@ -1888,9 +614,9 @@ M.open_buf = function(file_name, target, kind, toggle)
 	local close, buf, win
 
 	if target == M.BufTarget.popup then
-		local old_buf = M._H.get_buffer(file_name)
+		local old_buf = M.helpers.get_buffer(file_name)
 
-		buf, win, close, _ = M._H.create_popup(old_buf, M._Name .. " Popup", function(w, h)
+		buf, win, close, _ = M.render.popup(old_buf, M._Name .. " Popup", function(w, h)
 			local top = M.config.style_popup_margin_top or 2
 			local bottom = M.config.style_popup_margin_bottom or 8
 			local left = M.config.style_popup_margin_left or 1
@@ -1912,14 +638,14 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent 0read " .. file_name)
 			vim.api.nvim_command("silent file " .. file_name)
 			-- set the filetype to markdown
-			vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+			vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 		else
 			-- move cursor to the beginning of the file and scroll to the end
-			M._H.feedkeys("ggG", "xn")
+			M.helpers.feedkeys("ggG", "xn")
 		end
 
 		-- delete whitespace lines at the end of the file
-		local last_content_line = M._H.last_content_line(buf)
+		local last_content_line = M.helpers.last_content_line(buf)
 		vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 		-- insert a new line at the end of the file
 		vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
@@ -1955,7 +681,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 		return buf
 	end
 
-	vim.api.nvim_buf_set_option(buf, "buflisted", false)
+	vim.api.nvim_set_option_value("buflisted", false, { buf = buf })
 
 	if target == M.BufTarget.split or target == M.BufTarget.vsplit then
 		close = function()
@@ -1988,15 +714,7 @@ end
 M.new_chat = function(params, toggle, system_prompt, agent)
 	M._toggle_close(M._toggle_kind.popup)
 
-	-- prepare filename
-	local time = os.date("%Y-%m-%d.%H-%M-%S")
-	local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
-	-- make sure stamp is 3 digits
-	while #stamp < 3 do
-		stamp = "0" .. stamp
-	end
-	time = time .. "." .. stamp
-	local filename = M.config.chat_dir .. "/" .. time .. ".md"
+	local filename = M.config.chat_dir .. "/" .. M.logger.now() .. ".md"
 
 	-- encode as json if model is a table
 	local model = ""
@@ -2020,7 +738,7 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		system_prompt = ""
 	end
 
-	local template = M._H.template_render(M.config.chat_template or require("gp.defaults").chat_template, {
+	local template = M.render.template(M.config.chat_template or require("gp.defaults").chat_template, {
 		["{{filename}}"] = string.match(filename, "([^/]+)$"),
 		["{{optional_headers}}"] = model .. provider .. system_prompt,
 		["{{user_prefix}}"] = M.config.chat_user_prefix,
@@ -2030,22 +748,6 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		["{{delete_shortcut}}"] = M.config.chat_shortcut_delete.shortcut,
 		["{{new_shortcut}}"] = M.config.chat_shortcut_new.shortcut,
 	})
-
-	-- local template = string.format(
-	-- 	M.config.chat_template or require("gp.defaults").chat_template,
-	-- 	string.match(filename, "([^/]+)$"),
-	-- 	model .. provider .. system_prompt,
-	-- 	M.config.chat_user_prefix,
-	-- 	M.config.chat_shortcut_respond.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_shortcut_stop.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_shortcut_delete.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_shortcut_new.shortcut,
-	-- 	M.config.cmd_prefix,
-	-- 	M.config.chat_user_prefix
-	-- )
 
 	-- escape underscores (for markdown)
 	template = template:gsub("_", "\\_")
@@ -2061,39 +763,21 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 	local buf = M.open_buf(filename, target, M._toggle_kind.chat, toggle)
 
 	if params.range == 2 then
-		M.append_selection(params, cbuf, buf)
+		M.render.append_selection(params, cbuf, buf, M.config.template_selection)
 	end
-	M._H.feedkeys("G", "xn")
+	M.helpers.feedkeys("G", "xn")
 	return buf
 end
-
-local exampleChatHook = [[
-Translator = function(gp, params)
-    local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-    gp.cmd.ChatNew(params, chat_system_prompt)
-
-    -- -- you can also create a chat with a specific fixed agent like this:
-    -- local agent = gp.get_chat_agent("ChatGPT4o")
-    -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
-end,
-]]
 
 ---@param params table
 ---@param system_prompt string | nil
 ---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 ---@return number # buffer number
 M.cmd.ChatNew = function(params, system_prompt, agent)
-	if agent then
-		if not type(agent) == "table" or not agent.provider then
-			M.logger.warning(
-				"The `gp.cmd.ChatNew` method signature has changed.\n"
-					.. "Please update your hook functions as demonstrated in the example below:\n\n"
-					.. exampleChatHook
-					.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
-			)
-			return -1
-		end
+	if M.deprecator.has_old_chat_signature(agent) then
+		return -1
 	end
+
 	-- if chat toggle is open, close it and start a new one
 	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
@@ -2164,7 +848,7 @@ M.cmd.ChatPaste = function(params)
 	local target = M.resolve_buf_target(params)
 
 	last = vim.fn.resolve(last)
-	local buf = M._H.get_buffer(last)
+	local buf = M.helpers.get_buffer(last)
 	local win_found = false
 	if buf then
 		for _, w in ipairs(vim.api.nvim_list_wins()) do
@@ -2178,8 +862,8 @@ M.cmd.ChatPaste = function(params)
 	end
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
-	M.append_selection(params, cbuf, buf)
-	M._H.feedkeys("G", "xn")
+	M.render.append_selection(params, cbuf, buf, M.config.template_selection)
+	M.helpers.feedkeys("G", "xn")
 end
 
 M.cmd.ChatDelete = function()
@@ -2188,21 +872,21 @@ M.cmd.ChatDelete = function()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 
 	-- check if file is in the chat dir
-	if not _H.starts_with(file_name, vim.fn.resolve(M.config.chat_dir)) then
+	if not M.helpers.starts_with(file_name, vim.fn.resolve(M.config.chat_dir)) then
 		M.logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
 
 	-- delete without confirmation
 	if not M.config.chat_confirm_delete then
-		M._H.delete_file(file_name)
+		M.helpers.delete_file(file_name)
 		return
 	end
 
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
-			M._H.delete_file(file_name)
+			M.helpers.delete_file(file_name)
 		end
 	end)
 end
@@ -2211,12 +895,7 @@ M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	if not M.valid_api_key() then
-		return
-	end
-
-	if not M.can_handle(buf) then
-		M.logger.warning("Another Gp process is already running for this buffer.")
+	if M.tasker.is_busy(buf) then
 		return
 	end
 
@@ -2307,7 +986,7 @@ M.chat_respond = function(params)
 		agent_suffix = M.config.chat_assistant_prefix[2] or ""
 	end
 	---@diagnostic disable-next-line: cast-local-type
-	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
+	agent_suffix = M.render.template(agent_suffix, { ["{{agent}}"] = agent_name })
 
 	local old_default_user_prefix = "🗨:"
 	for index = start_index, end_index do
@@ -2350,24 +1029,24 @@ M.chat_respond = function(params)
 	end
 
 	-- write assistant prompt
-	local last_content_line = M._H.last_content_line(buf)
+	local last_content_line = M.helpers.last_content_line(buf)
 	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
 	-- call the model and write response
-	M.query(
+	M.dispatcher.query(
 		buf,
 		headers.provider or agent.provider,
-		M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
-		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
+		M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
+		M.dispatcher.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
-			local qt = M.get_query(qid)
+			local qt = M.tasker.get_query(qid)
 			if not qt then
 				return
 			end
 
 			-- write user prompt
-			last_content_line = M._H.last_content_line(buf)
-			M._H.undojoin(buf)
+			last_content_line = M.helpers.last_content_line(buf)
+			M.helpers.undojoin(buf)
 			vim.api.nvim_buf_set_lines(
 				buf,
 				last_content_line,
@@ -2377,11 +1056,11 @@ M.chat_respond = function(params)
 			)
 
 			-- delete whitespace lines at the end of the file
-			last_content_line = M._H.last_content_line(buf)
-			M._H.undojoin(buf)
+			last_content_line = M.helpers.last_content_line(buf)
+			M.helpers.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 			-- insert a new line at the end of the file
-			M._H.undojoin(buf)
+			M.helpers.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
 			-- if topic is ?, then generate it
@@ -2394,13 +1073,13 @@ M.chat_respond = function(params)
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
-				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
+				local topic_handler = M.dispatcher.create_handler(topic_buf, nil, 0, false, "", false)
 
 				-- call the model
-				M.query(
+				M.dispatcher.query(
 					nil,
 					headers.provider or agent.provider,
-					M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
+					M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2418,14 +1097,14 @@ M.chat_respond = function(params)
 						end
 
 						-- replace topic in current buffer
-						M._H.undojoin(buf)
+						M.helpers.undojoin(buf)
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
 					end)
 				)
 			end
 			if not M.config.chat_free_cursor then
 				local line = vim.api.nvim_buf_line_count(buf)
-				M._H.cursor_to_line(line, buf, win)
+				M.helpers.cursor_to_line(line, buf, win)
 			end
 			vim.cmd("doautocmd User GpDone")
 		end)
@@ -2433,9 +1112,11 @@ M.chat_respond = function(params)
 end
 
 M.cmd.ChatRespond = function(params)
-	if params.args == "" then
+	if params.args == "" and vim.v.count == 0 then
 		M.chat_respond(params)
 		return
+	elseif params.args == "" and vim.v.count ~= 0 then
+		params.args = tostring(vim.v.count)
 	end
 
 	-- ensure args is a single positive number
@@ -2471,7 +1152,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-	local gid = M._H.create_augroup("GpChatFinder", { clear = true })
+	local gid = M.helpers.create_augroup("GpChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
@@ -2479,9 +1160,9 @@ M.cmd.ChatFinder = function()
 	local bottom = M.config.style_chat_finder_margin_bottom or 8
 	local left = M.config.style_chat_finder_margin_left or 1
 	local right = M.config.style_chat_finder_margin_right or 2
-	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
+	local picker_buf, picker_win, picker_close, picker_resize = M.render.popup(
 		nil,
-		"Picker: j/k <Esc>|exit <Enter>|open dd|del i|srch",
+		"Picker: j/k <Esc>|exit <Enter>|open " .. M.config.chat_shortcut_delete.shortcut .. "|del i|srch",
 		function(w, h)
 			local wh = h - top - bottom - 2
 			local ww = w - left - right - 2
@@ -2491,7 +1172,7 @@ M.cmd.ChatFinder = function()
 		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
-	local preview_buf, preview_win, preview_close, preview_resize = M._H.create_popup(
+	local preview_buf, preview_win, preview_close, preview_resize = M.render.popup(
 		nil,
 		"Preview (edits are ephemeral)",
 		function(w, h)
@@ -2503,12 +1184,12 @@ M.cmd.ChatFinder = function()
 		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
-	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
+	vim.api.nvim_set_option_value("filetype", "markdown", { buf = preview_buf })
 
-	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
+	local command_buf, command_win, command_close, command_resize = M.render.popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
-			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>|open/float/split/vsplit/tab/toggle",
+			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
 		function(w, h)
 			return w - left - right, 1, h - bottom, left
 		end,
@@ -2529,7 +1210,7 @@ M.cmd.ChatFinder = function()
 	local regex = ""
 
 	-- clean up augroup and popup buffers/windows
-	local close = _H.once(function()
+	local close = M.tasker.once(function()
 		vim.api.nvim_del_augroup_by_id(gid)
 		picker_close()
 		preview_close()
@@ -2600,7 +1281,7 @@ M.cmd.ChatFinder = function()
 		-- get last line of command buffer
 		local cmd = vim.api.nvim_buf_get_lines(command_buf, -2, -1, false)[1]
 
-		_H.grep_directory(nil, dir, cmd, function(results, re)
+		M.tasker.grep_directory(nil, dir, cmd, function(results, re)
 			if not vim.api.nvim_buf_is_valid(picker_buf) then
 				return
 			end
@@ -2635,44 +1316,44 @@ M.cmd.ChatFinder = function()
 	vim.api.nvim_command("startinsert!")
 
 	-- resize on VimResized
-	_H.autocmd({ "VimResized" }, nil, resize, gid)
+	M.helpers.autocmd({ "VimResized" }, nil, resize, gid)
 
 	-- moving cursor on picker window will update preview window
-	_H.autocmd({ "CursorMoved", "CursorMovedI" }, { picker_buf }, function()
+	M.helpers.autocmd({ "CursorMoved", "CursorMovedI" }, { picker_buf }, function()
 		vim.api.nvim_command("stopinsert")
 		refresh()
 	end, gid)
 
 	-- InsertEnter on picker or preview window will go to command window
-	_H.autocmd({ "InsertEnter" }, { picker_buf, preview_buf }, function()
+	M.helpers.autocmd({ "InsertEnter" }, { picker_buf, preview_buf }, function()
 		vim.api.nvim_set_current_win(command_win)
 		vim.api.nvim_command("startinsert!")
 	end, gid)
 
 	-- InsertLeave on command window will go to picker window
-	_H.autocmd({ "InsertLeave" }, { command_buf }, function()
+	M.helpers.autocmd({ "InsertLeave" }, { command_buf }, function()
 		vim.api.nvim_set_current_win(picker_win)
 		vim.api.nvim_command("stopinsert")
 	end, gid)
 
 	-- when preview becomes active call some function
-	_H.autocmd({ "WinEnter" }, { preview_buf }, function()
+	M.helpers.autocmd({ "WinEnter" }, { preview_buf }, function()
 		-- go to normal mode
 		vim.api.nvim_command("stopinsert")
 	end, gid)
 
 	-- when command buffer is written, execute it
-	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+	M.helpers.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
 		vim.api.nvim_win_set_cursor(picker_win, { 1, 0 })
 		refresh_picker()
 	end, gid)
 
 	-- close on buffer delete
-	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { picker_buf, preview_buf, command_buf }, close, gid)
+	M.helpers.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { picker_buf, preview_buf, command_buf }, close, gid)
 
 	-- close by escape key on any window
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
 
 	---@param target number
 	---@param toggle boolean
@@ -2690,32 +1371,26 @@ M.cmd.ChatFinder = function()
 	end
 
 	-- enter on picker window will open file
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
 		open_chat(M.BufTarget.popup, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
 		open_chat(M.BufTarget.split, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
 		open_chat(M.BufTarget.vsplit, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
 		open_chat(M.BufTarget.tabnew, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>t", function()
 		local target = M.resolve_buf_target(M.config.toggle_target)
 		open_chat(target, true)
 	end)
 
-	-- -- enter on preview window will go to picker window
-	-- _H.set_keymap({ command_buf }, "i", "<cr>", function()
-	-- 	vim.api.nvim_set_current_win(picker_win)
-	-- 	vim.api.nvim_command("stopinsert")
-	-- end)
-
 	-- tab in command window will cycle through lines in picker window
-	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
+	M.helpers.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local next_index = index + 1
 		if next_index > #picker_files then
@@ -2726,7 +1401,7 @@ M.cmd.ChatFinder = function()
 	end)
 
 	-- shift-tab in command window will cycle through lines in picker window
-	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<s-tab>", function()
+	M.helpers.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<s-tab>", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local next_index = index - 1
 		if next_index < 1 then
@@ -2737,30 +1412,35 @@ M.cmd.ChatFinder = function()
 	end)
 
 	-- dd on picker or preview window will delete file
-	_H.set_keymap({ picker_buf, preview_buf }, "n", "dd", function()
-		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
-		local file = picker_files[index]
+	M.helpers.set_keymap(
+		{ command_buf, picker_buf, preview_buf },
+		{ "i", "n", "v" },
+		M.config.chat_shortcut_delete.shortcut,
+		function()
+			local index = vim.api.nvim_win_get_cursor(picker_win)[1]
+			local file = picker_files[index]
 
-		-- delete without confirmation
-		if not M.config.chat_confirm_delete then
-			M._H.delete_file(file)
-			refresh_picker()
-			return
-		end
-
-		-- ask for confirmation
-		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
-			if input and input:lower() == "y" then
-				M._H.delete_file(file)
+			-- delete without confirmation
+			if not M.config.chat_confirm_delete then
+				M.helpers.delete_file(file)
 				refresh_picker()
+				return
 			end
-		end)
-	end)
+
+			-- ask for confirmation
+			vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
+				if input and input:lower() == "y" then
+					M.helpers.delete_file(file)
+					refresh_picker()
+				end
+			end)
+		end
+	)
 end
 
---------------------
+--------------------------------------------------------------------------------
 -- Prompt logic
---------------------
+--------------------------------------------------------------------------------
 
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
@@ -2835,7 +1515,7 @@ M.get_command_agent = function(name)
 		name = M._state.command_agent
 	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = name })
+	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2857,7 +1537,7 @@ M.get_chat_agent = function(name)
 		name = M._state.chat_agent
 	end
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = name })
+	local cmd_prefix = M.render.template(template, { ["{{agent}}"] = name })
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
@@ -2868,6 +1548,37 @@ M.get_chat_agent = function(name)
 		system_prompt = system_prompt,
 		provider = provider,
 	}
+end
+
+-- tries to find an .gp.md file in the root of current git repo
+---@return string # returns instructions from the .gp.md file
+M.repo_instructions = function()
+	local git_root = M.helpers.find_git_root()
+
+	if git_root == "" then
+		return ""
+	end
+
+	local instruct_file = git_root .. "/.gp.md"
+
+	if vim.fn.filereadable(instruct_file) == 0 then
+		return ""
+	end
+
+	local lines = vim.fn.readfile(instruct_file)
+	return table.concat(lines, "\n")
+end
+
+M.prep_context = function(buf, file_name)
+	if not M.helpers.ends_with(file_name, ".gp.md") then
+		return
+	end
+
+	if buf ~= vim.api.nvim_get_current_buf() then
+		return
+	end
+
+	M.prep_md(buf)
 end
 
 M.cmd.Context = function(params)
@@ -2882,11 +1593,11 @@ M.cmd.Context = function(params)
 	local cbuf = vim.api.nvim_get_current_buf()
 
 	local file_name = ""
-	local buf = _H.get_buffer(".gp.md")
+	local buf = M.helpers.get_buffer(".gp.md")
 	if buf then
 		file_name = vim.api.nvim_buf_get_name(buf)
 	else
-		local git_root = _H.find_git_root()
+		local git_root = M.helpers.find_git_root()
 		if git_root == "" then
 			M.logger.warning("Not in a git repository")
 			return
@@ -2906,37 +1617,21 @@ M.cmd.Context = function(params)
 	buf = M.open_buf(file_name, target, M._toggle_kind.context, true)
 
 	if params.range == 2 then
-		M.append_selection(params, cbuf, buf)
+		M.render.append_selection(params, cbuf, buf, M.config.template_selection)
 	end
 
-	M._H.feedkeys("G", "xn")
+	M.helpers.feedkeys("G", "xn")
 end
 
-local examplePromptHook = [[
-UnitTests = function(gp, params)
-    local template = "I have the following code from {{filename}}:\n\n"
-        .. "```{{filetype}}\n{{selection}}\n```\n\n"
-        .. "Please respond by writing table driven unit tests for the code above."
-    local agent = gp.get_command_agent()
-    gp.Prompt(params, gp.Target.vnew, agent, template)
-end,
-]]
-
 ---@param params table  # vim command parameters such as range, args, etc.
----@param target integer | function | table  # where to put the response
+---@param target number | function | table  # where to put the response
 ---@param agent table  # obtained from get_command_agent or get_chat_agent
 ---@param template string  # template with model instructions
 ---@param prompt string | nil  # nil for non interactive commads
 ---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
 ---@param callback function | nil  # callback after completing the prompt
 M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
-	if not agent or not type(agent) == "table" or not agent.provider then
-		M.logger.warning(
-			"The `gp.Prompt` method signature has changed.\n"
-				.. "Please update your hook functions as demonstrated in the example below:\n\n"
-				.. examplePromptHook
-				.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
-		)
+	if M.deprecator.has_old_prompt_signature(agent) then
 		return
 	end
 
@@ -2951,8 +1646,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	if not M.can_handle(buf) then
-		M.logger.warning("Another Gp process is already running for this buffer.")
+	if M.tasker.is_busy(buf) then
 		return
 	end
 
@@ -3010,7 +1704,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		local handler = function() end
 		-- default on_exit strips trailing backticks if response was markdown snippet
 		local on_exit = function(qid)
-			local qt = M.get_query(qid)
+			local qt = M.tasker.get_query(qid)
 			if not qt then
 				return
 			end
@@ -3046,10 +1740,10 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				end
 
 				if not flm then
-					M._H.undojoin(buf)
+					M.helpers.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				else
-					M._H.undojoin(buf)
+					M.helpers.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, ll, ll + 1, false, {})
 				end
 				ll = ll - 1
@@ -3058,10 +1752,10 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			-- if fl and ll starts with triple backticks, remove these lines
 			if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
 				-- remove first line with undojoin
-				M._H.undojoin(buf)
+				M.helpers.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				-- remove last line
-				M._H.undojoin(buf)
+				M.helpers.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
 				ll = ll - 2
 			end
@@ -3098,10 +1792,10 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 
 		-- prepare messages
 		local messages = {}
-		local filetype = M._H.get_filetype(buf)
+		local filetype = M.helpers.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local sys_prompt = M.template_render(agent.system_prompt, command, selection, filetype, filename)
+		local sys_prompt = M.render.prompt_template(agent.system_prompt, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
@@ -3110,11 +1804,11 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			table.insert(messages, { role = "system", content = repo_instructions })
 		end
 
-		local user_prompt = M.template_render(template, command, selection, filetype, filename)
+		local user_prompt = M.render.prompt_template(template, command, selection, filetype, filename)
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
-		M._H.feedkeys("<esc>", "xn")
+		M.helpers.feedkeys("<esc>", "xn")
 
 		local cursor = true
 		if not M.config.command_auto_select_response then
@@ -3126,26 +1820,26 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, end_line, true, prefix, cursor)
+			handler = M.dispatcher.create_handler(buf, win, end_line, true, prefix, cursor)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "" }, "l", false, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.popup then
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
 			local popup_close = nil
-			buf, win, popup_close, _ = M._H.create_popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
+			buf, win, popup_close, _ = M.render.popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
 				local top = M.config.style_popup_margin_top or 2
 				local bottom = M.config.style_popup_margin_bottom or 8
 				local left = M.config.style_popup_margin_left or 1
@@ -3158,11 +1852,11 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
-			vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+			vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false, "", false)
+			handler = M.dispatcher.create_handler(buf, win, 0, false, "", false)
 			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
 		elseif type(target) == "table" then
 			if target.type == M.Target.new().type then
@@ -3179,12 +1873,12 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			buf = vim.api.nvim_create_buf(true, true)
 			vim.api.nvim_set_current_buf(buf)
 
-			local group = M._H.create_augroup("GpScratchSave" .. _H.uuid(), { clear = true })
+			local group = M.helpers.create_augroup("GpScratchSave" .. M.helpers.uuid(), { clear = true })
 			vim.api.nvim_create_autocmd({ "BufWritePre" }, {
 				buffer = buf,
 				group = group,
 				callback = function(ctx)
-					vim.api.nvim_buf_set_option(ctx.buf, "buftype", "")
+					vim.api.nvim_set_option_value("buftype", "", { buf = ctx.buf })
 					vim.api.nvim_buf_set_name(ctx.buf, ctx.file)
 					vim.api.nvim_command("w!")
 					vim.api.nvim_del_augroup_by_id(ctx.group)
@@ -3192,16 +1886,16 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			})
 
 			local ft = target.filetype or filetype
-			vim.api.nvim_buf_set_option(buf, "filetype", ft)
+			vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
-			handler = M.create_handler(buf, win, 0, false, "", cursor)
+			handler = M.dispatcher.create_handler(buf, win, 0, false, "", cursor)
 		end
 
 		-- call the model and write the response
-		M.query(
+		M.dispatcher.query(
 			buf,
 			agent.provider,
-			M.prepare_payload(messages, agent.model, agent.provider),
+			M.dispatcher.prepare_payload(messages, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
@@ -3231,436 +1925,6 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			end
 			cb(input)
 		end)
-	end)
-end
-
----@param callback function # callback function(text)
-M.Whisper = function(language, callback)
-	-- make sure sox is installed
-	if vim.fn.executable("sox") == 0 then
-		M.logger.error("sox is not installed")
-		return
-	end
-
-	local rec_file = M.config.whisper_dir .. "/rec.wav"
-	local rec_options = {
-		sox = {
-			cmd = "sox",
-			opts = {
-				"-c",
-				"1",
-				"--buffer",
-				"32",
-				"-d",
-				"rec.wav",
-				"trim",
-				"0",
-				"3600",
-			},
-			exit_code = 0,
-		},
-		arecord = {
-			cmd = "arecord",
-			opts = {
-				"-c",
-				"1",
-				"-f",
-				"S16_LE",
-				"-r",
-				"48000",
-				"-d",
-				3600,
-				"rec.wav",
-			},
-			exit_code = 1,
-		},
-		ffmpeg = {
-			cmd = "ffmpeg",
-			opts = {
-				"-y",
-				"-f",
-				"avfoundation",
-				"-i",
-				":0",
-				"-t",
-				"3600",
-				"rec.wav",
-			},
-			exit_code = 255,
-		},
-	}
-
-	if not M.valid_api_key() then
-		return
-	end
-
-	local gid = M._H.create_augroup("GpWhisper", { clear = true })
-
-	-- create popup
-	local buf, _, close_popup, _ = M._H.create_popup(
-		nil,
-		M._Name .. " Whisper",
-		function(w, h)
-			return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
-		end,
-		{ gid = gid, on_leave = false, escape = false, persist = false },
-		{ border = M.config.style_popup_border or "single" }
-	)
-
-	-- animated instructions in the popup
-	local counter = 0
-	local timer = vim.loop.new_timer()
-	timer:start(
-		0,
-		200,
-		vim.schedule_wrap(function()
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-					"    ",
-					"    Speak 👄 loudly 📣 into the microphone 🎤: ",
-					"    " .. string.rep("👂", counter),
-					"    ",
-					"    Pressing <Enter> starts the transcription.",
-					"    ",
-					"    Cancel the recording with <esc>/<C-c> or :GpStop.",
-					"    ",
-					"    The last recording is in /tmp/gp_whisper/.",
-				})
-			end
-			counter = counter + 1
-			if counter % 22 == 0 then
-				counter = 0
-			end
-		end)
-	)
-
-	local close = _H.once(function()
-		if timer then
-			timer:stop()
-			timer:close()
-		end
-		close_popup()
-		vim.api.nvim_del_augroup_by_id(gid)
-		M.cmd.Stop()
-	end)
-
-	_H.set_keymap({ buf }, { "n", "i", "v" }, "<esc>", function()
-		M.cmd.Stop()
-	end)
-
-	_H.set_keymap({ buf }, { "n", "i", "v" }, "<C-c>", function()
-		M.cmd.Stop()
-	end)
-
-	local continue = false
-	_H.set_keymap({ buf }, { "n", "i", "v" }, "<cr>", function()
-		continue = true
-		vim.defer_fn(function()
-			M.cmd.Stop()
-		end, 300)
-	end)
-
-	-- cleanup on buffer exit
-	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
-
-	local curl_params = M.config.curl_params or {}
-	local curl = "curl" .. " " .. table.concat(curl_params, " ")
-
-	-- transcribe the recording
-	local transcribe = function()
-		local cmd = "cd "
-			.. M.config.whisper_dir
-			.. " && "
-			.. "export LC_NUMERIC='C' && "
-			-- normalize volume to -3dB
-			.. "sox --norm=-3 rec.wav norm.wav && "
-			-- get RMS level dB * silence threshold
-			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
-			.. " | sed -e 's/.* //' | awk '{print $1*"
-			.. M.config.whisper_silence
-			.. "}') && "
-			-- remove silence, speed up, pad and convert to mp3
-			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
-			.. " pad 0.1 0.1 tempo "
-			.. M.config.whisper_tempo
-			.. " && "
-			-- call openai
-			.. curl
-			.. " --max-time 20 "
-			.. M.config.whisper_api_endpoint
-			.. ' -s -H "Authorization: Bearer '
-			.. M.config.openai_api_key
-			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="'
-			.. language
-			.. '" -F file="@final.mp3" '
-			.. '-F response_format="json"'
-
-		M._H.process(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
-			if code ~= 0 then
-				M.logger.error(string.format("Whisper query exited: %d, %d", code, signal))
-				return
-			end
-
-			if not stdout or stdout == "" or #stdout < 11 then
-				M.logger.error("Whisper query, no stdout: " .. vim.inspect(stdout))
-				return
-			end
-			local text = vim.json.decode(stdout).text
-			if not text then
-				M.logger.error("Whisper query, no text: " .. vim.inspect(stdout))
-				return
-			end
-
-			text = table.concat(vim.split(text, "\n"), " ")
-			text = text:gsub("%s+$", "")
-
-			if callback and stdout then
-				callback(text)
-			end
-		end)
-	end
-
-	local cmd = {}
-
-	local rec_cmd = M.config.whisper_rec_cmd
-	-- if rec_cmd not set explicitly, try to autodetect
-	if not rec_cmd then
-		rec_cmd = "sox"
-		if vim.fn.executable("ffmpeg") == 1 then
-			local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
-			devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
-			if devices == "1" then
-				rec_cmd = "ffmpeg"
-			end
-		end
-		if vim.fn.executable("arecord") == 1 then
-			rec_cmd = "arecord"
-		end
-	end
-
-	if type(rec_cmd) == "table" and rec_cmd[1] and rec_options[rec_cmd[1]] then
-		rec_cmd = vim.deepcopy(rec_cmd)
-		cmd.cmd = table.remove(rec_cmd, 1)
-		cmd.exit_code = rec_options[cmd.cmd].exit_code
-		cmd.opts = rec_cmd
-	elseif type(rec_cmd) == "string" and rec_options[rec_cmd] then
-		cmd = rec_options[rec_cmd]
-	else
-		M.logger.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
-		close()
-		return
-	end
-	for i, v in ipairs(cmd.opts) do
-		if v == "rec.wav" then
-			cmd.opts[i] = rec_file
-		end
-	end
-
-	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, stdout, stderr)
-		close()
-
-		if code and code ~= cmd.exit_code then
-			M.logger.error(
-				cmd.cmd
-					.. " exited with code and signal:\ncode: "
-					.. code
-					.. ", signal: "
-					.. signal
-					.. "\nstdout: "
-					.. vim.inspect(stdout)
-					.. "\nstderr: "
-					.. vim.inspect(stderr)
-			)
-			return
-		end
-
-		if not continue then
-			return
-		end
-
-		vim.schedule(function()
-			transcribe()
-		end)
-	end)
-end
-
-M.cmd.Whisper = function(params)
-	local buf = vim.api.nvim_get_current_buf()
-	local start_line = vim.api.nvim_win_get_cursor(0)[1]
-	local end_line = start_line
-
-	if params.range == 2 then
-		start_line = params.line1
-		end_line = params.line2
-	end
-
-	local args = vim.split(params.args, " ")
-
-	local language = config.whisper_language
-	if args[1] ~= "" then
-		language = args[1]
-	end
-
-	M.Whisper(language, function(text)
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-
-		if text then
-			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
-		end
-	end)
-end
-
-M.cmd.ImageAgent = function(params)
-	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-	if agent_name == "" then
-		M.logger.info("Image agent: " .. (M._state.image_agent or "none"))
-		return
-	end
-
-	if not M.image_agents[agent_name] then
-		M.logger.warning("Unknown image agent: " .. agent_name)
-		return
-	end
-
-	M._state.image_agent = agent_name
-	M.logger.info("Image agent: " .. M._state.image_agent)
-
-	M.refresh_state()
-end
-
----@return table # { cmd_prefix, name, model, quality, style, size }
-M.get_image_agent = function()
-	local template = M.config.image_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.image_agent })
-	local name = M._state.image_agent
-	local model = M.image_agents[name].model
-	local quality = M.image_agents[name].quality
-	local style = M.image_agents[name].style
-	local size = M.image_agents[name].size
-	return { cmd_prefix = cmd_prefix, name = name, model = model, quality = quality, style = style, size = size }
-end
-
-M.cmd.Image = function(params)
-	local prompt = params.args
-	local agent = M.get_image_agent()
-	if prompt == "" then
-		vim.ui.input({ prompt = agent.cmd_prefix }, function(input)
-			prompt = input
-			if not prompt then
-				return
-			end
-			M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
-		end)
-	else
-		M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
-	end
-end
-
-function M.generate_image(prompt, model, quality, style, size)
-	if not M.valid_api_key() then
-		return
-	end
-
-	local cmd = "curl"
-	local payload = {
-		model = model,
-		prompt = prompt,
-		n = 1,
-		size = size,
-		style = style,
-		quality = quality,
-	}
-	local args = {
-		"-s",
-		"-H",
-		"Content-Type: application/json",
-		"-H",
-		"Authorization: Bearer " .. M.config.openai_api_key,
-		"-d",
-		vim.json.encode(payload),
-		"https://api.openai.com/v1/images/generations",
-	}
-
-	local qid = M._H.uuid()
-	M._queries[qid] = {
-		timestamp = os.time(),
-		payload = payload,
-		raw_response = "",
-		error = "",
-		url = "",
-		prompt = "",
-		save_path = "",
-		save_raw_response = "",
-		save_error = "",
-	}
-	local query = M._queries[qid]
-
-	M.spinner.start_spinner("Generating image...")
-
-	_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-		M.spinner.stop_spinner()
-		query.raw_response = stdout_data
-		query.error = stderr_data
-		if code ~= 0 then
-			M.logger.error(
-				"Image generation exited: code: "
-					.. code
-					.. " signal: "
-					.. signal
-					.. " stdout: "
-					.. stdout_data
-					.. " stderr: "
-					.. stderr_data
-			)
-			return
-		end
-		local result = vim.json.decode(stdout_data)
-		query.parsed_response = vim.inspect(result)
-		if result and result.data and result.data[1] and result.data[1].url then
-			local image_url = result.data[1].url
-			query.url = image_url
-			-- query.prompt = result.data[1].prompt
-			vim.ui.input(
-				{ prompt = M.config.image_prompt_save, completion = "file", default = M.config.image_dir },
-				function(save_path)
-					if not save_path or save_path == "" then
-						M.logger.info("Image URL: " .. image_url)
-						return
-					end
-					query.save_path = save_path
-					M.spinner.start_spinner("Saving image...")
-					_H.process(
-						nil,
-						"curl",
-						{ "-s", "-o", save_path, image_url },
-						function(save_code, save_signal, save_stdout_data, save_stderr_data)
-							M.spinner.stop_spinner()
-							query.save_raw_response = save_stdout_data
-							query.save_error = save_stderr_data
-							if save_code == 0 then
-								M.logger.info("Image saved to: " .. save_path)
-							else
-								M.logger.error(
-									"Failed to save image: path: "
-										.. save_path
-										.. " code: "
-										.. save_code
-										.. " signal: "
-										.. save_signal
-										.. " stderr: "
-										.. save_stderr_data
-								)
-							end
-						end
-					)
-				end
-			)
-		else
-			M.logger.error("Image generation failed: " .. vim.inspect(stdout_data))
-		end
 	end)
 end
 

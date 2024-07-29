@@ -1,4 +1,5 @@
 local M = {}
+
 M._spinner_frames = {
 	"01010010",
 	"01101111",
@@ -33,7 +34,7 @@ function M.start_spinner(msg)
 	M._display_spinner(M._msg)
 
 	if not M._spinner_timer then
-		M._spinner_timer = vim.loop.new_timer()
+		M._spinner_timer = (vim.uv or vim.loop).new_timer()
 		M._spinner_timer:start(
 			0,
 			100,
