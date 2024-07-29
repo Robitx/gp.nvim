@@ -15,13 +15,14 @@ local M = {
 	hooks = {}, -- user defined command functions
 	defaults = require("gp.defaults"), -- some useful defaults
 	deprecator = require("gp.deprecator"), -- handle deprecated options
+	dispatcher = require("gp.dispatcher"), -- handle communication with LLM providers
 	helpers = require("gp.helper"), -- helper functions
-	imager = require("gp.imager"), -- imager module
+	imager = require("gp.imager"), -- image generation module
 	logger = require("gp.logger"), -- logger module
 	render = require("gp.render"), -- render module
 	spinner = require("gp.spinner"), -- spinner module
 	tasker = require("gp.tasker"), -- tasker module
-	vault = require("gp.vault"), -- vault module
+	vault = require("gp.vault"), -- handles secrets
 	whisper = require("gp.whisper"), -- whisper module
 }
 
@@ -47,36 +48,46 @@ M.setup = function(opts)
 	-- reset M.config
 	M.config = vim.deepcopy(config)
 
+	local curl_params = opts.curl_params or M.config.curl_params
+	local cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
+	local state_dir = opts.state_dir or M.config.state_dir
+	local openai_api_key = opts.openai_api_key or M.config.openai_api_key
+
 	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
 
-	M.vault.setup({
-		state_dir = opts.state_dir or M.config.state_dir,
-		curl_params = opts.curl_params or M.config.curl_params,
-	})
+	M.vault.setup({ state_dir = state_dir, curl_params = curl_params })
+
+	M.vault.resolve_secret("openai_api_key", openai_api_key)
+	M.config.openai_api_key = nil
+	opts.openai_api_key = nil
+
+	M.dispatcher.setup({ providers = opts.providers, curl_params = curl_params })
+	M.config.providers = nil
+	opts.providers = nil
 
 	local image_opts = opts.image or {}
-	image_opts.state_dir = opts.state_dir or M.config.state_dir
-	image_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
-	image_opts.secret = image_opts.secret or opts.openai_api_key or M.config.openai_api_key
+	image_opts.state_dir = state_dir
+	image_opts.cmd_prefix = cmd_prefix
+	image_opts.secret = image_opts.secret or openai_api_key
 	M.imager.setup(image_opts)
 	M.config.image = nil
 	opts.image = nil
 
 	local whisper_opts = opts.whisper or {}
 	whisper_opts.style_popup_border = opts.style_popup_border or M.config.style_popup_border
-	whisper_opts.curl_params = opts.curl_params or M.config.curl_params
-	whisper_opts.cmd_prefix = opts.cmd_prefix or M.config.cmd_prefix
+	whisper_opts.curl_params = curl_params
+	whisper_opts.cmd_prefix = cmd_prefix
 	M.whisper.setup(whisper_opts)
 	M.config.whisper = nil
 	opts.whisper = nil
 
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents", "providers" }
+	local mergeTables = { "hooks", "agents" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line
 		for k, v in pairs(M.config[tbl]) do
-			if tbl == "hooks" or tbl == "providers" then
+			if tbl == "hooks" then
 				M[tbl][k] = v
 			elseif tbl == "agents" then
 				---@diagnostic disable-next-line
@@ -89,15 +100,6 @@ M.setup = function(opts)
 		for k, v in pairs(opts[tbl]) do
 			if tbl == "hooks" then
 				M[tbl][k] = v
-			elseif tbl == "providers" then
-				M[tbl][k] = M[tbl][k] or {}
-				M[tbl][k].disable = false
-				for pk, pv in pairs(v) do
-					M[tbl][k][pk] = pv
-				end
-				if next(v) == nil then
-					M[tbl][k] = nil
-				end
 			elseif tbl == "agents" then
 				M[tbl][v.name] = v
 			end
@@ -136,25 +138,13 @@ M.setup = function(opts)
 		end
 	end
 
-	-- remove invalid providers
-	for name, provider in pairs(M.providers) do
-		if type(provider) ~= "table" or provider.disable then
-			M.providers[name] = nil
-		elseif not provider.endpoint then
-			M.logger.warning("Provider " .. name .. " is missing endpoint")
-			M.providers[name] = nil
-		end
-	end
-
 	-- prepare agent completions
 	M._chat_agents = {}
 	M._command_agents = {}
 	for name, agent in pairs(M.agents) do
-		if not M.agents[name].provider then
-			M.agents[name].provider = "openai"
-		end
+		M.agents[name].provider = M.agents[name].provider or "openai"
 
-		if M.providers[M.agents[name].provider] then
+		if M.dispatcher.providers[M.agents[name].provider] then
 			if agent.command then
 				table.insert(M._command_agents, name)
 			end
@@ -212,17 +202,6 @@ M.setup = function(opts)
 	if vim.fn.executable("curl") == 0 then
 		M.logger.error("curl is not installed, run :checkhealth gp")
 	end
-
-	for name, provider in pairs(M.providers) do
-		if name == "copilot" then
-			M.vault.resolve_secret(name, provider.secret, M.vault.refresh_copilot_bearer)
-		else
-			M.vault.resolve_secret(name, provider.secret)
-		end
-		provider.secret = nil
-	end
-	M.vault.resolve_secret("openai_api_key", M.config.openai_api_key)
-	M.config.openai_api_key = nil
 
 	M.logger.debug("setup finished")
 end
@@ -338,409 +317,6 @@ M.prepare_commands = function()
 			end
 		end
 	end
-end
-
----@param messages table
----@param model string | table
----@param provider string | nil
-M.prepare_payload = function(messages, model, provider)
-	if type(model) == "string" then
-		return {
-			model = model,
-			stream = true,
-			messages = messages,
-		}
-	end
-
-	if provider == "googleai" then
-		for i, message in ipairs(messages) do
-			if message.role == "system" then
-				messages[i].role = "user"
-			end
-			if message.role == "assistant" then
-				messages[i].role = "model"
-			end
-			if message.content then
-				messages[i].parts = {
-					{
-						text = message.content,
-					},
-				}
-				messages[i].content = nil
-			end
-		end
-		local i = 1
-		while i < #messages do
-			if messages[i].role == messages[i + 1].role then
-				table.insert(messages[i].parts, {
-					text = messages[i + 1].parts[1].text,
-				})
-				table.remove(messages, i + 1)
-			else
-				i = i + 1
-			end
-		end
-		local payload = {
-			contents = messages,
-			safetySettings = {
-				{
-					category = "HARM_CATEGORY_HARASSMENT",
-					threshold = "BLOCK_NONE",
-				},
-				{
-					category = "HARM_CATEGORY_HATE_SPEECH",
-					threshold = "BLOCK_NONE",
-				},
-				{
-					category = "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-					threshold = "BLOCK_NONE",
-				},
-				{
-					category = "HARM_CATEGORY_DANGEROUS_CONTENT",
-					threshold = "BLOCK_NONE",
-				},
-			},
-			generationConfig = {
-				temperature = math.max(0, math.min(2, model.temperature or 1)),
-				maxOutputTokens = model.max_tokens or 8192,
-				topP = math.max(0, math.min(1, model.top_p or 1)),
-				topK = model.top_k or 100,
-			},
-			model = model.model,
-		}
-		return payload
-	end
-
-	if provider == "anthropic" then
-		local system = ""
-		local i = 1
-		while i < #messages do
-			if messages[i].role == "system" then
-				system = system .. messages[i].content .. "\n"
-				table.remove(messages, i)
-			else
-				i = i + 1
-			end
-		end
-
-		local payload = {
-			model = model.model,
-			stream = true,
-			messages = messages,
-			system = system,
-			max_tokens = model.max_tokens or 4096,
-			temperature = math.max(0, math.min(2, model.temperature or 1)),
-			top_p = math.max(0, math.min(1, model.top_p or 1)),
-		}
-		return payload
-	end
-
-	return {
-		model = model.model,
-		stream = true,
-		messages = messages,
-		temperature = math.max(0, math.min(2, model.temperature or 1)),
-		top_p = math.max(0, math.min(1, model.top_p or 1)),
-	}
-end
-
--- gpt query
----@param buf number | nil # buffer number
----@param provider string # provider name
----@param payload table # payload for api
----@param handler function # response handler
----@param on_exit function | nil # optional on_exit handler
----@param callback function | nil # optional callback handler
-M.query = function(buf, provider, payload, handler, on_exit, callback)
-	-- make sure handler is a function
-	if type(handler) ~= "function" then
-		M.logger.error(
-			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
-		)
-		return
-	end
-
-	local qid = M.helpers.uuid()
-	M.tasker.set_query(qid, {
-		timestamp = os.time(),
-		buf = buf,
-		provider = provider,
-		payload = payload,
-		handler = handler,
-		on_exit = on_exit,
-		raw_response = "",
-		response = "",
-		first_line = -1,
-		last_line = -1,
-		ns_id = nil,
-		ex_id = nil,
-	})
-
-	local out_reader = function()
-		local buffer = ""
-
-		---@param lines_chunk string
-		local function process_lines(lines_chunk)
-			local qt = M.tasker.get_query(qid)
-			if not qt then
-				return
-			end
-
-			local lines = vim.split(lines_chunk, "\n")
-			for _, line in ipairs(lines) do
-				if line ~= "" and line ~= nil then
-					qt.raw_response = qt.raw_response .. line .. "\n"
-				end
-				line = line:gsub("^data: ", "")
-				local content = ""
-				if line:match("choices") and line:match("delta") and line:match("content") then
-					line = vim.json.decode(line)
-					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
-						content = line.choices[1].delta.content
-					end
-				end
-
-				if qt.provider == "anthropic" and line:match('"text":') then
-					if line:match("content_block_start") or line:match("content_block_delta") then
-						line = vim.json.decode(line)
-						if line.delta and line.delta.text then
-							content = line.delta.text
-						end
-						if line.content_block and line.content_block.text then
-							content = line.content_block.text
-						end
-					end
-				end
-
-				if qt.provider == "googleai" then
-					if line:match('"text":') then
-						content = vim.json.decode("{" .. line .. "}").text
-					end
-				end
-
-				if content and type(content) == "string" then
-					qt.response = qt.response .. content
-					handler(qid, content)
-				end
-			end
-		end
-
-		-- closure for uv.read_start(stdout, fn)
-		return function(err, chunk)
-			local qt = M.tasker.get_query(qid)
-			if not qt then
-				return
-			end
-
-			if err then
-				M.logger.error(qt.provider .. " query stdout error: " .. vim.inspect(err))
-			elseif chunk then
-				-- add the incoming chunk to the buffer
-				buffer = buffer .. chunk
-				local last_newline_pos = buffer:find("\n[^\n]*$")
-				if last_newline_pos then
-					local complete_lines = buffer:sub(1, last_newline_pos - 1)
-					-- save the rest of the buffer for the next chunk
-					buffer = buffer:sub(last_newline_pos + 1)
-
-					process_lines(complete_lines)
-				end
-				-- chunk is nil when EOF is reached
-			else
-				-- if there's remaining data in the buffer, process it
-				if #buffer > 0 then
-					process_lines(buffer)
-				end
-
-				if qt.response == "" then
-					M.logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
-				end
-
-				-- optional on_exit handler
-				if type(on_exit) == "function" then
-					on_exit(qid)
-					if qt.ns_id and qt.buf then
-						vim.schedule(function()
-							vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
-						end)
-					end
-				end
-
-				-- optional callback handler
-				if type(callback) == "function" then
-					vim.schedule(function()
-						callback(qt.response)
-					end)
-				end
-			end
-		end
-	end
-
-	---TODO: this could be moved to a separate function returning endpoint and headers
-	local endpoint = M.providers[provider].endpoint
-	local headers = {}
-	local bearer = M.vault.get_secret(provider)
-	if not bearer then
-		return
-	end
-
-	if provider == "copilot" then
-		M.vault.refresh_copilot_bearer()
-		bearer = M.vault.get_secret("copilot_bearer")
-		if not bearer then
-			return
-		end
-		headers = {
-			"-H",
-			"editor-version: vscode/1.85.1",
-			"-H",
-			"Authorization: Bearer " .. bearer,
-		}
-	elseif provider == "openai" then
-		headers = {
-			"-H",
-			"Authorization: Bearer " .. bearer,
-			-- backwards compatibility
-			"-H",
-			"api-key: " .. bearer,
-		}
-	elseif provider == "googleai" then
-		headers = {}
-		endpoint = M.render.template_replace(endpoint, "{{secret}}", bearer)
-		endpoint = M.render.template_replace(endpoint, "{{model}}", payload.model)
-		payload.model = nil
-	elseif provider == "anthropic" then
-		headers = {
-			"-H",
-			"x-api-key: " .. bearer,
-			"-H",
-			"anthropic-version: 2023-06-01",
-			"-H",
-			"anthropic-beta: messages-2023-12-15",
-		}
-	elseif provider == "azure" then
-		headers = {
-			"-H",
-			"api-key: " .. bearer,
-		}
-		endpoint = M.render.template_replace(endpoint, "{{model}}", payload.model)
-	else -- default to openai compatible headers
-		headers = {
-			"-H",
-			"Authorization: Bearer " .. bearer,
-		}
-	end
-
-	local curl_params = vim.deepcopy(M.config.curl_params or {})
-	local args = {
-		"--no-buffer",
-		"-s",
-		endpoint,
-		"-H",
-		"Content-Type: application/json",
-		"-d",
-		vim.json.encode(payload),
-		--[[ "--doesnt_exist" ]]
-	}
-
-	for _, arg in ipairs(args) do
-		table.insert(curl_params, arg)
-	end
-
-	for _, header in ipairs(headers) do
-		table.insert(curl_params, header)
-	end
-
-	M.tasker.run(buf, "curl", curl_params, nil, out_reader(), nil)
-end
-
--- response handler
----@param buf number | nil # buffer to insert response into
----@param win number | nil # window to insert response into
----@param line number | nil # line to insert response into
----@param first_undojoin boolean | nil # whether to skip first undojoin
----@param prefix string | nil # prefix to insert before each response line
----@param cursor boolean # whether to move cursor to the end of the response
-M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
-	buf = buf or vim.api.nvim_get_current_buf()
-	prefix = prefix or ""
-	local first_line = line or vim.api.nvim_win_get_cursor(win or 0)[1] - 1
-	local finished_lines = 0
-	local skip_first_undojoin = not first_undojoin
-
-	local hl_handler_group = "GpHandlerStandout"
-	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
-
-	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M.helpers.uuid())
-
-	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
-		strict = false,
-		right_gravity = false,
-	})
-
-	local response = ""
-	return vim.schedule_wrap(function(qid, chunk)
-		local qt = M.tasker.get_query(qid)
-		if not qt then
-			return
-		end
-		-- if buf is not valid, stop
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-		-- undojoin takes previous change into account, so skip it for the first chunk
-		if skip_first_undojoin then
-			skip_first_undojoin = false
-		else
-			M.helpers.undojoin(buf)
-		end
-
-		if not qt.ns_id then
-			qt.ns_id = ns_id
-		end
-
-		if not qt.ex_id then
-			qt.ex_id = ex_id
-		end
-
-		first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
-
-		-- clean previous response
-		local line_count = #vim.split(response, "\n")
-		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + line_count, false, {})
-
-		-- append new response
-		response = response .. chunk
-		M.helpers.undojoin(buf)
-
-		-- prepend prefix to each line
-		local lines = vim.split(response, "\n")
-		for i, l in ipairs(lines) do
-			lines[i] = prefix .. l
-		end
-
-		local unfinished_lines = {}
-		for i = finished_lines + 1, #lines do
-			table.insert(unfinished_lines, lines[i])
-		end
-
-		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + finished_lines, false, unfinished_lines)
-
-		local new_finished_lines = math.max(0, #lines - 1)
-		for i = finished_lines, new_finished_lines do
-			vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
-		end
-		finished_lines = new_finished_lines
-
-		local end_line = first_line + #vim.split(response, "\n")
-		qt.first_line = first_line
-		qt.last_line = end_line - 1
-
-		-- move cursor to the end of the response
-		if cursor then
-			M.helpers.cursor_to_line(end_line, buf, win)
-		end
-	end)
 end
 
 -- stop receiving gpt responses for all processes and clean the handles
@@ -1471,11 +1047,11 @@ M.chat_respond = function(params)
 	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
 	-- call the model and write response
-	M.query(
+	M.dispatcher.query(
 		buf,
 		headers.provider or agent.provider,
-		M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
-		M.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor),
+		M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
+		M.dispatcher.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.tasker.get_query(qid)
 			if not qt then
@@ -1511,13 +1087,13 @@ M.chat_respond = function(params)
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
-				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
+				local topic_handler = M.dispatcher.create_handler(topic_buf, nil, 0, false, "", false)
 
 				-- call the model
-				M.query(
+				M.dispatcher.query(
 					nil,
 					headers.provider or agent.provider,
-					M.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
+					M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2269,21 +1845,21 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, end_line, true, prefix, cursor)
+			handler = M.dispatcher.create_handler(buf, win, end_line, true, prefix, cursor)
 		elseif target == M.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "" }, "l", false, true)
 			-- prepare handler
-			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.popup then
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
@@ -2305,7 +1881,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			-- better text wrapping
 			vim.api.nvim_command("setlocal wrap linebreak")
 			-- prepare handler
-			handler = M.create_handler(buf, win, 0, false, "", false)
+			handler = M.dispatcher.create_handler(buf, win, 0, false, "", false)
 			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
 		elseif type(target) == "table" then
 			if target.type == M.Target.new().type then
@@ -2337,14 +1913,14 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			local ft = target.filetype or filetype
 			vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
-			handler = M.create_handler(buf, win, 0, false, "", cursor)
+			handler = M.dispatcher.create_handler(buf, win, 0, false, "", cursor)
 		end
 
 		-- call the model and write the response
-		M.query(
+		M.dispatcher.query(
 			buf,
 			agent.provider,
-			M.prepare_payload(messages, agent.model, agent.provider),
+			M.dispatcher.prepare_payload(messages, agent.model, agent.provider),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
