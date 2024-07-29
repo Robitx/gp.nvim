@@ -35,6 +35,27 @@ M.setup = function(path, sensitive)
 	end
 	file = path
 
+	-- truncate log file if it's too big
+	if uv.fs_stat(file) then
+		local content = {}
+		for line in io.lines(file) do
+			table.insert(content, line)
+		end
+
+		if #content > 20000 then
+			local truncated_file = io.open(file, "w")
+			if truncated_file then
+				for i, line in ipairs(content) do
+					if #content - i < 10000 then
+						truncated_file:write(line .. "\n")
+					end
+				end
+				truncated_file:close()
+				M.debug("Log file " .. file .. " truncated to last 10K lines")
+			end
+		end
+	end
+
 	local log_file = io.open(file, "a")
 	if log_file then
 		for _, line in ipairs(M._log_history) do
@@ -61,7 +82,7 @@ local log = function(msg, level, slevel, sensitive)
 	if not sensitive then
 		M._log_history[#M._log_history + 1] = raw
 	end
-	if #M._log_history > 100 then
+	if #M._log_history > 20 then
 		table.remove(M._log_history, 1)
 	end
 
