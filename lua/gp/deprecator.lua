@@ -88,6 +88,55 @@ M.report = function()
 	logger.info(msg)
 end
 
+local examplePromptHook = [[
+UnitTests = function(gp, params)
+    local template = "I have the following code from {{filename}}:\n\n"
+        .. "```{{filetype}}\n{{selection}}\n```\n\n"
+        .. "Please respond by writing table driven unit tests for the code above."
+    local agent = gp.get_command_agent()
+    gp.Prompt(params, gp.Target.vnew, agent, template)
+end,
+]]
+
+M.has_old_prompt_signature = function(agent)
+	if not agent or not type(agent) == "table" or not agent.provider then
+		logger.warning(
+			"The `gp.Prompt` method signature has changed.\n"
+				.. "Please update your hook functions as demonstrated in the example below:\n\n"
+				.. examplePromptHook
+				.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
+		)
+		return true
+	end
+	return false
+end
+
+local exampleChatHook = [[
+Translator = function(gp, params)
+    local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
+    gp.cmd.ChatNew(params, chat_system_prompt)
+
+    -- -- you can also create a chat with a specific fixed agent like this:
+    -- local agent = gp.get_chat_agent("ChatGPT4o")
+    -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
+end,
+]]
+
+M.has_old_chat_signature = function(agent)
+	if agent then
+		if not type(agent) == "table" or not agent.provider then
+			logger.warning(
+				"The `gp.cmd.ChatNew` method signature has changed.\n"
+					.. "Please update your hook functions as demonstrated in the example below:\n\n"
+					.. exampleChatHook
+					.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
+			)
+			return true
+		end
+	end
+	return false
+end
+
 M.check_health = function()
 	if #M._deprecated == 0 then
 		vim.health.ok("no deprecated config options")
