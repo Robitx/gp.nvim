@@ -2429,9 +2429,11 @@ M.chat_respond = function(params)
 end
 
 M.cmd.ChatRespond = function(params)
-	if params.args == "" then
+	if params.args == "" and vim.v.count == 0 then
 		M.chat_respond(params)
 		return
+	elseif params.args == "" and vim.v.count ~= 0 then
+		params.args = tostring(vim.v.count)
 	end
 
 	-- ensure args is a single positive number
