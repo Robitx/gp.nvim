@@ -765,33 +765,15 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 	return buf
 end
 
-local exampleChatHook = [[
-Translator = function(gp, params)
-    local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-    gp.cmd.ChatNew(params, chat_system_prompt)
-
-    -- -- you can also create a chat with a specific fixed agent like this:
-    -- local agent = gp.get_chat_agent("ChatGPT4o")
-    -- gp.cmd.ChatNew(params, chat_system_prompt, agent)
-end,
-]]
-
 ---@param params table
 ---@param system_prompt string | nil
 ---@param agent table | nil # obtained from get_command_agent or get_chat_agent
 ---@return number # buffer number
 M.cmd.ChatNew = function(params, system_prompt, agent)
-	if agent then
-		if not type(agent) == "table" or not agent.provider then
-			M.logger.warning(
-				"The `gp.cmd.ChatNew` method signature has changed.\n"
-					.. "Please update your hook functions as demonstrated in the example below:\n\n"
-					.. exampleChatHook
-					.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
-			)
-			return -1
-		end
+	if M.deprecator.has_old_chat_signature(agent) then
+		return -1
 	end
+
 	-- if chat toggle is open, close it and start a new one
 	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
@@ -1632,16 +1614,6 @@ M.cmd.Context = function(params)
 	M.helpers.feedkeys("G", "xn")
 end
 
-local examplePromptHook = [[
-UnitTests = function(gp, params)
-    local template = "I have the following code from {{filename}}:\n\n"
-        .. "```{{filetype}}\n{{selection}}\n```\n\n"
-        .. "Please respond by writing table driven unit tests for the code above."
-    local agent = gp.get_command_agent()
-    gp.Prompt(params, gp.Target.vnew, agent, template)
-end,
-]]
-
 ---@param params table  # vim command parameters such as range, args, etc.
 ---@param target number | function | table  # where to put the response
 ---@param agent table  # obtained from get_command_agent or get_chat_agent
@@ -1650,13 +1622,7 @@ end,
 ---@param whisper string | nil  # predefined input (e.g. obtained from Whisper)
 ---@param callback function | nil  # callback after completing the prompt
 M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
-	if not agent or not type(agent) == "table" or not agent.provider then
-		M.logger.warning(
-			"The `gp.Prompt` method signature has changed.\n"
-				.. "Please update your hook functions as demonstrated in the example below:\n\n"
-				.. examplePromptHook
-				.. "\nFor more information, refer to the 'Extend Functionality' section in the documentation."
-		)
+	if M.deprecator.has_old_prompt_signature(agent) then
 		return
 	end
 
