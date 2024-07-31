@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/Robitx/gp.nvim/compare/v3.5.0...v3.5.1) (2024-07-31)
+
+
+### Bug Fixes
+
+* symbolic links on Windows without admin rights ([#177](https://github.com/Robitx/gp.nvim/issues/177)) ([0f3b5bd](https://github.com/Robitx/gp.nvim/commit/0f3b5bd090871471890502a22fda3ee1abb7c8a2))
+
 ## [3.5.0](https://github.com/Robitx/gp.nvim/compare/v3.4.1...v3.5.0) (2024-07-29)
 
 
