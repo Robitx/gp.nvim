@@ -406,6 +406,10 @@ end
 M.not_chat = function(buf, file_name)
 	file_name = vim.fn.resolve(file_name)
 	local chat_dir = vim.fn.resolve(M.config.chat_dir)
+	if vim.fn.has("win32") then
+		file_name = file_name:gsub("\\", "/")
+		chat_dir = chat_dir:gsub("\\", "/")
+	end
 	if not M.helpers.starts_with(file_name, chat_dir) then
 		return "resolved file (" .. file_name .. ") not in chat dir (" .. chat_dir .. ")"
 	end
@@ -524,7 +528,9 @@ M.prep_chat = function(buf, file_name)
 
 	-- make last.md a symlink to the last opened chat file
 	local last = M.config.chat_dir .. "/last.md"
-	if file_name ~= last then
+	if file_name ~= last and vim.fn.has("win32") then
+		os.execute("pwsh -Noprofile -c New-Item -Force -ItemType SymbolicLink -Path " .. last .. " -Target " .. file_name)
+	elseif file_name ~= last then
 		os.execute("ln -sf " .. file_name .. " " .. last)
 	end
 end
