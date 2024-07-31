@@ -23,7 +23,7 @@ local function read_file(filepath)
 	return content
 end
 
-function file_exists(path)
+local function file_exists(path)
 	local file = io.open(path, "r")
 	if file then
 		file:close()
