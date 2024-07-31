@@ -6,7 +6,6 @@
 ;;   M.some_fn = function() end
 (assignment_statement 
   (variable_list 
-    name: (dot_index_expression 
-            field: (identifier) @name)) 
+    name: (dot_index_expression) @name) 
   (expression_list 
     value: (function_definition) @body))

@@ -1,10 +1,14 @@
 local u = require("gp.utils")
 local gp = require("gp")
 local logger = require("gp.logger")
-local M = {}
+
+---@type Db
+local Db = require("gp.db")
+
+local Context = {}
 
 -- Split a context insertion command into its component parts
-function M.cmd_split(cmd)
+function Context.cmd_split(cmd)
 	return vim.split(cmd, ":", { plain = true })
 end
 
@@ -32,7 +36,7 @@ end
 -- Given a single message, parse out all the context insertion
 -- commands, then return a new message with all the requested
 -- context inserted
-function M.insert_contexts(msg)
+function Context.insert_contexts(msg)
 	local context_texts = {}
 
 	-- Parse out all context insertion commands
@@ -44,7 +48,7 @@ function M.insert_contexts(msg)
 	-- Process each command and turn it into a string be
 	-- inserted as additional context
 	for _, cmd in ipairs(cmds) do
-		local cmd_parts = M.cmd_split(cmd)
+		local cmd_parts = Context.cmd_split(cmd)
 
 		if cmd_parts[1] == "@file" then
 			-- Read the reqested file and produce a msg snippet to be joined later
@@ -76,7 +80,7 @@ function M.insert_contexts(msg)
 	end
 end
 
-function M.find_plugin_path(plugin_name)
+function Context.find_plugin_path(plugin_name)
 	local paths = vim.api.nvim_list_runtime_paths()
 	for _, path in ipairs(paths) do
 		local components = u.path_split(path)
@@ -89,7 +93,7 @@ end
 -- Runs the supplied query on the supplied source file.
 -- Returns all the captures as is. It is up to the caller to
 -- know what the expected output is and to reshape the data.
-function M.treesitter_query(src_filepath, query_filepath)
+function Context.treesitter_query(src_filepath, query_filepath)
 	-- Read the source file content
 	---WARNING: This is probably not a good idea for very large files
 	local src_content = read_file(src_filepath)
@@ -146,7 +150,7 @@ function M.treesitter_query(src_filepath, query_filepath)
 	return captures
 end
 
-function M.treesitter_extract_function_definitions(src_filepath)
+function Context.treesitter_extract_function_defs(src_filepath)
 	-- Make sure we can locate the source file
 	if not file_exists(src_filepath) then
 		logger.error("Unable to locate src file: " .. src_filepath)
@@ -162,7 +166,7 @@ function M.treesitter_extract_function_definitions(src_filepath)
 
 	-- We'll use the reported filetype as the name of the language
 	-- Try to locate a query file we can use to extract function definitions
-	local plugin_path = M.find_plugin_path("gp.nvim")
+	local plugin_path = Context.find_plugin_path("gp.nvim")
 	if not plugin_path then
 		logger.error("Unable to locate path for gp.nvim...")
 		return nil
@@ -176,7 +180,7 @@ function M.treesitter_extract_function_definitions(src_filepath)
 	end
 
 	-- Run the query
-	local captures = M.treesitter_query(src_filepath, query_filepath)
+	local captures = Context.treesitter_query(src_filepath, query_filepath)
 	if not captures then
 		return nil
 	end
@@ -210,4 +214,35 @@ function M.treesitter_extract_function_definitions(src_filepath)
 	return results
 end
 
-return M
+---@param db Db
+---@param src_filepath string
+function Context.build_function_def_index_for_file(db, src_filepath)
+	print("building fn list")
+	-- try to retrieve function definitions from the file
+	local fnlist = Context.treesitter_extract_function_defs(src_filepath)
+	if not fnlist then
+		return false
+	end
+	print("done building fn list")
+
+	-- Grab the src file meta data
+	local src_file_entry = db.collect_src_file_data(src_filepath)
+	assert(src_file_entry)
+	src_file_entry.last_scan_time = os.time()
+	print("collected file info")
+
+	-- Update the src file entry and the function definitions in a single transaction
+	-- TODO: Remove stale entries?
+	local result = db:with_transaction(function()
+		print("updating src file entry")
+		local success = db:upsert_src_file(src_file_entry)
+		if not success then
+			return false
+		end
+		print("upserting fn list")
+		return db:upsert_fnlist(fnlist)
+	end)
+	return result
+end
+
+return Context

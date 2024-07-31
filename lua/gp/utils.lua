@@ -1,10 +1,12 @@
-local M = {}
+local uv = vim.uv or vim.loop
 
-function M.path_split(path)
+local Utils = {}
+
+function Utils.path_split(path)
 	return vim.split(path, "/")
 end
 
-function M.path_join(...)
+function Utils.path_join(...)
 	local args = { ... }
 	local parts = {}
 
@@ -30,4 +32,26 @@ function M.path_join(...)
 	return result
 end
 
-return M
+function Utils.ensure_path_exists(path)
+	-- Check if the path exists
+	local stat = uv.fs_stat(path)
+	if stat and stat.type == "directory" then
+		-- The path exists and is a directory
+		return true
+	end
+
+	-- Try to create the directory
+	return vim.fn.mkdir(path, "p")
+end
+
+function Utils.ensure_parent_path_exists(path)
+	local components = Utils.path_split(path)
+
+	-- Get the parent directory by removing the last component
+	table.remove(components)
+	local parent_path = table.concat(components, "/")
+
+	return Utils.ensure_path_exists(parent_path)
+end
+
+return Utils
