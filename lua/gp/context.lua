@@ -119,7 +119,7 @@ function Context.treesitter_query(src_filepath, query_filepath)
 	-- Check if the treesitter support for the language is available
 	local ok, err = pcall(vim.treesitter.language.add, filetype)
 	if not ok then
-		print("TreeSitter parser for " .. filetype .. " is not installed")
+		logger.error("TreeSitter parser for " .. filetype .. " is not installed")
 		logger.error(err)
 		return nil
 	end
@@ -175,7 +175,7 @@ function Context.treesitter_extract_function_defs(src_filepath)
 	-- Find the query file that's approprite for the language
 	local query_filepath = u.path_join(plugin_path, "data/ts_queries/" .. filetype .. ".scm")
 	if not file_exists(query_filepath) then
-		logger.error("Unable to find function extraction ts query file: " .. query_filepath)
+		logger.debug("Unable to find function extraction ts query file: " .. query_filepath)
 		return nil
 	end
 
@@ -217,13 +217,11 @@ end
 ---@param db Db
 ---@param src_filepath string
 function Context.build_function_def_index_for_file(db, src_filepath)
-	print("building fn list")
 	-- try to retrieve function definitions from the file
 	local fnlist = Context.treesitter_extract_function_defs(src_filepath)
 	if not fnlist then
 		return false
 	end
-	print("done building fn list")
 
 	-- Grab the src file meta data
 	local src_file_entry = db.collect_src_file_data(src_filepath)
@@ -232,17 +230,14 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 		return false
 	end
 	src_file_entry.last_scan_time = os.time()
-	print("collected file info")
 
 	-- Update the src file entry and the function definitions in a single transaction
 	-- TODO: Remove stale entries?
 	local result = db:with_transaction(function()
-		print("updating src file entry")
 		local success = db:upsert_src_file(src_file_entry)
 		if not success then
 			return false
 		end
-		print("upserting fn list")
 		return db:upsert_fnlist(fnlist)
 	end)
 	return result
@@ -277,7 +272,7 @@ function Context.build_function_def_index(db)
 				if vim.filetype.match({ filename = full_path }) then
 					local success = Context.build_function_def_index_for_file(db, rel_path)
 					if not success then
-						logger.warning("Failed to build function def index for: " .. rel_path)
+						logger.debug("Failed to build function def index for: " .. rel_path)
 					end
 				end
 			end

@@ -97,7 +97,7 @@ function Db.collect_src_file_data(relative_path)
 	-- If the file doesn't exist, there is nothing to collect
 	local stat = uv.fs_stat(fullpath)
 	if not stat then
-		logger.error("[Db.collection_src_file_data] failed: " .. relative_path)
+		logger.debug("[Db.collection_src_file_data] failed: " .. relative_path)
 		return nil
 	end
 
