@@ -59,25 +59,24 @@ function Db.open()
 			last_scan_time = { type = "integer", required = true }, -- unix timestamp
 		},
 
-		-- The `function_defs` table stores all known functions were we able to extract out of the src files
-		function_defs = {
-			id = true,
-
-			-- We're keeping this a text field for now to avoid having to deal with joins to grab the filename.
-			-- This will also cause the file definition entries to be removed when the cooresponding src_file
-			-- entry is removed.
-			file = {
-				type = "text",
-				reference = "src_files.filename",
-				on_delete = "cascade",
-				required = true,
-			},
-			name = { type = "text", required = true }, -- name of the function
-			start_line = { type = "integer", required = true }, -- Where the fn def starts
-			end_line = { type = "integer", required = true }, -- Where the fn def ends
-		},
 		opts = { keep_open = true },
 	})
+
+	db:eval("PRAGMA foreign_keys = ON;")
+
+	-- sqlite.lua doesn't seem to support adding random table options
+	-- In this case, being able to perform an upsert in the function_defs table depends on
+	-- having UNIQUE file and fn name pair.
+	db:eval([[
+		CREATE TABLE IF NOT EXISTS function_defs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			file TEXT NOT NULL REFERENCES src_files(filename) on DELETE CASCADE,
+			name TEXT NOT NULL,
+			start_line INTEGER NOT NULL,
+			end_line INTEGER NOT NULL,
+			UNIQUE (file, name)
+		);
+	]])
 
 	db:eval("CREATE UNIQUE INDEX IF NOT EXISTS idx_src_files_filename ON src_files (filename);")
 
@@ -174,7 +173,7 @@ function Db:upsert_function_def(def)
 	local sql = [[
         INSERT INTO function_defs (file, name, start_line, end_line)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(file, name, start_line) DO UPDATE SET
+        ON CONFLICT(file, name) DO UPDATE SET
             start_line = excluded.start_line,
             end_line = excluded.end_line
         WHERE file = ? AND name = ?
