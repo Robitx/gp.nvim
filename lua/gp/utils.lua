@@ -54,4 +54,16 @@ function Utils.ensure_parent_path_exists(path)
 	return Utils.ensure_path_exists(parent_path)
 end
 
+function Utils.string_starts_with(str, starting)
+	return string.sub(str, 1, string.len(starting)) == starting
+end
+
+function Utils.string_ends_with(str, ending)
+	if #ending > #str then
+		return false
+	end
+
+	return str:sub(-#ending) == ending
+end
+
 return Utils

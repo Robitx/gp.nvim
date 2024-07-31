@@ -26,6 +26,7 @@ local logger = require("gp.logger")
 ---@field db sqlite_db
 local Db = {}
 
+--- @return Db
 Db._new = function(db)
 	return setmetatable({ db = db }, { __index = Db })
 end
@@ -44,6 +45,7 @@ function Db.open()
 	local db_file = u.path_join(git_root, ".gp/function_defs.sqlite")
 	if not u.ensure_parent_path_exists(db_file) then
 		logger.error("[db.open] Unable create directory for db file: " .. db_file)
+		return nil
 	end
 
 	local db = sqlite({
@@ -95,6 +97,7 @@ function Db.collect_src_file_data(relative_path)
 	-- If the file doesn't exist, there is nothing to collect
 	local stat = uv.fs_stat(fullpath)
 	if not stat then
+		logger.error("[Db.collection_src_file_data] failed: " .. relative_path)
 		return nil
 	end
 
@@ -163,13 +166,11 @@ end
 -- Upserts a single function def entry into the database
 --- @param def FunctionDefEntry
 function Db:upsert_function_def(def)
-	print("[upsert fn def] 1")
 	if not self.db then
 		logger.error("[db.upsert_function_def] Database not initialized")
 		return false
 	end
 
-	print("[upsert fn def] 2")
 	local sql = [[
         INSERT INTO function_defs (file, name, start_line, end_line)
         VALUES (?, ?, ?, ?)
@@ -179,7 +180,6 @@ function Db:upsert_function_def(def)
         WHERE file = ? AND name = ?
     ]]
 
-	print("[upsert fn def] 3")
 	local success = self.db:eval(sql, {
 		-- For the INSERT VALUES clause
 		def.file,
@@ -192,7 +192,6 @@ function Db:upsert_function_def(def)
 		def.name,
 	})
 
-	print("[upsert fn def] 4")
 	if not success then
 		logger.error("[db.upsert_function_def] Failed to upsert function: " .. def.name .. " for file: " .. def.file)
 		return false
@@ -204,7 +203,15 @@ end
 -- Wraps the given function in a sqlite transaction
 ---@param fn function()
 function Db:with_transaction(fn)
-	return sqlite_clib.wrap_stmts(self.db.conn, fn)
+	self.db:execute("BEGIN")
+	local success, result = pcall(fn)
+	self.db:execute("END")
+
+	if not success then
+		logger.error(result)
+		return false
+	end
+	return true
 end
 
 --- Updates the dastabase with the contents of the `fnlist`
@@ -213,7 +220,6 @@ end
 --- @param fnlist FunctionDefEntry[]
 function Db:upsert_fnlist(fnlist)
 	for _, def in ipairs(fnlist) do
-		print(vim.inspect(def))
 		local success = self:upsert_function_def(def)
 		if not success then
 			logger.error("[db.upsert_fnlist] Failed to upsert function def list")
@@ -222,6 +228,10 @@ function Db:upsert_fnlist(fnlist)
 	end
 
 	return true
+end
+
+function Db:close()
+	self.db:close()
 end
 
 return Db

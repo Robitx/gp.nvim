@@ -227,7 +227,10 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 
 	-- Grab the src file meta data
 	local src_file_entry = db.collect_src_file_data(src_filepath)
-	assert(src_file_entry)
+	if not src_file_entry then
+		logger.error("Unable to collect src file data for:" .. src_filepath)
+		return false
+	end
 	src_file_entry.last_scan_time = os.time()
 	print("collected file info")
 
@@ -243,6 +246,62 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 		return db:upsert_fnlist(fnlist)
 	end)
 	return result
+end
+
+function Context.build_function_def_index(db)
+	local git_root = gp._H.find_git_root()
+	if not git_root then
+		logger.error("[Context.build_function_def_index] Unable to locate project root")
+		return false
+	end
+	local git_root_len = #git_root + 2
+
+	local function scan_directory(dir)
+		local entries = vim.fn.readdir(dir)
+
+		for _, entry in ipairs(entries) do
+			local full_path = u.path_join(dir, entry)
+			local rel_path = full_path:sub(git_root_len)
+			-- Ignore hidden files and directories
+			if u.string_starts_with(entry, ".") or u.string_ends_with(entry, ".txt") or u.string_ends_with(entry, ".md") then
+				goto continue
+			end
+
+			if vim.fn.isdirectory(full_path) == 1 then
+				if entry == "node_modules" then
+					goto continue
+				end
+				scan_directory(full_path)
+			else
+				-- Only process files with recognized filetypes
+				if vim.filetype.match({ filename = full_path }) then
+					local success = Context.build_function_def_index_for_file(db, rel_path)
+					if not success then
+						logger.warning("Failed to build function def index for: " .. rel_path)
+					end
+				end
+			end
+			::continue::
+		end
+	end
+
+	scan_directory(git_root)
+end
+
+function Context.index_all()
+	local uv = vim.uv or vim.loop
+	local start_time = uv.hrtime()
+
+	local db = Db.open()
+	if not db then
+		return
+	end
+	Context.build_function_def_index(db)
+	db:close()
+
+	local end_time = uv.hrtime()
+	local elapsed_time_ms = (end_time - start_time) / 1e6
+	logger.info(string.format("[Gp] Indexing took: %.2f ms", elapsed_time_ms))
 end
 
 return Context
