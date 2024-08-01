@@ -1,5 +1,4 @@
 local sqlite = require("sqlite.db")
-
 local sqlite_clib = require("sqlite.defs")
 local gp = require("gp")
 local u = require("gp.utils")
@@ -232,6 +231,27 @@ end
 
 function Db:close()
 	self.db:close()
+end
+
+function Db:find_fn_def_by_name(partial_fn_name)
+	local sql = [[
+		SELECT * FROM function_defs WHERE name LIKE ?
+    ]]
+
+	local wildcard_name = "%" .. partial_fn_name .. "%"
+
+	local result = self.db:eval(sql, {
+		wildcard_name,
+	})
+
+	-- We're expecting the query to return a list of FunctionDefEntry.
+	-- If we get a boolean back instead, we consider the operation to have failed.
+	if type(result) == "boolean" then
+		return nil
+	end
+
+	---@cast result FunctionDefEntry
+	return result
 end
 
 return Db

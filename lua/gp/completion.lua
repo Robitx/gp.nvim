@@ -1,5 +1,7 @@
 local u = require("gp.utils")
 local context = require("gp.context")
+local db = require("gp.db")
+local cmp = require("cmp")
 
 -- Gets a buffer variable or returns the default
 local function buf_get_var(buf, var_name, default)
@@ -16,20 +18,24 @@ local function buf_set_var(buf, var_name, value)
 	return vim.api.nvim_buf_set_var(buf, var_name, value)
 end
 
+---@class CompletionSource
+---@field db Db
 local source = {}
 
 source.src_name = "gp_completion"
 
-source.new = function()
+---@return CompletionSource
+function source.new()
 	print("source.new called")
-	return setmetatable({}, { __index = source })
+	local db_inst = db.open()
+	return setmetatable({ db = db_inst }, { __index = source })
 end
 
-source.get_trigger_characters = function()
+function source.get_trigger_characters()
 	return { "@", ":", "/" }
 end
 
-source.setup_for_buffer = function(bufnr)
+function source.setup_for_buffer(bufnr)
 	print("in setup_for_buffer")
 	local config = require("cmp").get_config()
 
@@ -44,7 +50,7 @@ source.setup_for_buffer = function(bufnr)
 	}, bufnr)
 end
 
-source.setup_autocmd_for_markdown = function()
+function source.setup_autocmd_for_markdown()
 	print("setting up autocmd...")
 	vim.api.nvim_create_autocmd("BufEnter", {
 		pattern = { "*.md", "markdown" },
@@ -68,9 +74,9 @@ source.setup_autocmd_for_markdown = function()
 	})
 end
 
-source.register_cmd_source = function()
+function source.register_cmd_source()
 	print("registering completion src")
-	require("cmp").register_source(source.src_name, source.new())
+	cmp.register_source(source.src_name, source.new())
 end
 
 local function extract_cmd(request)
@@ -82,8 +88,6 @@ local function extract_cmd(request)
 end
 
 local function completion_items_for_path(path)
-	local cmp = require("cmp")
-
 	-- The incoming path should either be
 	-- - A relative path that references a directory
 	-- - A relative path + partial filename as last component-
@@ -136,7 +140,33 @@ local function completion_items_for_path(path)
 	return files
 end
 
-source.complete = function(self, request, callback)
+function source:completion_items_for_fn_name(partial_fn_name)
+	local result = self.db:find_fn_def_by_name(partial_fn_name)
+
+	local items = {}
+	if not result then
+		return items
+	end
+
+	for _, row in ipairs(result) do
+		table.insert(items, {
+			-- fields meant for nvim-cmp
+			label = row.name,
+			kind = cmp.lsp.CompletionItemKind.Function,
+			labelDetails = {
+				detail = row.file,
+			},
+
+			-- fields meant for internal use
+			row = row,
+			type = "@code",
+		})
+	end
+
+	return items
+end
+
+function source.complete(self, request, callback)
 	local input = string.sub(request.context.cursor_before_line, request.offset - 1)
 	print("[comp] input: '" .. input .. "'")
 	local cmd = extract_cmd(request)
@@ -160,22 +190,21 @@ source.complete = function(self, request, callback)
 		-- Say that the entire list has been provided
 		-- cmp won't call us again to provide an updated list
 		isIncomplete = false
-	elseif input:match("^@code:") then
-		print("[complete] @code: case")
-		local parts = vim.split(input, ":", { plain = true })
-		if #parts == 1 then
-			items = {
-				{ label = "filename1.lua", kind = require("cmp").lsp.CompletionItemKind.File },
-				{ label = "filename2.lua", kind = require("cmp").lsp.CompletionItemKind.File },
-				{ label = "function1", kind = require("cmp").lsp.CompletionItemKind.Function },
-				{ label = "function2", kind = require("cmp").lsp.CompletionItemKind.Function },
-			}
-		elseif #parts == 2 then
-			items = {
-				{ label = "function1", kind = require("cmp").lsp.CompletionItemKind.Function },
-				{ label = "function2", kind = require("cmp").lsp.CompletionItemKind.Function },
-			}
+	elseif cmd_parts[1]:match("@code") then
+		local partial_fn_name = cmd_parts[2]
+
+		-- When the user confirms completion of an item, we alter the
+		-- command to look like `@code:path/to/file:fn_name` to uniquely
+		-- identify a function.
+		--
+		-- If the user were to hit backspace to delete through the text,
+		-- don't process the input until it no longer looks like a path.
+		if partial_fn_name:match("/") then
+			return
 		end
+
+		items = self:completion_items_for_fn_name(partial_fn_name)
+		isIncomplete = false
 	elseif input:match("^@") then
 		print("[complete] @ case")
 		items = {
@@ -189,10 +218,39 @@ source.complete = function(self, request, callback)
 	end
 
 	local data = { items = items, isIncomplete = isIncomplete }
-	print("[complete] Callback data:")
-	print(vim.inspect(data))
 	callback(data)
 	print("[complete] Callback called")
+end
+
+local function search_backwards(buf, pattern)
+	-- Use nvim_buf_call to execute a Vim command in the buffer context
+	return vim.api.nvim_buf_call(buf, function()
+		-- Search backwards for the pattern
+		local result = vim.fn.searchpos(pattern, "bn")
+
+		if result[1] == 0 and result[2] == 0 then
+			return nil
+		end
+		return result
+	end)
+end
+
+function source:execute(item, callback)
+	if item.type == "@code" then
+		-- Locate where @command starts and ends
+		local end_pos = vim.api.nvim_win_get_cursor(0)
+		local start_pos = search_backwards(0, "@code")
+
+		-- Replace it with a custom piece of text and move the cursor to the end of the string
+		local text = string.format("@code:%s:%s", item.row.file, item.row.name)
+		vim.api.nvim_buf_set_text(0, start_pos[1] - 1, start_pos[2] - 1, end_pos[1] - 1, end_pos[2], { text })
+		vim.api.nvim_win_set_cursor(0, { start_pos[1], start_pos[2] - 1 + #text })
+	end
+
+	-- After brief glance at the nvim-cmp source, it appears
+	-- we should call `callback` to continue the entry item selection
+	-- confirmation handling chain.
+	callback()
 end
 
 source.setup_autocmd_for_markdown()
