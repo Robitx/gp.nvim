@@ -252,40 +252,33 @@ function Context.build_function_def_index(db)
 	end
 	local git_root_len = #git_root + 2
 
-	local function scan_directory(dir)
-		local entries = vim.fn.readdir(dir)
-
-		for _, entry in ipairs(entries) do
-			local full_path = u.path_join(dir, entry)
-			local rel_path = full_path:sub(git_root_len)
-			-- Ignore hidden files and directories
-			if
-				u.string_starts_with(entry, ".")
-				or u.string_ends_with(entry, ".txt")
-				or u.string_ends_with(entry, ".md")
-			then
-				goto continue
+	walk_directory(git_root, {
+		should_process = function(entry, rel_path, full_path, is_dir)
+			if u.string_starts_with(entry, ".") then
+				return false
 			end
 
-			if vim.fn.isdirectory(full_path) == 1 then
+			if is_dir then
 				if entry == "node_modules" then
-					goto continue
+					return false
 				end
-				scan_directory(full_path)
 			else
-				-- Only process files with recognized filetypes
-				if vim.filetype.match({ filename = full_path }) then
-					local success = Context.build_function_def_index_for_file(db, rel_path)
-					if not success then
-						logger.debug("Failed to build function def index for: " .. rel_path)
-					end
+				if u.string_ends_with(entry, ".txt") or u.string_ends_with(entry, ".md") then
+					return false
 				end
 			end
-			::continue::
-		end
-	end
+			return true
+		end,
 
-	scan_directory(git_root)
+		process_file = function(rel_path, full_path)
+			if vim.filetype.match({ filename = full_path }) then
+				local success = Context.build_function_def_index_for_file(db, full_path)
+				if not success then
+					logger.debug("Failed to build function def index for: " .. rel_path)
+				end
+			end
+		end,
+	})
 end
 
 function Context.index_single_file(src_filepath)

@@ -66,4 +66,56 @@ function Utils.string_ends_with(str, ending)
 	return str:sub(-#ending) == ending
 end
 
+---@class WalkDirectoryOptions
+---@field should_process function Passed `entry`, `rel_path`, `full_path`, and `is_dir`
+---@field process_file function
+---@field on_error function
+---@field recurse boolean
+---@field max_depth number
+---
+---@param dir string The directory to try to walk
+---@param options WalkDirectoryOptions Describes how to walk the directory
+---
+function Utils.walk_directory(dir, options)
+	options = options or {}
+
+	local should_process = options.should_process or function()
+		return true
+	end
+
+	local process_file = options.process_file or function(rel_path, full_path)
+		print(full_path)
+	end
+	local recurse = not options.recurse
+
+	---@type number
+	local max_depth = options.max_depth or math.huge
+
+	local function walk(current_dir, current_depth)
+		if current_depth > max_depth then
+			return
+		end
+
+		local entries = vim.fn.readdir(current_dir)
+
+		for _, entry in ipairs(entries) do
+			local full_path = Utils.path_join(current_dir, entry)
+			local rel_path = full_path:sub(#dir + 2)
+			local is_dir = vim.fn.isdirectory(full_path) == 1
+
+			if should_process(entry, rel_path, full_path, is_dir) then
+				if is_dir then
+					if recurse then
+						walk(full_path, current_depth + 1)
+					end
+				else
+					pcall(process_file, rel_path, full_path)
+				end
+			end
+		end
+	end
+
+	walk(dir, 1)
+end
+
 return Utils
