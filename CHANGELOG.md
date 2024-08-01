@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.1](https://github.com/Robitx/gp.nvim/compare/v3.6.0...v3.6.1) (2024-08-01)
+
+
+### Bug Fixes
+
+* remove code remnant ([4c2f1d4](https://github.com/Robitx/gp.nvim/commit/4c2f1d42083905e41fe68f0fe8bc6f1b920b45e5))
+
 ## [3.6.0](https://github.com/Robitx/gp.nvim/compare/v3.5.1...v3.6.0) (2024-08-01)
 
 
