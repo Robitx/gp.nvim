@@ -50,6 +50,13 @@ function Db.open()
 	local db = sqlite({
 		uri = db_file,
 
+		-- The `metadata` table is a simple KV store
+		metadata = {
+			id = true,
+			key = { type = "text", required = true, unique = true },
+			value = { type = "luatable", required = true },
+		},
+
 		-- The `src_files` table stores a list of known src files and the last time they were scanned
 		src_files = {
 			id = true,
@@ -272,6 +279,30 @@ end
 function Db:clear()
 	self.db:eval("DELETE FROM function_defs")
 	self.db:eval("DELETE FROM src_files")
+end
+
+-- Gets the value of a key from the metadata table
+---@param keyname string
+---@return any
+function Db:get_metadata(keyname)
+	local result = self.db.metadata:where({ key = keyname })
+	if result then
+		return result.value
+	end
+end
+
+-- Sets the value of a key in the metadata table
+-- WARNING: value cannot be of a number type
+---@param keyname string
+---@param value any
+function Db:set_metadata(keyname, value)
+	-- The sqlite.lua plugin doesn't seem to like having numbers stored in the a field
+	-- marked as the "luatable" or "json" type.
+	-- If we store a number into the value field, sqlite.lua will throw a parse error on get.
+	if type(value) == "number" then
+		error("database metadata table doesn't not support storing a number as a root value")
+	end
+	return self.db.metadata:update({ where = { key = keyname }, set = { value = value } })
 end
 
 return Db
