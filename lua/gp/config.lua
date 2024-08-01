@@ -339,7 +339,7 @@ local config = {
 	style_popup_max_width = 160,
 
 	-- in case of visibility colisions with other plugins, you can increase/decrease zindex
-	zindex = 49,
+	zindex = 50,
 
 	-- command config and templates below are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input (supports {{agent}} template variable)

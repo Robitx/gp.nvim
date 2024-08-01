@@ -96,7 +96,7 @@ M.popup = function(buf, title, size_func, opts, style)
 	opts = opts or {}
 	style = style or {}
 	local border = style.border or "single"
-	local zindex = style.zindex or 49
+	local zindex = style.zindex or 50
 
 	-- create buffer
 	buf = buf or vim.api.nvim_create_buf(false, not opts.persist)
