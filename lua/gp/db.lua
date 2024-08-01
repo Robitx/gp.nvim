@@ -70,7 +70,7 @@ function Db.open()
 	-- having UNIQUE file and fn name pair.
 	db:eval([[
 		CREATE TABLE IF NOT EXISTS function_defs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id INTEGER NOT NULL PRIMARY KEY,
 			file TEXT NOT NULL REFERENCES src_files(filename) on DELETE CASCADE,
 			name TEXT NOT NULL,
 			start_line INTEGER NOT NULL,
@@ -252,6 +252,26 @@ function Db:find_fn_def_by_name(partial_fn_name)
 
 	---@cast result FunctionDefEntry
 	return result
+end
+
+-- Removes a single entry from the src_files table given a relative file path
+-- Note that related entries in the function_defs table will be removed via CASCADE.
+---@param src_filepath string
+function Db:remove_src_file_entry(src_filepath)
+	local sql = [[
+		DELETE FROM src_files WHERE filename = ?
+    ]]
+
+	local result = self.db:eval(sql, {
+		src_filepath,
+	})
+
+	return result
+end
+
+function Db:clear()
+	self.db:eval("DELETE FROM function_defs")
+	self.db:eval("DELETE FROM src_files")
 end
 
 return Db

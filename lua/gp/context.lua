@@ -232,8 +232,9 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 	src_file_entry.last_scan_time = os.time()
 
 	-- Update the src file entry and the function definitions in a single transaction
-	-- TODO: Remove stale entries?
 	local result = db:with_transaction(function()
+		db:remove_src_file_entry(src_filepath)
+
 		local success = db:upsert_src_file(src_file_entry)
 		if not success then
 			return false
@@ -258,7 +259,11 @@ function Context.build_function_def_index(db)
 			local full_path = u.path_join(dir, entry)
 			local rel_path = full_path:sub(git_root_len)
 			-- Ignore hidden files and directories
-			if u.string_starts_with(entry, ".") or u.string_ends_with(entry, ".txt") or u.string_ends_with(entry, ".md") then
+			if
+				u.string_starts_with(entry, ".")
+				or u.string_ends_with(entry, ".txt")
+				or u.string_ends_with(entry, ".md")
+			then
 				goto continue
 			end
 
@@ -281,6 +286,15 @@ function Context.build_function_def_index(db)
 	end
 
 	scan_directory(git_root)
+end
+
+function Context.index_single_file(src_filepath)
+	local db = Db.open()
+	if not db then
+		return
+	end
+	Context.build_function_def_index_for_file(db, src_filepath)
+	db:close()
 end
 
 function Context.index_all()
