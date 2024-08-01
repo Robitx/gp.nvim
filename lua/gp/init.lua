@@ -188,7 +188,6 @@ M.setup = function(opts)
 	}
 
 	-- register default commands
-	M.helpers.create_user_command(M.config.cmd_prefix .. "Do", M.cmd.Do, do_completion)
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
 			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, M.cmd[cmd], completions[cmd])
