@@ -224,6 +224,7 @@ M.refresh_state = function()
 		M._state.command_agent = M._command_agents[1]
 	end
 
+	M.logger.debug("stored state: " .. vim.inspect(M._state))
 	M.helpers.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
@@ -274,13 +275,13 @@ M.prepare_commands = function()
 		-- uppercase first letter
 		local command = name:gsub("^%l", string.upper)
 
-		local agent = M.get_command_agent()
-		-- popup is like ephemeral one off chat
-		if target == M.Target.popup then
-			agent = M.get_chat_agent()
-		end
-
 		local cmd = function(params, whisper)
+			local agent = M.get_command_agent()
+			-- popup is like ephemeral one off chat
+			if target == M.Target.popup then
+				agent = M.get_chat_agent()
+			end
+
 			-- template is chosen dynamically based on mode in which the command is called
 			local template = M.config.template_command
 			if params.range == 2 then
@@ -1521,6 +1522,7 @@ M.get_command_agent = function(name)
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
+	M.logger.debug("Getting command agent: " .. name)
 	return {
 		cmd_prefix = cmd_prefix,
 		name = name,
@@ -1543,6 +1545,7 @@ M.get_chat_agent = function(name)
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
+	M.logger.debug("Getting chat agent: " .. name)
 	return {
 		cmd_prefix = cmd_prefix,
 		name = name,
