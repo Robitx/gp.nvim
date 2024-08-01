@@ -30,6 +30,15 @@ local M = {
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
+local agent_completion = function()
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	if M.not_chat(buf, file_name) == nil then
+		return M._chat_agents
+	end
+	return M._command_agents
+end
+
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
@@ -175,25 +184,14 @@ M.setup = function(opts)
 		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
+		Agent = agent_completion,
 	}
 
 	-- register default commands
+	M.helpers.create_user_command(M.config.cmd_prefix .. "Do", M.cmd.Do, do_completion)
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
-			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, M.cmd[cmd], function()
-				if completions[cmd] then
-					return completions[cmd]
-				end
-				if cmd == "Agent" then
-					local buf = vim.api.nvim_get_current_buf()
-					local file_name = vim.api.nvim_buf_get_name(buf)
-					if M.not_chat(buf, file_name) == nil then
-						return M._chat_agents
-					end
-					return M._command_agents
-				end
-				return {}
-			end)
+			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, M.cmd[cmd], completions[cmd])
 		end
 	end
 
