@@ -629,6 +629,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			return ww, wh, top, (w - ww) / 2
 		end, { on_leave = false, escape = false, persist = true }, {
 			border = M.config.style_popup_border or "single",
+			zindex = M.config.zindex,
 		})
 
 		if not toggle then
@@ -1157,6 +1158,7 @@ M.cmd.ChatFinder = function()
 	local gid = M.helpers.create_augroup("GpChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
+	local style = { border = M.config.style_chat_finder_border or "single", zindex = M.config.zindex }
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
 	local top = M.config.style_chat_finder_margin_top or 2
 	local bottom = M.config.style_chat_finder_margin_bottom or 8
@@ -1171,7 +1173,7 @@ M.cmd.ChatFinder = function()
 			return math.floor(ww * (1 - ratio)), wh, top, left
 		end,
 		{ gid = gid },
-		{ border = M.config.style_chat_finder_border or "single" }
+		style
 	)
 
 	local preview_buf, preview_win, preview_close, preview_resize = M.render.popup(
@@ -1183,7 +1185,7 @@ M.cmd.ChatFinder = function()
 			return ww * ratio, wh, top, left + math.ceil(ww * (1 - ratio)) + 2
 		end,
 		{ gid = gid },
-		{ border = M.config.style_chat_finder_border or "single" }
+		style
 	)
 
 	vim.api.nvim_set_option_value("filetype", "markdown", { buf = preview_buf })
@@ -1196,7 +1198,7 @@ M.cmd.ChatFinder = function()
 			return w - left - right, 1, h - bottom, left
 		end,
 		{ gid = gid },
-		{ border = M.config.style_chat_finder_border or "single" }
+		style
 	)
 	-- set initial content of command buffer
 	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { M.config.chat_finder_pattern })
@@ -1841,16 +1843,22 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
 			local popup_close = nil
-			buf, win, popup_close, _ = M.render.popup(nil, M._Name .. " popup (close with <esc>/<C-c>)", function(w, h)
-				local top = M.config.style_popup_margin_top or 2
-				local bottom = M.config.style_popup_margin_bottom or 8
-				local left = M.config.style_popup_margin_left or 1
-				local right = M.config.style_popup_margin_right or 1
-				local max_width = M.config.style_popup_max_width or 160
-				local ww = math.min(w - (left + right), max_width)
-				local wh = h - (top + bottom)
-				return ww, wh, top, (w - ww) / 2
-			end, { on_leave = true, escape = true }, { border = M.config.style_popup_border or "single" })
+			buf, win, popup_close, _ = M.render.popup(
+				nil,
+				M._Name .. " popup (close with <esc>/<C-c>)",
+				function(w, h)
+					local top = M.config.style_popup_margin_top or 2
+					local bottom = M.config.style_popup_margin_bottom or 8
+					local left = M.config.style_popup_margin_left or 1
+					local right = M.config.style_popup_margin_right or 1
+					local max_width = M.config.style_popup_max_width or 160
+					local ww = math.min(w - (left + right), max_width)
+					local wh = h - (top + bottom)
+					return ww, wh, top, (w - ww) / 2
+				end,
+				{ on_leave = true, escape = true },
+				{ border = M.config.style_popup_border or "single", zindex = M.config.zindex }
+			)
 			-- set the created buffer as the current buffer
 			vim.api.nvim_set_current_buf(buf)
 			-- set the filetype to markdown
