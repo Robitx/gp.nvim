@@ -1,4 +1,4 @@
-*gp.nvim.txt*              For Neovim              Last change: 2024 August 01
+*gp.nvim.txt*              For Neovim              Last change: 2024 August 02
 
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
@@ -252,7 +252,7 @@ options might get deprecated and so on - it’s better to change only things
 where the default doesn’t fit your needs.
 
 
-https://github.com/Robitx/gp.nvim/blob/6dca8ead9ffcfdb97d09a97369613ddd30170605/lua/gp/config.lua#L9-L599
+https://github.com/Robitx/gp.nvim/blob/c1028a5e7db59a5d8f55d4b5e7729706d28cf6a5/lua/gp/config.lua#L9-L599
 
 
 ==============================================================================
