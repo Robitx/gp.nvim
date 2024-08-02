@@ -261,6 +261,36 @@ function Db:find_fn_def_by_name(partial_fn_name)
 	return result
 end
 
+function Db:find_fn_def_by_file_n_name(rel_path, full_fn_name)
+	local sql = [[
+		SELECT * FROM function_defs WHERE file = ? AND name = ?
+    ]]
+
+	local result = self.db:eval(sql, {
+		rel_path,
+		full_fn_name,
+	})
+
+	-- We're expecting the query to return a list of FunctionDefEntry.
+	-- If we get a boolean back instead, we consider the operation to have failed.
+	if type(result) == "boolean" then
+		return nil
+	end
+
+	---@cast result FunctionDefEntry[]
+	if #result > 1 then
+		logger.error(
+			string.format(
+				"[Db.find_fn_def_by_file_n_name] Found more than 1 result for: '%s', '%s'",
+				rel_path,
+				full_fn_name
+			)
+		)
+	end
+
+	return result[1]
+end
+
 -- Removes a single entry from the src_files table given a relative file path
 -- Note that related entries in the function_defs table will be removed via CASCADE.
 ---@param src_filepath string

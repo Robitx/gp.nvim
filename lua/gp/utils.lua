@@ -143,4 +143,19 @@ function Utils.full_path_for_project_file(path)
 	return Utils.path_join(proj_root, path)
 end
 
+function Utils.string_find_all_substr(str, substr)
+	local result = {}
+	local first = 0
+	local last = 0
+
+	while true do
+		first, last = str:find(substr, first + 1)
+		if not first then
+			break
+		end
+		table.insert(result, { first, last })
+	end
+	return result
+end
+
 return Utils

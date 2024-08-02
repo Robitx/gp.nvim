@@ -192,6 +192,9 @@ function source.complete(self, request, callback)
 		isIncomplete = false
 	elseif cmd_parts[1]:match("@code") then
 		local partial_fn_name = cmd_parts[2]
+		if not partial_fn_name then
+			partial_fn_name = ""
+		end
 
 		-- When the user confirms completion of an item, we alter the
 		-- command to look like `@code:path/to/file:fn_name` to uniquely
