@@ -157,6 +157,10 @@ end
 ---@param str string # string to check
 ---@param start string # string to check for
 _H.starts_with = function(str, start)
+	if vim.fn.has("win32") then
+		str = str:gsub("\\", "/")
+		start = start:gsub("\\", "/")
+	end
 	return str:sub(1, #start) == start
 end
 

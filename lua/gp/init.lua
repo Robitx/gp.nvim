@@ -406,10 +406,6 @@ end
 M.not_chat = function(buf, file_name)
 	file_name = vim.fn.resolve(file_name)
 	local chat_dir = vim.fn.resolve(M.config.chat_dir)
-	if vim.fn.has("win32") then
-		file_name = file_name:gsub("\\", "/")
-		chat_dir = chat_dir:gsub("\\", "/")
-	end
 	if not M.helpers.starts_with(file_name, chat_dir) then
 		return "resolved file (" .. file_name .. ") not in chat dir (" .. chat_dir .. ")"
 	end
