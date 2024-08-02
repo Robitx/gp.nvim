@@ -1,12 +1,5 @@
 # Changelog
 
-## [3.6.2](https://github.com/Robitx/gp.nvim/compare/v3.6.1...v3.6.2) (2024-08-01)
-
-
-### Bug Fixes
-
-* zindex default to 50 ([0935f1e](https://github.com/Robitx/gp.nvim/commit/0935f1e972e495cca52227e635a4c202b87e26d5))
-
 ## [3.6.1](https://github.com/Robitx/gp.nvim/compare/v3.6.0...v3.6.1) (2024-08-01)
 
 
