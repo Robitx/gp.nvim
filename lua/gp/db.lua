@@ -41,7 +41,7 @@ function Db.open()
 		return nil
 	end
 
-	local db_file = u.path_join(git_root, ".gp/function_defs.sqlite")
+	local db_file = u.path_join(git_root, ".gp/index.sqlite")
 	if not u.ensure_parent_path_exists(db_file) then
 		logger.error("[db.open] Unable create directory for db file: " .. db_file)
 		return nil
