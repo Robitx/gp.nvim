@@ -80,6 +80,7 @@ function Db.open()
 			id INTEGER NOT NULL PRIMARY KEY,
 			file TEXT NOT NULL REFERENCES src_files(filename) on DELETE CASCADE,
 			name TEXT NOT NULL,
+			type TEXT NOT NULL,
 			start_line INTEGER NOT NULL,
 			end_line INTEGER NOT NULL,
 			UNIQUE (file, name)
@@ -177,9 +178,11 @@ function Db:upsert_function_def(def)
 		return false
 	end
 
+	---TODO: We're never actually upserting, but deleting and inserting
+	---There is no reason to manually construct and upkeep queries like this.
 	local sql = [[
-        INSERT INTO function_defs (file, name, start_line, end_line)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO function_defs (file, name, type, start_line, end_line)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(file, name) DO UPDATE SET
             start_line = excluded.start_line,
             end_line = excluded.end_line
@@ -190,6 +193,7 @@ function Db:upsert_function_def(def)
 		-- For the INSERT VALUES clause
 		def.file,
 		def.name,
+		def.type,
 		def.start_line,
 		def.end_line,
 

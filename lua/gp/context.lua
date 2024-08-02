@@ -139,8 +139,12 @@ function Context.insert_contexts(msg)
 
 			local fn_body = get_file_lines(fn_def.file, fn_def.start_line, fn_def.end_line)
 			if fn_body then
-				local result =
-					string.format("In '%s', function '%s'\n```%s```", fn_def.file, fn_def.name, table.concat(fn_body, "\n"))
+				local result = string.format(
+					"In '%s', function '%s'\n```%s```",
+					fn_def.file,
+					fn_def.name,
+					table.concat(fn_body, "\n")
+				)
 				table.insert(context_texts, result)
 			end
 		end
@@ -267,31 +271,61 @@ function Context.treesitter_extract_function_defs(src_filepath)
 		return nil
 	end
 
+	-- The captures are usually returned as a flat list with no way to tell
+	-- which captures came from the same symbol. But, if the query has attached
+	-- a some metadata to the query, all captured elements will reference the same metadata
+	-- table. We can then use this to correctly gather those elements into the same groups.
+	local function get_meta(x)
+		return x.metadata
+	end
+	captures = u.sort_by(get_meta, captures)
+	local groups = u.partition_by(get_meta, captures)
+
 	-- Reshape the captures into a structure we'd like to work with
 	local results = {}
-	for i = 1, #captures, 2 do
-		-- The captures may arrive out of order.
-		-- We're only expecting the query to contain @name and @body returned
-		-- Sort out their ordering here.
-		local caps = { captures[i], captures[i + 1] }
-		local named_caps = {}
-		for _, item in ipairs(caps) do
-			named_caps[item.name] = item
+	for _, group in ipairs(groups) do
+		local grp = {}
+		for _, item in ipairs(group) do
+			grp[item.name] = item
 		end
-		local fn_name = named_caps.name
-		local fn_body = named_caps.body
-		assert(fn_name)
-		assert(fn_body)
+		grp.metadata = group[1].metadata
 
-		table.insert(results, {
-			file = src_filepath,
-			type = "function_definition",
-			name = fn_name.text,
-			start_line = fn_body.range[1],
-			end_line = fn_body.range[3],
-			body = fn_body.text,
-		})
+		local type = grp.metadata.type
+		if type == "function" then
+			table.insert(results, {
+				file = src_filepath,
+				type = "function",
+				name = grp.name.text,
+				start_line = grp.body.range[1],
+				end_line = grp.body.range[3],
+				body = grp.body.text,
+			})
+		elseif type == "class_method" then
+			table.insert(results, {
+				file = src_filepath,
+				type = "class_method",
+				name = string.format("%s.%s", grp.classname.text, grp.name.text),
+				start_line = grp.body.range[1],
+				end_line = grp.body.range[3],
+				body = grp.body.text,
+			})
+		elseif type == "class" then
+			table.insert(results, {
+				file = src_filepath,
+				type = "class",
+				name = grp.name.text,
+				start_line = grp.body.range[1],
+				end_line = grp.body.range[3],
+				body = grp.body.text,
+			})
+		end
 	end
+
+	-- For debugging and manually checking the output
+	-- results = u.sort_by(function(x)
+	-- 	return x.start_line
+	-- end, results)
+	-- u.write_file("results.data.lua", vim.inspect(results))
 
 	return results
 end

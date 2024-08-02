@@ -149,10 +149,9 @@ function source:completion_items_for_fn_name(partial_fn_name)
 	end
 
 	for _, row in ipairs(result) do
-		table.insert(items, {
+		local item = {
 			-- fields meant for nvim-cmp
 			label = row.name,
-			kind = cmp.lsp.CompletionItemKind.Function,
 			labelDetails = {
 				detail = row.file,
 			},
@@ -160,7 +159,17 @@ function source:completion_items_for_fn_name(partial_fn_name)
 			-- fields meant for internal use
 			row = row,
 			type = "@code",
-		})
+		}
+
+		if row.type == "class" then
+			item.kind = cmp.lsp.CompletionItemKind.Class
+		elseif row.type == "class_method" then
+			item.kind = cmp.lsp.CompletionItemKind.Method
+		else
+			item.kind = cmp.lsp.CompletionItemKind.Function
+		end
+
+		table.insert(items, item)
 	end
 
 	return items

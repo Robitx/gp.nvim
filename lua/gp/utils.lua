@@ -158,4 +158,56 @@ function Utils.string_find_all_substr(str, substr)
 	return result
 end
 
+function Utils.partition_by(pred, list)
+	local result = {}
+	local current_partition = {}
+	local last_key = nil
+
+	for _, item in ipairs(list) do
+		local key = pred(item)
+		if last_key == nil or key ~= last_key then
+			if #current_partition > 0 then
+				table.insert(result, current_partition)
+			end
+			current_partition = {}
+		end
+		table.insert(current_partition, item)
+		last_key = key
+	end
+
+	if #current_partition > 0 then
+		table.insert(result, current_partition)
+	end
+
+	return result
+end
+
+function Utils.write_file(filename, content, mode)
+	mode = mode or "w" -- Default mode is write
+	if not content then
+		return true
+	end
+	local file = io.open(filename, mode)
+	if file then
+		file:write(content)
+		file:close()
+	else
+		error("Unable to open file: " .. filename)
+	end
+	return true
+end
+
+function Utils.sort_by(key_fn, tbl)
+	table.sort(tbl, function(a, b)
+		local ka, kb = key_fn(a), key_fn(b)
+		if type(ka) == "table" and type(kb) == "table" then
+			-- Use table identifiers as tie-breaker
+			return tostring(ka) < tostring(kb)
+		else
+			return ka < kb
+		end
+	end)
+	return tbl
+end
+
 return Utils
