@@ -141,7 +141,7 @@ local function completion_items_for_path(path)
 end
 
 function source:completion_items_for_fn_name(partial_fn_name)
-	local result = self.db:find_fn_def_by_name(partial_fn_name)
+	local result = self.db:find_symbol_by_name(partial_fn_name)
 
 	local items = {}
 	if not result then

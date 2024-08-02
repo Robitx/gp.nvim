@@ -131,7 +131,7 @@ function Context.insert_contexts(msg)
 				db = Db.open()
 			end
 
-			local fn_def = db:find_fn_def_by_file_n_name(rel_path, full_fn_name)
+			local fn_def = db:find_symbol_by_file_n_name(rel_path, full_fn_name)
 			if not fn_def then
 				logger.warning(string.format("Unable to locate function: '%s', '%s'", rel_path, full_fn_name))
 				goto continue
@@ -139,12 +139,8 @@ function Context.insert_contexts(msg)
 
 			local fn_body = get_file_lines(fn_def.file, fn_def.start_line, fn_def.end_line)
 			if fn_body then
-				local result = string.format(
-					"In '%s', function '%s'\n```%s```",
-					fn_def.file,
-					fn_def.name,
-					table.concat(fn_body, "\n")
-				)
+				local result =
+					string.format("In '%s', function '%s'\n```%s```", fn_def.file, fn_def.name, table.concat(fn_body, "\n"))
 				table.insert(context_texts, result)
 			end
 		end
@@ -291,34 +287,38 @@ function Context.treesitter_extract_function_defs(src_filepath)
 		grp.metadata = group[1].metadata
 
 		local type = grp.metadata.type
+		local item
 		if type == "function" then
-			table.insert(results, {
+			item = {
 				file = src_filepath,
 				type = "function",
 				name = grp.name.text,
 				start_line = grp.body.range[1],
 				end_line = grp.body.range[3],
-				body = grp.body.text,
-			})
+				body = grp.body.text, -- for diagnostics
+			}
 		elseif type == "class_method" then
-			table.insert(results, {
+			item = {
 				file = src_filepath,
 				type = "class_method",
 				name = string.format("%s.%s", grp.classname.text, grp.name.text),
 				start_line = grp.body.range[1],
 				end_line = grp.body.range[3],
 				body = grp.body.text,
-			})
+			}
 		elseif type == "class" then
-			table.insert(results, {
+			item = {
 				file = src_filepath,
 				type = "class",
 				name = grp.name.text,
 				start_line = grp.body.range[1],
 				end_line = grp.body.range[3],
 				body = grp.body.text,
-			})
+			}
 		end
+
+		item.body = nil -- Remove the diagnostics field to prep the entry for db insertion
+		table.insert(results, item)
 	end
 
 	-- For debugging and manually checking the output
@@ -355,7 +355,8 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 		if not success then
 			return false
 		end
-		return db:upsert_fnlist(fnlist)
+
+		return db:insert_symbol_list(fnlist)
 	end)
 	return result
 end
