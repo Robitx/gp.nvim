@@ -99,7 +99,6 @@ function Context.insert_contexts(msg)
 		table.insert(cmds, cmd)
 	end
 	for cmd in msg:gmatch("@code:[%w%p]+[:%w_-]+") do
-		print("[insert_contexts] found @code cmd: ", cmd)
 		table.insert(cmds, cmd)
 	end
 
@@ -109,7 +108,6 @@ function Context.insert_contexts(msg)
 	-- inserted as additional context
 	for _, cmd in ipairs(cmds) do
 		local cmd_parts = Context.cmd_split(cmd)
-		print("[insert_contexts] processing cmd: ", vim.inspect(cmd_parts))
 
 		if cmd_parts[1] == "@file" then
 			-- Read the reqested file and produce a msg snippet to be joined later
@@ -126,10 +124,7 @@ function Context.insert_contexts(msg)
 		elseif cmd_parts[1] == "@code" then
 			local rel_path = cmd_parts[2]
 			local full_fn_name = cmd_parts[3]
-			print("[insert_contexts] rel_path: ", rel_path)
-			print("[insert_contexts] full_fn_name: ", full_fn_name)
 			if not rel_path or not full_fn_name then
-				print("[insert_contexts] skipping request")
 				goto continue
 			end
 			if db == nil then
@@ -137,23 +132,16 @@ function Context.insert_contexts(msg)
 			end
 
 			local fn_def = db:find_fn_def_by_file_n_name(rel_path, full_fn_name)
-			print("[insert_contexts] fn_def: ", vim.inspect(fn_def))
 			if not fn_def then
 				logger.warning(string.format("Unable to locate function: '%s', '%s'", rel_path, full_fn_name))
 				goto continue
 			end
 
 			local fn_body = get_file_lines(fn_def.file, fn_def.start_line, fn_def.end_line)
-			print("[insert_contexts] content: ", vim.inspect(fn_body))
 			if fn_body then
-				local result = string.format(
-					"In '%s', function '%s'\n```%s```",
-					fn_def.file,
-					fn_def.name,
-					table.concat(fn_body, "\n")
-				)
+				local result =
+					string.format("In '%s', function '%s'\n```%s```", fn_def.file, fn_def.name, table.concat(fn_body, "\n"))
 				table.insert(context_texts, result)
-				print("[insert_contexts] context_texts: ", vim.inspect(context_texts))
 			end
 		end
 		::continue::
