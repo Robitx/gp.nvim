@@ -35,7 +35,7 @@ end
 -- @side-effect Creates .gp directory and database file if they don't exist
 -- @side-effect Logs errors if unable to locate project root or create directory
 function Db.open()
-	local git_root = gp._H.find_git_root()
+	local git_root = u.git_root_from_cwd()
 	if git_root == "" then
 		logger.error("[db.open] Unable to locate project root")
 		return nil
@@ -97,7 +97,7 @@ function Db.collect_src_file_data(relative_path)
 	local uv = vim.uv or vim.loop
 
 	-- Construct the full path to the file
-	local proj_root = gp._H.find_git_root()
+	local proj_root = u.git_root_from_cwd()
 	local fullpath = u.path_join(proj_root, relative_path)
 
 	-- If the file doesn't exist, there is nothing to collect

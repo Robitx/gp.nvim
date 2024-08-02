@@ -32,6 +32,13 @@ function Utils.path_join(...)
 	return result
 end
 
+function Utils.path_is_absolute(path)
+	if Utils.string_starts_with(path, "/") then
+		return true
+	end
+	return false
+end
+
 function Utils.ensure_path_exists(path)
 	-- Check if the path exists
 	local stat = uv.fs_stat(path)
@@ -116,6 +123,24 @@ function Utils.walk_directory(dir, options)
 	end
 
 	walk(dir, 1)
+end
+
+--- Locates the git_root using the cwd
+function Utils.git_root_from_cwd()
+	return require("gp")._H.find_git_root(vim.fn.getcwd())
+end
+
+-- If the given path is a relative path, turn it into a fullpath
+-- based on the current git_root
+---@param path string
+function Utils.full_path_for_project_file(path)
+	if Utils.path_is_absolute(path) then
+		return path
+	end
+
+	-- Construct the full path to the file
+	local proj_root = Utils.git_root_from_cwd()
+	return Utils.path_join(proj_root, path)
 end
 
 return Utils

@@ -2090,16 +2090,23 @@ M.cmd.ChatNew = function(params, system_prompt, agent)
 			return -1
 		end
 	end
+
+	local buf
+
 	-- if chat toggle is open, close it and start a new one
 	if M._toggle_close(M._toggle_kind.chat) then
 		params.args = params.args or ""
 		if params.args == "" then
 			params.args = M.config.toggle_target
 		end
-		return M.new_chat(params, true, system_prompt, agent)
+		buf = M.new_chat(params, true, system_prompt, agent)
+	else
+		buf = M.new_chat(params, false, system_prompt, agent)
 	end
 
-	return M.new_chat(params, false, system_prompt, agent)
+	require("gp.context").build_initial_index()
+
+	return buf
 end
 
 ---@param params table
@@ -2132,6 +2139,8 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	else
 		buf = M.new_chat(params, true, system_prompt, agent)
 	end
+
+	require("gp.context").build_initial_index()
 
 	return buf
 end

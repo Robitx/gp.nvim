@@ -93,6 +93,8 @@ end
 -- Runs the supplied query on the supplied source file.
 -- Returns all the captures as is. It is up to the caller to
 -- know what the expected output is and to reshape the data.
+---@param src_filepath string relative or full path to the src file to run the query on
+---@param query_filepath string relative or full path to the query file to run
 function Context.treesitter_query(src_filepath, query_filepath)
 	-- Read the source file content
 	---WARNING: This is probably not a good idea for very large files
@@ -245,14 +247,14 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 end
 
 function Context.build_function_def_index(db)
-	local git_root = gp._H.find_git_root()
+	local git_root = u.git_root_from_cwd()
 	if not git_root then
 		logger.error("[Context.build_function_def_index] Unable to locate project root")
 		return false
 	end
 	local git_root_len = #git_root + 2
 
-	walk_directory(git_root, {
+	u.walk_directory(git_root, {
 		should_process = function(entry, rel_path, full_path, is_dir)
 			if u.string_starts_with(entry, ".") then
 				return false
@@ -272,7 +274,7 @@ function Context.build_function_def_index(db)
 
 		process_file = function(rel_path, full_path)
 			if vim.filetype.match({ filename = full_path }) then
-				local success = Context.build_function_def_index_for_file(db, full_path)
+				local success = Context.build_function_def_index_for_file(db, rel_path)
 				if not success then
 					logger.debug("Failed to build function def index for: " .. rel_path)
 				end
@@ -305,5 +307,33 @@ function Context.index_all()
 	local elapsed_time_ms = (end_time - start_time) / 1e6
 	logger.info(string.format("[Gp] Indexing took: %.2f ms", elapsed_time_ms))
 end
+
+function Context.build_initial_index()
+	local db = Db.open()
+	if not db then
+		return
+	end
+
+	if db:get_metadata("done_initial_run") then
+		return
+	end
+
+	Context.index_all()
+	db:set_metadata("done_initial_run", true)
+	db:close()
+end
+
+-- Setup autocommand to update the function def index as the files are saved
+function Context.setup_autocmd_update_index()
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		pattern = { "*" },
+		group = vim.api.nvim_create_augroup("GpFileIndexUpdate", { clear = true }),
+		callback = function(arg)
+			Context.index_single_file(arg.file)
+		end,
+	})
+end
+
+Context.setup_autocmd_update_index()
 
 return Context
