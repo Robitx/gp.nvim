@@ -136,6 +136,7 @@ V.refresh_copilot_bearer = function()
 	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
 		logger.debug("vault refresh_copilot_bearer token still valid", true)
 		secrets.copilot_bearer = bearer.token
+		secrets.copilot_bearer_expires_at = bearer.expires_at
 		return
 	end
 

@@ -44,13 +44,9 @@ D.setup = function(opts)
 		end
 	end
 
-
+	local callbacks = { copilot = vault.refresh_copilot_bearer }
 	for name, provider in pairs(D.providers) do
-		if name == "copilot" then
-			vault.resolve_secret(name, provider.secret, vault.refresh_copilot_bearer)
-		else
-			vault.resolve_secret(name, provider.secret)
-		end
+		vault.resolve_secret(name, provider.secret, callbacks[name])
 		provider.secret = nil
 	end
 
@@ -150,6 +146,10 @@ D.prepare_payload = function(messages, model, provider)
 			top_p = math.max(0, math.min(1, model.top_p or 1)),
 		}
 		return payload
+	end
+
+	if provider == "copilot" and model.model == "gpt-4o" then
+		model.model = "gpt-4o-2024-05-13"
 	end
 
 	return {
@@ -304,7 +304,9 @@ D.query = function(buf, provider, payload, handler, on_exit, callback)
 	if provider == "copilot" then
 		vault.refresh_copilot_bearer()
 		bearer = vault.get_secret("copilot_bearer")
-		if not bearer then
+		local expires_at = vault.get_secret("copilot_bearer_expires_at")
+		if not bearer or not expires_at or expires_at < os.time() then
+			logger.warning("copilot bearer token is missing or expired, trying to refresh..")
 			return
 		end
 		headers = {
