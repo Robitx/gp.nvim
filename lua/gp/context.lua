@@ -527,8 +527,25 @@ function Context.build_initial_index()
 	db:close()
 end
 
+function Context.setup_autocmd_update_index_periodically(bufnr)
+	local rebuild_time_var = "gp_next_rebuild_time"
+	local rebuild_period = 60
+	u.buf_set_var(bufnr, rebuild_time_var, os.time() + rebuild_period)
+
+	vim.api.nvim_create_autocmd("BufEnter", {
+		buffer = bufnr,
+		callback = function(arg)
+			local build_time = u.buf_get_var(arg.buf, rebuild_time_var)
+			if os.time() > build_time then
+				Context.index_stale()
+				u.buf_set_var(arg.buf, rebuild_time_var, os.time() + rebuild_period)
+			end
+		end,
+	})
+end
+
 -- Setup autocommand to update the function def index as the files are saved
-function Context.setup_autocmd_update_index()
+function Context.setup_autocmd_update_index_on_file_save()
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		pattern = { "*" },
 		group = vim.api.nvim_create_augroup("GpFileIndexUpdate", { clear = true }),
@@ -538,6 +555,12 @@ function Context.setup_autocmd_update_index()
 	})
 end
 
-Context.setup_autocmd_update_index()
+function Context.setup_for_chat_buffer(buf)
+	Context.build_initial_index()
+	Context.setup_autocmd_update_index_periodically(buf)
+	require("gp.completion").setup_for_chat_buffer(buf)
+end
+
+Context.setup_autocmd_update_index_on_file_save()
 
 return Context

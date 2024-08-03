@@ -3,21 +3,6 @@ local context = require("gp.context")
 local db = require("gp.db")
 local cmp = require("cmp")
 
--- Gets a buffer variable or returns the default
-local function buf_get_var(buf, var_name, default)
-	local status, result = pcall(vim.api.nvim_buf_get_var, buf, var_name)
-	if status then
-		return result
-	else
-		return default
-	end
-end
-
--- This function is only here make the get/set call pair look consistent
-local function buf_set_var(buf, var_name, value)
-	return vim.api.nvim_buf_set_var(buf, var_name, value)
-end
-
 ---@class CompletionSource
 ---@field db Db
 local source = {}
@@ -36,7 +21,7 @@ function source.get_trigger_characters()
 end
 
 -- Attaches the completion source to the given `bufnr`
-function source.setup_for_buffer(bufnr)
+function source.setup_for_chat_buffer(bufnr)
 	-- Don't attach the completion source if it's already been done
 	local attached_varname = "gp_source_attached"
 	if vim.b[attached_varname] then

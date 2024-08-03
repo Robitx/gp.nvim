@@ -214,4 +214,19 @@ function Utils.random_8byte_int()
 	return math.random(0, 0xFFFFFFFFFFFFFFFF)
 end
 
+-- Gets a buffer variable or returns the default
+function Utils.buf_get_var(buf, var_name, default)
+	local status, result = pcall(vim.api.nvim_buf_get_var, buf, var_name)
+	if status then
+		return result
+	else
+		return default
+	end
+end
+
+-- This function is only here make the get/set call pair look consistent
+function Utils.buf_set_var(buf, var_name, value)
+	return vim.api.nvim_buf_set_var(buf, var_name, value)
+end
+
 return Utils
