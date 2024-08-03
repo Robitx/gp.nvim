@@ -139,8 +139,12 @@ function Context.insert_contexts(msg)
 
 			local fn_body = get_file_lines(fn_def.file, fn_def.start_line, fn_def.end_line)
 			if fn_body then
-				local result =
-					string.format("In '%s', function '%s'\n```%s```", fn_def.file, fn_def.name, table.concat(fn_body, "\n"))
+				local result = string.format(
+					"In '%s', function '%s'\n```%s```",
+					fn_def.file,
+					fn_def.name,
+					table.concat(fn_body, "\n")
+				)
 				table.insert(context_texts, result)
 			end
 		end
@@ -332,10 +336,10 @@ end
 
 ---@param db Db
 ---@param src_filepath string
-function Context.build_function_def_index_for_file(db, src_filepath)
+function Context.build_symbol_index_for_file(db, src_filepath)
 	-- try to retrieve function definitions from the file
-	local fnlist = Context.treesitter_extract_function_defs(src_filepath)
-	if not fnlist then
+	local symbols_list = Context.treesitter_extract_function_defs(src_filepath)
+	if not symbols_list then
 		return false
 	end
 
@@ -349,25 +353,29 @@ function Context.build_function_def_index_for_file(db, src_filepath)
 
 	-- Update the src file entry and the function definitions in a single transaction
 	local result = db:with_transaction(function()
-		db:remove_src_file_entry(src_filepath)
-
 		local success = db:upsert_src_file(src_file_entry)
 		if not success then
+			logger.error("Upserting src_file failed")
 			return false
 		end
 
-		return db:insert_symbol_list(fnlist)
+		success = db:upsert_and_clean_symbol_list_for_file(src_file_entry.filename, symbols_list)
+		if not success then
+			logger.error("Upserting symbol list failed")
+			return false
+		end
+
+		return true
 	end)
 	return result
 end
 
-function Context.build_function_def_index(db)
+function Context.build_symbol_index(db)
 	local git_root = u.git_root_from_cwd()
 	if not git_root then
-		logger.error("[Context.build_function_def_index] Unable to locate project root")
+		logger.error("[Context.build_symbol_index] Unable to locate project root")
 		return false
 	end
-	local git_root_len = #git_root + 2
 
 	u.walk_directory(git_root, {
 		should_process = function(entry, rel_path, full_path, is_dir)
@@ -389,7 +397,7 @@ function Context.build_function_def_index(db)
 
 		process_file = function(rel_path, full_path)
 			if vim.filetype.match({ filename = full_path }) then
-				local success = Context.build_function_def_index_for_file(db, rel_path)
+				local success = Context.build_symbol_index_for_file(db, rel_path)
 				if not success then
 					logger.debug("Failed to build function def index for: " .. rel_path)
 				end
@@ -403,7 +411,7 @@ function Context.index_single_file(src_filepath)
 	if not db then
 		return
 	end
-	Context.build_function_def_index_for_file(db, src_filepath)
+	Context.build_symbol_index_for_file(db, src_filepath)
 	db:close()
 end
 
@@ -415,7 +423,7 @@ function Context.index_all()
 	if not db then
 		return
 	end
-	Context.build_function_def_index(db)
+	Context.build_symbol_index(db)
 	db:close()
 
 	local end_time = uv.hrtime()

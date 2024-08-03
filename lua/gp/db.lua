@@ -12,6 +12,7 @@ local logger = require("gp.logger")
 ---@field filetype string: filetype as reported by neovim at last scan
 ---@field mod_time number: last file modification time reported by the os at last scan
 ---@field last_scan_time number: unix time stamp indicating when the last scan of this file was made
+---@field generation number: For internal use - garbage collection
 
 -- Describes where each of the functions are in the project
 ---@class SymbolDefEntry
@@ -21,6 +22,7 @@ local logger = require("gp.logger")
 ---@field type string: type of the symbol
 ---@field start_line number: Which line in the file does the definition start?
 ---@field end_line number: Which line in the file does the definition end?
+---@field generation number: For internal use - garbage collection
 
 ---@class Db
 ---@field db sqlite_db
@@ -66,15 +68,17 @@ function Db.open()
 			filetype = { type = "text", required = true }, -- filetype as reported by neovim at last scan
 			mod_time = { type = "integer", required = true }, -- file mod time reported by the fs at last scan
 			last_scan_time = { type = "integer", required = true }, -- unix timestamp
+			generation = { type = "integer" }, -- for garbage collection
 		},
 
 		symbols = {
 			id = true,
-			file = { type = "text", require = true, reference = "src_files.filenamed", on_delete = "cascade" },
+			file = { type = "text", require = true, reference = "src_files.filename", on_delete = "cascade" },
 			name = { type = "text", required = true },
 			type = { type = "text", required = true },
 			start_line = { type = "integer", required = true },
 			end_line = { type = "integer", required = true },
+			generation = { type = "integer" }, -- for garbage collection
 		},
 
 		opts = { keep_open = true },
@@ -176,12 +180,13 @@ function Db:upsert_symbol(def)
 	-- This function can be called a lot during a full index rebuild.
 	-- Using the ORM here can cause a 100% slowdown.
 	local sql = [[
-        INSERT INTO symbols (file, name, type, start_line, end_line)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO symbols (file, name, type, start_line, end_line, generation)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(file, name) DO UPDATE SET
 			type = excluded.type,
             start_line = excluded.start_line,
-            end_line = excluded.end_line
+            end_line = excluded.end_line,
+			generation = excluded.generation
         WHERE file = ? AND name = ?
     ]]
 
@@ -192,6 +197,7 @@ function Db:upsert_symbol(def)
 		def.type,
 		def.start_line,
 		def.end_line,
+		def.generation or -1,
 
 		-- For the WHERE clause
 		def.file,
@@ -209,14 +215,61 @@ end
 -- Wraps the given function in a sqlite transaction
 ---@param fn function()
 function Db:with_transaction(fn)
-	self.db:execute("BEGIN")
-	local success, result = pcall(fn)
-	self.db:execute("END")
+	local success, result
 
+	success = self.db:execute("BEGIN")
 	if not success then
-		logger.error(result)
+		logger.error("[db.with_transaction] Unable to start transaction")
 		return false
 	end
+
+	success, result = pcall(fn)
+	if not success then
+		logger.error("[db.with_transaction] fn return false")
+		logger.error(result)
+
+		success = self.db:execute("ROLLBACK")
+		if not success then
+			logger.error("[db.with_transaction] Rollback failed")
+		end
+		return false
+	end
+
+	success = self.db:execute("COMMIT")
+	if not success then
+		logger.error("[db.with_transaction] Unable to end transaction")
+		return false
+	end
+
+	return true
+end
+
+local function random_8byte_int()
+	return math.random(0, 0xFFFFFFFFFFFFFFFF)
+end
+
+--- @param symbols_list SymbolDefEntry[]
+function Db:upsert_and_clean_symbol_list_for_file(src_rel_path, symbols_list)
+	-- Generate a random generation ID for all tne newly updated/refreshed items
+	local generation = random_8byte_int()
+	for _, item in ipairs(symbols_list) do
+		item.generation = generation
+	end
+
+	-- Upsert all entries
+	local success = self:upsert_symbol_list(symbols_list)
+	if not success then
+		return success
+	end
+
+	-- Remove all symbols in the file that does not hav the new generation ID
+	-- Those symbols are not present in the newly generated list and should be removed.
+	success = self.db:eval([[DELETE from symbols WHERE file = ? and generation != ? ]], { src_rel_path, generation })
+	if not success then
+		logger.error("[db.insert_and_clean_symbol_list_for_file] Unable to clean up garbage")
+		return success
+	end
+
 	return true
 end
 
@@ -224,7 +277,7 @@ end
 --- Note that this function early terminates if any of the entry upsert fails.
 --- This behavior is only suitable when run inside a transaction.
 --- @param symbols_list SymbolDefEntry[]
-function Db:insert_symbol_list(symbols_list)
+function Db:upsert_symbol_list(symbols_list)
 	for _, def in ipairs(symbols_list) do
 		local success = self:upsert_symbol(def)
 		if not success then
@@ -280,7 +333,11 @@ function Db:find_symbol_by_file_n_name(rel_path, full_fn_name)
 	---@cast result SymbolDefEntry[]
 	if #result > 1 then
 		logger.error(
-			string.format("[Db.find_symbol_by_file_n_name] Found more than 1 result for: '%s', '%s'", rel_path, full_fn_name)
+			string.format(
+				"[Db.find_symbol_by_file_n_name] Found more than 1 result for: '%s', '%s'",
+				rel_path,
+				full_fn_name
+			)
 		)
 	end
 
