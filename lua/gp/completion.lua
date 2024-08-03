@@ -35,43 +35,24 @@ function source.get_trigger_characters()
 	return { "@", ":", "/" }
 end
 
+-- Attaches the completion source to the given `bufnr`
 function source.setup_for_buffer(bufnr)
-	print("in setup_for_buffer")
-	local config = require("cmp").get_config()
+	-- Don't attach the completion source if it's already been done
+	local attached_varname = "gp_source_attached"
+	if vim.b[attached_varname] then
+		return
+	end
 
-	print("cmp.get_config() returned:")
-	print(vim.inspect(config))
-
-	print("cmp_config.set_buffer: " .. config.set_buffer)
+	-- Attach the completion source
+	local config = require("cmp.config")
 	config.set_buffer({
 		sources = {
 			{ name = source.src_name },
 		},
 	}, bufnr)
-end
 
-function source.setup_autocmd_for_markdown()
-	print("setting up autocmd...")
-	vim.api.nvim_create_autocmd("BufEnter", {
-		pattern = { "*.md", "markdown" },
-		callback = function(arg)
-			local attached_varname = "gp_source_attached"
-			local attached = buf_get_var(arg.buf, attached_varname, false)
-			if attached then
-				return
-			end
-
-			print("attaching completion source for buffer: " .. arg.buf)
-			local cmp = require("cmp")
-			cmp.setup.buffer({
-				sources = cmp.config.sources({
-					{ name = source.src_name },
-				}),
-			})
-
-			buf_set_var(arg.buf, attached_varname, true)
-		end,
-	})
+	-- Set a flag so we don't try to set the source again
+	vim.b[attached_varname] = true
 end
 
 function source.register_cmd_source()
@@ -264,7 +245,5 @@ function source:execute(item, callback)
 	-- confirmation handling chain.
 	callback()
 end
-
-source.setup_autocmd_for_markdown()
 
 return source

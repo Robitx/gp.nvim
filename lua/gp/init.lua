@@ -2105,6 +2105,7 @@ M.cmd.ChatNew = function(params, system_prompt, agent)
 	end
 
 	require("gp.context").build_initial_index()
+	require("gp.completion").setup_for_buffer(buf)
 
 	return buf
 end
@@ -2141,6 +2142,7 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	end
 
 	require("gp.context").build_initial_index()
+	require("gp.completion").setup_for_buffer(buf)
 
 	return buf
 end
