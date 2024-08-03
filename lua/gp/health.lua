@@ -32,12 +32,6 @@ function M.check()
 		vim.health.error("grep is not installed")
 	end
 
-	if vim.fn.executable("ln") == 1 then
-		vim.health.ok("ln is installed")
-	else
-		vim.health.error("ln is not installed")
-	end
-
 	require("gp.whisper").check_health()
 	require("gp.deprecator").check_health()
 end
