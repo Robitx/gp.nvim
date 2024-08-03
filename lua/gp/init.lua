@@ -494,6 +494,7 @@ M.display_chat_agent = function(buf, file_name)
 	})
 end
 
+M._prepared_bufs = {}
 M.prep_chat = function(buf, file_name)
 	if M.not_chat(buf, file_name) then
 		return
@@ -502,6 +503,13 @@ M.prep_chat = function(buf, file_name)
 	if buf ~= vim.api.nvim_get_current_buf() then
 		return
 	end
+
+	M.refresh_state({ last_chat = file_name })
+	if M._prepared_bufs[buf] then
+		M.logger.debug("buffer already prepared: " .. buf)
+		return
+	end
+	M._prepared_bufs[buf] = true
 
 	M.prep_md(buf)
 
@@ -559,8 +567,6 @@ M.prep_chat = function(buf, file_name)
 		vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
 		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 	end
-
-	M.refresh_state({ last_chat = file_name })
 end
 
 M.buf_handler = function()
@@ -1604,6 +1610,11 @@ M.prep_context = function(buf, file_name)
 	if buf ~= vim.api.nvim_get_current_buf() then
 		return
 	end
+	if M._prepared_bufs[buf] then
+		M.logger.debug("buffer already prepared: " .. buf)
+		return
+	end
+	M._prepared_bufs[buf] = true
 
 	M.prep_md(buf)
 end
