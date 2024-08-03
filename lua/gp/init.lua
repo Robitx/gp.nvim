@@ -206,8 +206,10 @@ M.setup = function(opts)
 	M.logger.debug("setup finished")
 end
 
-M.refresh_state = function()
+---@param update table | nil # table with options
+M.refresh_state = function(update)
 	local state_file = M.config.state_dir .. "/state.json"
+	update = update or {}
 
 	local state = {}
 	if vim.fn.filereadable(state_file) ~= 0 then
@@ -227,6 +229,10 @@ M.refresh_state = function()
 		M._state = state
 	end
 	M._state.updated = os.time()
+
+	for k, v in pairs(update) do
+		M._state[k] = v
+	end
 
 	if not M._state.chat_agent or not M.agents[M._state.chat_agent] then
 		M._state.chat_agent = M._chat_agents[1]
@@ -538,8 +544,7 @@ M.prep_chat = function(buf, file_name)
 		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 	end
 
-	M._state.last_chat = file_name
-	M.refresh_state()
+	M.refresh_state({ last_chat = file_name })
 end
 
 M.buf_handler = function()
@@ -1466,18 +1471,15 @@ M.cmd.Agent = function(params)
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.not_chat(buf, file_name) == nil
 	if is_chat and M.agents[agent_name].chat then
-		M._state.chat_agent = agent_name
+		M.refresh_state({ chat_agent = agent_name })
 		M.logger.info("Chat agent: " .. M._state.chat_agent)
-	elseif is_chat then
-		M.logger.warning(agent_name .. " is not a Chat agent")
 	elseif M.agents[agent_name].command then
-		M._state.command_agent = agent_name
+		M.refresh_state({ command_agent = agent_name })
 		M.logger.info("Command agent: " .. M._state.command_agent)
 	else
-		M.logger.warning(agent_name .. " is not a Command agent")
+		M.logger.warning(agent_name .. " is not a valid agent for current buffer")
+		M.refresh_state()
 	end
-
-	M.refresh_state()
 end
 
 M.cmd.NextAgent = function()
@@ -1497,12 +1499,13 @@ M.cmd.NextAgent = function()
 	local set_agent = function(agent_name)
 		if is_chat then
 			M._state.chat_agent = agent_name
-			M.logger.info("Chat agent: " .. agent_name)
+			M.refresh_state({ chat_agent = agent_name })
+			M.logger.info("Chat agent: " .. M._state.chat_agent)
 		else
 			M._state.command_agent = agent_name
-			M.logger.info("Command agent: " .. agent_name)
+			M.refresh_state({ command_agent = agent_name })
+			M.logger.info("Command agent: " .. M._state.command_agent)
 		end
-		M.refresh_state()
 	end
 
 	for i, agent_name in ipairs(agent_list) do
