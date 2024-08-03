@@ -210,4 +210,8 @@ function Utils.sort_by(key_fn, tbl)
 	return tbl
 end
 
+function Utils.random_8byte_int()
+	return math.random(0, 0xFFFFFFFFFFFFFFFF)
+end
+
 return Utils

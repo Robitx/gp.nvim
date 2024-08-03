@@ -12,7 +12,7 @@ local logger = require("gp.logger")
 ---@field filetype string: filetype as reported by neovim at last scan
 ---@field mod_time number: last file modification time reported by the os at last scan
 ---@field last_scan_time number: unix time stamp indicating when the last scan of this file was made
----@field generation number: For internal use - garbage collection
+---@field generation? number: For internal use - garbage collection
 
 -- Describes where each of the functions are in the project
 ---@class SymbolDefEntry
@@ -22,7 +22,7 @@ local logger = require("gp.logger")
 ---@field type string: type of the symbol
 ---@field start_line number: Which line in the file does the definition start?
 ---@field end_line number: Which line in the file does the definition end?
----@field generation number: For internal use - garbage collection
+---@field generation? number: For internal use - garbage collection
 
 ---@class Db
 ---@field db sqlite_db
@@ -50,6 +50,7 @@ function Db.open()
 		return nil
 	end
 
+	---@type sqlite_db
 	local db = sqlite({
 		uri = db_file,
 
@@ -125,13 +126,14 @@ function Db:upsert_src_file(file)
 	end
 
 	local sql = [[
-        INSERT INTO src_files (filename, file_size, filetype, mod_time, last_scan_time)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO src_files (filename, file_size, filetype, mod_time, last_scan_time, generation)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(filename) DO UPDATE SET
             file_size = excluded.file_size,
             filetype = excluded.filetype,
             mod_time = excluded.mod_time,
-            last_scan_time = excluded.last_scan_time
+            last_scan_time = excluded.last_scan_time,
+            generation = excluded.generation
         WHERE filename = ?
     ]]
 
@@ -142,6 +144,7 @@ function Db:upsert_src_file(file)
 		file.filetype,
 		file.mod_time,
 		file.last_scan_time,
+		file.generation or -1,
 
 		-- For the WHERE claue
 		file.filename,
@@ -244,14 +247,10 @@ function Db:with_transaction(fn)
 	return true
 end
 
-local function random_8byte_int()
-	return math.random(0, 0xFFFFFFFFFFFFFFFF)
-end
-
 --- @param symbols_list SymbolDefEntry[]
 function Db:upsert_and_clean_symbol_list_for_file(src_rel_path, symbols_list)
 	-- Generate a random generation ID for all tne newly updated/refreshed items
-	local generation = random_8byte_int()
+	local generation = u.random_8byte_int()
 	for _, item in ipairs(symbols_list) do
 		item.generation = generation
 	end

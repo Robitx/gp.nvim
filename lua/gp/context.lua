@@ -336,7 +336,8 @@ end
 
 ---@param db Db
 ---@param src_filepath string
-function Context.build_symbol_index_for_file(db, src_filepath)
+---@param generation? number
+function Context.build_symbol_index_for_file(db, src_filepath, generation)
 	-- try to retrieve function definitions from the file
 	local symbols_list = Context.treesitter_extract_function_defs(src_filepath)
 	if not symbols_list then
@@ -350,6 +351,7 @@ function Context.build_symbol_index_for_file(db, src_filepath)
 		return false
 	end
 	src_file_entry.last_scan_time = os.time()
+	src_file_entry.generation = generation
 
 	-- Update the src file entry and the function definitions in a single transaction
 	local result = db:with_transaction(function()
@@ -370,6 +372,23 @@ function Context.build_symbol_index_for_file(db, src_filepath)
 	return result
 end
 
+local function default_ignore_dirs_and_files(entry, rel_path, full_path, is_dir)
+	if u.string_starts_with(entry, ".") then
+		return false
+	end
+
+	if is_dir then
+		if entry == "node_modules" then
+			return false
+		end
+	else
+		if u.string_ends_with(entry, ".txt") or u.string_ends_with(entry, ".md") then
+			return false
+		end
+	end
+	return true
+end
+
 function Context.build_symbol_index(db)
 	local git_root = u.git_root_from_cwd()
 	if not git_root then
@@ -377,33 +396,79 @@ function Context.build_symbol_index(db)
 		return false
 	end
 
-	u.walk_directory(git_root, {
-		should_process = function(entry, rel_path, full_path, is_dir)
-			if u.string_starts_with(entry, ".") then
-				return false
-			end
+	local generation = u.random_8byte_int()
 
-			if is_dir then
-				if entry == "node_modules" then
-					return false
-				end
-			else
-				if u.string_ends_with(entry, ".txt") or u.string_ends_with(entry, ".md") then
-					return false
-				end
-			end
-			return true
-		end,
+	u.walk_directory(git_root, {
+		should_process = default_ignore_dirs_and_files,
 
 		process_file = function(rel_path, full_path)
 			if vim.filetype.match({ filename = full_path }) then
-				local success = Context.build_symbol_index_for_file(db, rel_path)
+				local success = Context.build_symbol_index_for_file(db, rel_path, generation)
 				if not success then
 					logger.debug("Failed to build function def index for: " .. rel_path)
 				end
 			end
 		end,
 	})
+
+	db.db:eval([[DELETE FROM src_files WHERE generation != ?]], { generation })
+end
+
+local ChangeResult = {
+	UNCHANGED = 0,
+	CHANGED = 1,
+	NOT_IN_LAST_SCAN = 2,
+}
+
+-- Answers if the gien file seem to have changed since last scan
+---@param db Db
+---@param rel_path string
+local function file_changed_since_last_scan(db, rel_path)
+	local cur = Db.collect_src_file_data(rel_path)
+	assert(cur)
+
+	---@type boolean|SrcFileEntry
+	local prev = db.db:eval([[SELECT * from src_files WHERE filename = ?]], { rel_path })
+	if not prev then
+		return ChangeResult.NOT_IN_LAST_SCAN
+	end
+
+	if cur.mod_time > prev.mod_time or cur.file_size ~= prev.file_size then
+		return ChangeResult.CHANGED
+	end
+
+	return ChangeResult.UNCHANGED
+end
+
+function Context.rebuild_symbol_index_for_changed_files(db)
+	local git_root = u.git_root_from_cwd()
+	if not git_root then
+		logger.error("[Context.build_symbol_index] Unable to locate project root")
+		return false
+	end
+
+	local generation = u.random_8byte_int()
+
+	u.walk_directory(git_root, {
+		should_process = default_ignore_dirs_and_files,
+
+		process_file = function(rel_path, full_path)
+			if vim.filetype.match({ filename = full_path }) then
+				local status = file_changed_since_last_scan(db, rel_path)
+				if status == ChangeResult.UNCHANGED then
+					-- Even if the file did not change, we still want to mark the entry with the current generation ID
+					db.db:eval([[UPDATE src_files SET generation = ? WHERE filename = ?]], { generation, rel_path })
+					return
+				end
+				local success = Context.build_symbol_index_for_file(db, rel_path, generation)
+				if not success then
+					logger.debug("Failed to build function def index for: " .. rel_path)
+				end
+			end
+		end,
+	})
+
+	db.db:eval([[DELETE FROM src_files WHERE generation != ?]], { generation })
 end
 
 function Context.index_single_file(src_filepath)
@@ -413,6 +478,22 @@ function Context.index_single_file(src_filepath)
 	end
 	Context.build_symbol_index_for_file(db, src_filepath)
 	db:close()
+end
+
+function Context.index_stale()
+	local uv = vim.uv or vim.loop
+	local start_time = uv.hrtime()
+
+	local db = Db.open()
+	if not db then
+		return
+	end
+	Context.rebuild_symbol_index_for_changed_files(db)
+	db:close()
+
+	local end_time = uv.hrtime()
+	local elapsed_time_ms = (end_time - start_time) / 1e6
+	logger.info(string.format("[Gp] Indexing took: %.2f ms", elapsed_time_ms))
 end
 
 function Context.index_all()
