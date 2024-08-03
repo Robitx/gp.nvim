@@ -172,7 +172,7 @@ function source.complete(self, request, callback)
 
 	if cmd_parts[1]:match("@file") then
 		-- What's the path we're trying to provide completion for?
-		local path = cmd_parts[2]
+		local path = cmd_parts[2] or ""
 
 		-- List the items in the specified directory
 		items = completion_items_for_path(path)
@@ -181,10 +181,7 @@ function source.complete(self, request, callback)
 		-- cmp won't call us again to provide an updated list
 		isIncomplete = false
 	elseif cmd_parts[1]:match("@code") then
-		local partial_fn_name = cmd_parts[2]
-		if not partial_fn_name then
-			partial_fn_name = ""
-		end
+		local partial_fn_name = cmd_parts[2] or ""
 
 		-- When the user confirms completion of an item, we alter the
 		-- command to look like `@code:path/to/file:fn_name` to uniquely
