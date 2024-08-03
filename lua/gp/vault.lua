@@ -32,13 +32,23 @@ V.setup = function(opts)
 	logger.debug("vault setup finished\n" .. vim.inspect(V), true)
 end
 
+---@param name string # provider name
+---@param secret string | table | nil # secret or command to retrieve it
+V.add_secret = function(name, secret)
+	local s = { secret = secret }
+	s = vim.deepcopy(s)
+	name = alias[name] or name
+	secrets[name] = s.secret
+	logger.debug("vault adding secret " .. name .. ": " .. vim.inspect(s.secret), true)
+end
+
 ---@param name string # secret name
 ---@return string | nil # secret or nil if not found
 V.get_secret = function(name)
 	name = alias[name] or name
 
 	local secret = secrets[name]
-	logger.debug("vault get_secret " .. name .. ":	" .. vim.inspect(secret), true)
+	logger.debug("vault get_secret:" .. name .. ": " .. vim.inspect(secret), true)
 
 	if not secret then
 		logger.warning("vault secret " .. name .. " not found", true)
@@ -58,8 +68,10 @@ end
 V.resolve_secret = function(name, secret, callback)
 	logger.debug("vault resolver started for " .. name .. ": " .. vim.inspect(secret), true)
 	name = alias[name] or name
-	if secrets[name] then
-		logger.debug("vault resolver secret " .. name .. " already exists", true)
+	callback = callback or function() end
+	if secrets[name] and type(secrets[name]) ~= "table" then
+		logger.debug("vault resolver secret " .. name .. " already resolved", true)
+		callback()
 		return
 	end
 
@@ -72,13 +84,11 @@ V.resolve_secret = function(name, secret, callback)
 
 		V._obfuscated_secrets[name] = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
 
-		if callback then
-			callback()
-		end
+		callback()
 	end
 
 	if not secret then
-		logger.debug("vault resolver for " .. name .. " got empty secret", true)
+		logger.warning("vault resolver for " .. name .. " got empty secret", true)
 		return
 	end
 
@@ -118,12 +128,14 @@ V.resolve_secret = function(name, secret, callback)
 	end
 end
 
-V.refresh_copilot_bearer = function()
+V.refresh_copilot_bearer = function(callback)
 	local secret = secrets.copilot
 	if not secret or type(secret) == "table" then
 		return
 	end
-	logger.debug("vault refresh_copilot_bearer started", true)
+	logger.debug("vault refresh_copilot_bearer: started", true)
+
+	callback = callback or function() end
 
 	local state_file = V.config.state_dir .. "/vault_state.json"
 
@@ -134,9 +146,9 @@ V.refresh_copilot_bearer = function()
 
 	local bearer = V._state.copilot_bearer or state.copilot_bearer or {}
 	if bearer.token and bearer.expires_at and bearer.expires_at > os.time() then
-		logger.debug("vault refresh_copilot_bearer token still valid", true)
 		secrets.copilot_bearer = bearer.token
-		secrets.copilot_bearer_expires_at = bearer.expires_at
+		logger.debug("vault refresh_copilot_bearer: token still valid, running callback", true)
+		callback()
 		return
 	end
 
@@ -171,10 +183,30 @@ V.refresh_copilot_bearer = function()
 
 		V._state.copilot_bearer = vim.json.decode(stdout)
 		secrets.copilot_bearer = V._state.copilot_bearer.token
-
-		logger.debug("vault refresh_copilot_bearer finished", true)
 		helpers.table_to_file(V._state, state_file)
+
+		logger.debug("vault refresh_copilot_bearer: token resolved, running callback", true)
+		callback()
 	end, nil, nil)
+end
+
+---@param name string # secret name
+---@param callback function # function to run after secret is resolved
+V.run_with_secret = function(name, callback)
+	name = alias[name] or name
+	if not secrets[name] then
+		logger.warning("vault secret " .. name .. " not found", true)
+		return
+	end
+	if type(secrets[name]) == "table" then
+		V.resolve_secret(name, secrets[name], function()
+			logger.debug("vault run_with_secret: " .. name .. " resolved, running callback", true)
+			callback()
+		end)
+	else
+		logger.debug("vault run_with_secret: " .. name .. " already resolved, running callback", true)
+		callback()
+	end
 end
 
 return V

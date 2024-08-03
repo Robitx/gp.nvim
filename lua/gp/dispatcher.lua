@@ -44,9 +44,8 @@ D.setup = function(opts)
 		end
 	end
 
-	local callbacks = { copilot = vault.refresh_copilot_bearer }
 	for name, provider in pairs(D.providers) do
-		vault.resolve_secret(name, provider.secret, callbacks[name])
+		vault.add_secret(name, provider.secret)
 		provider.secret = nil
 	end
 
@@ -168,7 +167,7 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
-D.query = function(buf, provider, payload, handler, on_exit, callback)
+local query = function(buf, provider, payload, handler, on_exit, callback)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		logger.error(
@@ -296,19 +295,18 @@ D.query = function(buf, provider, payload, handler, on_exit, callback)
 	---TODO: this could be moved to a separate function returning endpoint and headers
 	local endpoint = D.providers[provider].endpoint
 	local headers = {}
-	local bearer = vault.get_secret(provider)
+
+	local secret = provider
+	if provider == "copilot" then
+		secret = "copilot_bearer"
+	end
+	local bearer = vault.get_secret(secret)
 	if not bearer then
+		logger.warning(provider .. " bearer token is missing")
 		return
 	end
 
 	if provider == "copilot" then
-		vault.refresh_copilot_bearer()
-		bearer = vault.get_secret("copilot_bearer")
-		local expires_at = vault.get_secret("copilot_bearer_expires_at")
-		if not bearer or not expires_at or expires_at < os.time() then
-			logger.warning("copilot bearer token is missing or expired, trying to refresh..")
-			return
-		end
 		headers = {
 			"-H",
 			"editor-version: vscode/1.85.1",
@@ -371,6 +369,26 @@ D.query = function(buf, provider, payload, handler, on_exit, callback)
 	end
 
 	tasker.run(buf, "curl", curl_params, nil, out_reader(), nil)
+end
+
+-- gpt query
+---@param buf number | nil # buffer number
+---@param provider string # provider name
+---@param payload table # payload for api
+---@param handler function # response handler
+---@param on_exit function | nil # optional on_exit handler
+---@param callback function | nil # optional callback handler
+D.query = function(buf, provider, payload, handler, on_exit, callback)
+	if provider == "copilot" then
+		return vault.run_with_secret(provider, function()
+			vault.refresh_copilot_bearer(function()
+				query(buf, provider, payload, handler, on_exit, callback)
+			end)
+		end)
+	end
+	vault.run_with_secret(provider, function()
+		query(buf, provider, payload, handler, on_exit, callback)
+	end)
 end
 
 -- response handler
