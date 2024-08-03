@@ -173,6 +173,8 @@ M.setup = function(opts)
 	for hook, _ in pairs(M.hooks) do
 		M.helpers.create_user_command(M.config.cmd_prefix .. hook, function(params)
 			if M.hooks[hook] ~= nil then
+				M.refresh_state()
+				M.logger.debug("running hook: " .. hook)
 				return M.hooks[hook](M, params)
 			end
 			M.logger.error("The hook '" .. hook .. "' does not exist.")
@@ -191,6 +193,7 @@ M.setup = function(opts)
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
 			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, function(params)
+				M.logger.debug("running command: " .. cmd)
 				M.refresh_state()
 				M.cmd[cmd](params)
 			end, completions[cmd])
@@ -211,22 +214,22 @@ M.refresh_state = function(update)
 	local state_file = M.config.state_dir .. "/state.json"
 	update = update or {}
 
-	local state = {}
+	local old_state = vim.deepcopy(M._state)
+
+	local disk_state = {}
 	if vim.fn.filereadable(state_file) ~= 0 then
-		state = M.helpers.file_to_table(state_file) or {}
+		disk_state = M.helpers.file_to_table(state_file) or {}
 	end
 
-	M.logger.debug("loaded state: " .. vim.inspect(state))
-
-	if not state.updated then
+	if not disk_state.updated then
 		local last = M.config.chat_dir .. "/last.md"
 		if vim.fn.filereadable(last) == 1 then
 			os.remove(last)
 		end
 	end
 
-	if not M._state.updated or (state.updated and M._state.updated < state.updated) then
-		M._state = state
+	if not M._state.updated or (disk_state.updated and M._state.updated < disk_state.updated) then
+		M._state = vim.deepcopy(disk_state)
 	end
 	M._state.updated = os.time()
 
@@ -246,7 +249,20 @@ M.refresh_state = function(update)
 		M._state.last_chat = nil
 	end
 
-	M.logger.debug("stored state: " .. vim.inspect(M._state))
+	for k, _ in pairs(M._state) do
+		if M._state[k] ~= old_state[k] or M._state[k] ~= disk_state[k] then
+			M.logger.debug(
+				string.format(
+					"state[%s]: disk=%s old=%s new=%s",
+					k,
+					vim.inspect(disk_state[k]),
+					vim.inspect(old_state[k]),
+					vim.inspect(M._state[k])
+				)
+			)
+		end
+	end
+
 	M.helpers.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
@@ -1498,11 +1514,9 @@ M.cmd.NextAgent = function()
 
 	local set_agent = function(agent_name)
 		if is_chat then
-			M._state.chat_agent = agent_name
 			M.refresh_state({ chat_agent = agent_name })
 			M.logger.info("Chat agent: " .. M._state.chat_agent)
 		else
-			M._state.command_agent = agent_name
 			M.refresh_state({ command_agent = agent_name })
 			M.logger.info("Command agent: " .. M._state.command_agent)
 		end
@@ -1530,7 +1544,7 @@ M.get_command_agent = function(name)
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
-	M.logger.debug("Getting command agent: " .. name)
+	M.logger.debug("getting command agent: " .. name)
 	return {
 		cmd_prefix = cmd_prefix,
 		name = name,
@@ -1553,7 +1567,7 @@ M.get_chat_agent = function(name)
 	local model = M.agents[name].model
 	local system_prompt = M.agents[name].system_prompt
 	local provider = M.agents[name].provider
-	M.logger.debug("Getting chat agent: " .. name)
+	M.logger.debug("getting chat agent: " .. name)
 	return {
 		cmd_prefix = cmd_prefix,
 		name = name,
