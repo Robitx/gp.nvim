@@ -808,7 +808,7 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	if params.range ~= 2 then
 		-- check if last.md chat file exists and open it
 		local last = M.config.chat_dir .. "/last.md"
-		if vim.fn.filereadable(last) == 1 then
+		if vim.fn.filereadable(last) == 1 and last ~= vim.fn.resolve(last) then
 			-- resolve symlink
 			last = vim.fn.resolve(last)
 			M.open_buf(last, M.resolve_buf_target(params), M._toggle_kind.chat, true)
