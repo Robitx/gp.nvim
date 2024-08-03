@@ -190,7 +190,10 @@ M.setup = function(opts)
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
-			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, M.cmd[cmd], completions[cmd])
+			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, function(params)
+				M.refresh_state()
+				M.cmd[cmd](params)
+			end, completions[cmd])
 		end
 	end
 
@@ -213,14 +216,28 @@ M.refresh_state = function()
 
 	M.logger.debug("loaded state: " .. vim.inspect(state))
 
-	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
-	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
+	if not state.updated then
+		local last = M.config.chat_dir .. "/last.md"
+		if vim.fn.filereadable(last) == 1 then
+			os.remove(last)
+		end
+	end
+
+	if not M._state.updated or (state.updated and M._state.updated < state.updated) then
+		M._state = state
+	end
+	M._state.updated = os.time()
+
+	if not M._state.chat_agent or not M.agents[M._state.chat_agent] then
 		M._state.chat_agent = M._chat_agents[1]
 	end
 
-	M._state.command_agent = M._state.command_agent or state.command_agent or nil
-	if not M._state.command_agent == nil or not M.agents[M._state.command_agent] then
+	if not M._state.command_agent or not M.agents[M._state.command_agent] then
 		M._state.command_agent = M._command_agents[1]
+	end
+
+	if M._state.last_chat and vim.fn.filereadable(M._state.last_chat) == 0 then
+		M._state.last_chat = nil
 	end
 
 	M.logger.debug("stored state: " .. vim.inspect(M._state))
@@ -404,10 +421,7 @@ end
 M.not_chat = function(buf, file_name)
 	file_name = vim.fn.resolve(file_name)
 	local chat_dir = vim.fn.resolve(M.config.chat_dir)
-	if vim.fn.has("win32") == 1 then
-		file_name = file_name:gsub("\\", "/")
-		chat_dir = chat_dir:gsub("\\", "/")
-	end
+
 	if not M.helpers.starts_with(file_name, chat_dir) then
 		return "resolved file (" .. file_name .. ") not in chat dir (" .. chat_dir .. ")"
 	end
@@ -524,13 +538,8 @@ M.prep_chat = function(buf, file_name)
 		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 	end
 
-	-- make last.md a symlink to the last opened chat file
-	local last = M.config.chat_dir .. "/last.md"
-	if file_name ~= last and vim.fn.has("win32") == 1 then
-		os.execute("pwsh -Noprofile -c New-Item -Force -ItemType SymbolicLink -Path " .. last .. " -Target " .. file_name)
-	elseif file_name ~= last then
-		os.execute("ln -sf " .. file_name .. " " .. last)
-	end
+	M._state.last_chat = file_name
+	M.refresh_state()
 end
 
 M.buf_handler = function()
@@ -810,10 +819,8 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 
 	-- if the range is 2, we want to create a new chat file with the selection
 	if params.range ~= 2 then
-		-- check if last.md chat file exists and open it
-		local last = M.config.chat_dir .. "/last.md"
-		if vim.fn.filereadable(last) == 1 then
-			-- resolve symlink
+		local last = M._state.last_chat
+		if last and vim.fn.filereadable(last) == 1 then
 			last = vim.fn.resolve(last)
 			M.open_buf(last, M.resolve_buf_target(params), M._toggle_kind.chat, true)
 			return
@@ -833,10 +840,9 @@ M.cmd.ChatPaste = function(params)
 	-- get current buffer
 	local cbuf = vim.api.nvim_get_current_buf()
 
-	local last = M.config.chat_dir .. "/last.md"
-
 	-- make new chat if last doesn't exist
-	if vim.fn.filereadable(last) ~= 1 then
+	local last = M._state.last_chat
+	if not last or vim.fn.filereadable(last) ~= 1 then
 		-- skip rest since new chat will handle snippet on it's own
 		M.cmd.ChatNew(params, nil, nil)
 		return
