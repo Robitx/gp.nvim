@@ -193,7 +193,7 @@ M.grep_directory = function(buf, directory, pattern, callback)
 	-- strip leading and trailing non alphanumeric characters
 	local re = pattern:gsub("^%W*(.-)%W*$", "%1")
 
-	M.run(buf, "grep", { "-irEn", "--null", pattern, directory }, function(c, _, stdout, _)
+	M.run(buf, "grep", { "-irEn", "--null", "--exclude=last.md", pattern, directory }, function(c, _, stdout, _)
 		local results = {}
 		if c ~= 0 then
 			callback(results, re)
