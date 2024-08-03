@@ -75,7 +75,7 @@ I.setup = function(opts)
 	I.refresh()
 
 	for cmd, _ in pairs(I.cmd) do
-		helpers.create_user_command(I.config.cmd_prefix .. cmd, I.cmd[cmd],  function()
+		helpers.create_user_command(I.config.cmd_prefix .. cmd, I.cmd[cmd], function()
 			if cmd == "ImageAgent" then
 				return I._agents
 			end
@@ -84,7 +84,7 @@ I.setup = function(opts)
 		end)
 	end
 
-	vault.resolve_secret("imager_secret", I.config.secret)
+	vault.add_secret("imager_secret", I.config.secret)
 	I.config.secret = nil
 
 	logger.debug("imager setup finished")
@@ -156,7 +156,7 @@ I.cmd.Image = function(params)
 	end
 end
 
-I.generate_image = function(prompt, model, quality, style, size)
+local generate_image = function(prompt, model, quality, style, size)
 	local bearer = vault.get_secret("imager_secret")
 	if not bearer then
 		return
@@ -259,6 +259,12 @@ I.generate_image = function(prompt, model, quality, style, size)
 		else
 			logger.error("Image generation failed: " .. vim.inspect(stdout_data))
 		end
+	end)
+end
+
+I.generate_image = function(prompt, model, quality, style, size)
+	vault.run_with_secret("imager_secret", function()
+		generate_image(prompt, model, quality, style, size)
 	end)
 end
 

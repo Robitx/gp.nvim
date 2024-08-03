@@ -66,7 +66,7 @@ M.setup = function(opts)
 
 	M.vault.setup({ state_dir = state_dir, curl_params = curl_params })
 
-	M.vault.resolve_secret("openai_api_key", openai_api_key)
+	M.vault.add_secret("openai_api_key", openai_api_key)
 	M.config.openai_api_key = nil
 	opts.openai_api_key = nil
 

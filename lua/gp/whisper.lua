@@ -44,7 +44,7 @@ end
 
 ---@param callback function # callback function(text)
 ---@param language string | nil # language code
-W.Whisper = function(callback, language)
+local whisper = function(callback, language)
 	language = language or W.config.language
 	-- make sure sox is installed
 	if vim.fn.executable("sox") == 0 then
@@ -294,6 +294,14 @@ W.Whisper = function(callback, language)
 		vim.schedule(function()
 			transcribe()
 		end)
+	end)
+end
+
+---@param callback function # callback function(text)
+---@param language string | nil # language code
+W.Whisper = function(callback, language)
+	vault.run_with_secret("openai_api_key", function()
+		whisper(callback, language)
 	end)
 end
 
