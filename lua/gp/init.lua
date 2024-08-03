@@ -923,6 +923,10 @@ M.setup = function(opts)
 		end
 	end
 
+	vim.api.nvim_create_user_command("GpRebuildIndex", function(_)
+		require("gp.context").index_all()
+	end, {})
+
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
