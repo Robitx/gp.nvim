@@ -491,7 +491,7 @@ function Context.index_stale()
 
 	local end_time = uv.hrtime()
 	local elapsed_time_ms = (end_time - start_time) / 1e6
-	logger.info(string.format("[Gp] Indexing took: %.2f ms", elapsed_time_ms))
+	logger.info(string.format("Indexing took: %.2f ms", elapsed_time_ms))
 end
 
 function Context.index_all()
@@ -507,7 +507,7 @@ function Context.index_all()
 
 	local end_time = uv.hrtime()
 	local elapsed_time_ms = (end_time - start_time) / 1e6
-	logger.info(string.format("[Gp] Indexing took: %.2f ms", elapsed_time_ms))
+	logger.info(string.format("Indexing took: %.2f ms", elapsed_time_ms))
 end
 
 function Context.build_initial_index()

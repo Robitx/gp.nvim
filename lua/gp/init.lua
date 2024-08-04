@@ -2366,7 +2366,7 @@ M.chat_respond = function(params)
 
 	-- insert requested context in the message the user just entered
 	messages[#messages].content = require("gp.context").insert_contexts(messages[#messages].content)
-	print(vim.inspect(messages[#messages]))
+	-- print(vim.inspect(messages[#messages]))
 
 	-- call the model and write response
 	M.query(

@@ -11,7 +11,6 @@ source.src_name = "gp_completion"
 
 ---@return CompletionSource
 function source.new()
-	print("source.new called")
 	local db_inst = db.open()
 	return setmetatable({ db = db_inst }, { __index = source })
 end
@@ -41,7 +40,6 @@ function source.setup_for_chat_buffer(bufnr)
 end
 
 function source.register_cmd_source()
-	print("registering completion src")
 	cmp.register_source(source.src_name, source.new())
 end
 
@@ -143,13 +141,11 @@ end
 
 function source.complete(self, request, callback)
 	local input = string.sub(request.context.cursor_before_line, request.offset - 1)
-	print("[comp] input: '" .. input .. "'")
 	local cmd = extract_cmd(request)
 	if not cmd then
 		return
 	end
 
-	print("[comp] cmd: '" .. cmd .. "'")
 	local cmd_parts = context.cmd_split(cmd)
 
 	local items = {}
@@ -181,20 +177,17 @@ function source.complete(self, request, callback)
 		items = self:completion_items_for_fn_name(partial_fn_name)
 		isIncomplete = false
 	elseif input:match("^@") then
-		print("[complete] @ case")
 		items = {
 			{ label = "code", kind = require("cmp").lsp.CompletionItemKind.Keyword },
 			{ label = "file", kind = require("cmp").lsp.CompletionItemKind.Keyword },
 		}
 		isIncomplete = false
 	else
-		print("[complete] default case")
 		isIncomplete = false
 	end
 
 	local data = { items = items, isIncomplete = isIncomplete }
 	callback(data)
-	print("[complete] Callback called")
 end
 
 local function search_backwards(buf, pattern)
