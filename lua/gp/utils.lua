@@ -127,7 +127,7 @@ end
 
 --- Locates the git_root using the cwd
 function Utils.git_root_from_cwd()
-	return require("gp")._H.find_git_root(vim.fn.getcwd())
+	return require("gp.helper").find_git_root(vim.fn.getcwd())
 end
 
 -- If the given path is a relative path, turn it into a fullpath

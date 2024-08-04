@@ -49,10 +49,12 @@ local config = {
 		ollama = {
 			disable = true,
 			endpoint = "http://localhost:11434/v1/chat/completions",
+			secret = "dummy_secret",
 		},
 		lmstudio = {
 			disable = true,
 			endpoint = "http://localhost:1234/v1/chat/completions",
+			secret = "dummy_secret",
 		},
 		googleai = {
 			disable = true,
@@ -77,11 +79,17 @@ local config = {
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
 
-	-- log	file location
+	-- log file location
 	log_file = vim.fn.stdpath("log"):gsub("/$", "") .. "/gp.nvim.log",
+	-- write sensitive data to log file for	debugging purposes (like api keys)
+	log_sensitive = false,
 
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
+
+	-- default agent names set during startup, if nil last used agent is used
+	default_command_agent = nil,
+	default_chat_agent = nil,
 
 	-- default command agents (model + persona)
 	-- name, model and system_prompt are mandatory fields
@@ -118,7 +126,7 @@ local config = {
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
+			model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
@@ -216,7 +224,7 @@ local config = {
 			chat = false,
 			command = true,
 			-- string with the Copilot engine name or table with engine name and parameters if applicable
-			model = { model = "gpt-4", temperature = 0.8, top_p = 1, n = 1 },
+			model = { model = "gpt-4o", temperature = 0.8, top_p = 1, n = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").code_system_prompt,
 		},
@@ -334,6 +342,9 @@ local config = {
 	style_popup_margin_top = 2,
 	style_popup_max_width = 160,
 
+	-- in case of visibility colisions with other plugins, you can increase/decrease zindex
+	zindex = 49,
+
 	-- command config and templates below are used by commands like GpRewrite, GpEnew, etc.
 	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
 	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
@@ -360,151 +371,175 @@ local config = {
 	-- by eliminating silence and speeding up the tempo of the recording
 	-- we can reduce the cost by 50% or more and get the results faster
 
-	-- OpenAI audio/transcriptions api endpoint to transcribe audio to text
-	whisper_api_endpoint = "https://api.openai.com/v1/audio/transcriptions",
-	-- directory for storing whisper files
-	whisper_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
-	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
-	-- decibels are negative, the recording is normalized to -3dB =>
-	-- increase this number to pick up more (weaker) sounds as possible speech
-	-- decrease this number to pick up only louder sounds as possible speech
-	-- you can disable silence trimming by setting this a very high number (like 1000.0)
-	whisper_silence = "1.75",
-	-- whisper tempo (1.0 is normal speed)
-	whisper_tempo = "1.75",
-	-- The language of the input audio, in ISO-639-1 format.
-	whisper_language = "en",
-	-- command to use for recording can be nil (unset) for automatic selection
-	-- string ("sox", "arecord", "ffmpeg") or table with command and arguments:
-	-- sox is the most universal, but can have start/end cropping issues caused by latency
-	-- arecord is linux only, but has no cropping issues and is faster
-	-- ffmpeg in the default configuration is macos only, but can be used on any platform
-	-- (see https://trac.ffmpeg.org/wiki/Capture/Desktop for more info)
-	-- below is the default configuration for all three commands:
-	-- whisper_rec_cmd = {"sox", "-c", "1", "--buffer", "32", "-d", "rec.wav", "trim", "0", "60:00"},
-	-- whisper_rec_cmd = {"arecord", "-c", "1", "-f", "S16_LE", "-r", "48000", "-d", "3600", "rec.wav"},
-	-- whisper_rec_cmd = {"ffmpeg", "-y", "-f", "avfoundation", "-i", ":0", "-t", "3600", "rec.wav"},
-	whisper_rec_cmd = nil,
+	whisper = {
+		-- you can disable whisper completely by whisper = {disable = true}
+		disable = false,
+
+		-- OpenAI audio/transcriptions api endpoint to transcribe audio to text
+		endpoint = "https://api.openai.com/v1/audio/transcriptions",
+		-- directory for storing whisper files
+		store_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
+		-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
+		-- decibels are negative, the recording is normalized to -3dB =>
+		-- increase this number to pick up more (weaker) sounds as possible speech
+		-- decrease this number to pick up only louder sounds as possible speech
+		-- you can disable silence trimming by setting this a very high number (like 1000.0)
+		silence = "1.75",
+		-- whisper tempo (1.0 is normal speed)
+		tempo = "1.75",
+		-- The language of the input audio, in ISO-639-1 format.
+		language = "en",
+		-- command to use for recording can be nil (unset) for automatic selection
+		-- string ("sox", "arecord", "ffmpeg") or table with command and arguments:
+		-- sox is the most universal, but can have start/end cropping issues caused by latency
+		-- arecord is linux only, but has no cropping issues and is faster
+		-- ffmpeg in the default configuration is macos only, but can be used on any platform
+		-- (see https://trac.ffmpeg.org/wiki/Capture/Desktop for more info)
+		-- below is the default configuration for all three commands:
+		-- whisper_rec_cmd = {"sox", "-c", "1", "--buffer", "32", "-d", "rec.wav", "trim", "0", "60:00"},
+		-- whisper_rec_cmd = {"arecord", "-c", "1", "-f", "S16_LE", "-r", "48000", "-d", "3600", "rec.wav"},
+		-- whisper_rec_cmd = {"ffmpeg", "-y", "-f", "avfoundation", "-i", ":0", "-t", "3600", "rec.wav"},
+		rec_cmd = nil,
+	},
 
 	-- image generation settings
-	-- image prompt prefix for asking user for input (supports {{agent}} template variable)
-	image_prompt_prefix_template = "🖌️ {{agent}} ~ ",
-	-- image prompt prefix for asking location to save the image
-	image_prompt_save = "🖌️💾 ~ ",
-	-- default folder for saving images
-	image_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
-	-- default image agents (model + settings)
-	-- to remove some default agent completely set it like:
-	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid", disable = true, }, ... },
-	image_agents = {
-		{
-			name = "ExampleDisabledAgent",
-			disable = true,
-		},
-		{
-			name = "DALL-E-3-1024x1024-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1024x1792",
+	image = {
+		-- you can disable image generation logic completely by image = {disable = true}
+		disable = false,
+
+		-- openai api key (string or table with command and arguments)
+		-- secret = { "cat", "path_to/openai_api_key" },
+		-- secret = { "bw", "get", "password", "OPENAI_API_KEY" },
+		-- secret =  "sk-...",
+		-- secret = os.getenv("env_name.."),
+		-- if missing openai_api_key is used
+		secret = os.getenv("OPENAI_API_KEY"),
+
+		-- image prompt prefix for asking user for input (supports {{agent}} template variable)
+		prompt_prefix_template = "🖌️ {{agent}} ~ ",
+		-- image prompt prefix for asking location to save the image
+		prompt_save = "🖌️💾 ~ ",
+		-- default folder for saving images
+		store_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
+		-- default image agents (model + settings)
+		-- to remove some default agent completely set it like:
+		-- image.agents = {  { name = "DALL-E-3-1024x1792-vivid", disable = true, }, ... },
+		agents = {
+			{
+				name = "ExampleDisabledAgent",
+				disable = true,
+			},
+			{
+				name = "DALL-E-3-1024x1024-vivid",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "vivid",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-vivid",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "vivid",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-vivid",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "vivid",
+				size = "1024x1792",
+			},
+			{
+				name = "DALL-E-3-1024x1024-natural",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "natural",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-natural",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "natural",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-natural",
+				model = "dall-e-3",
+				quality = "standard",
+				style = "natural",
+				size = "1024x1792",
+			},
+			{
+				name = "DALL-E-3-1024x1024-vivid-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "vivid",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-vivid-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "vivid",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-vivid-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "vivid",
+				size = "1024x1792",
+			},
+			{
+				name = "DALL-E-3-1024x1024-natural-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "natural",
+				size = "1024x1024",
+			},
+			{
+				name = "DALL-E-3-1792x1024-natural-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "natural",
+				size = "1792x1024",
+			},
+			{
+				name = "DALL-E-3-1024x1792-natural-hd",
+				model = "dall-e-3",
+				quality = "hd",
+				style = "natural",
+				size = "1024x1792",
+			},
 		},
 	},
 
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
+		-- GpInspectPlugin provides a detailed inspection of the plugin state
 		InspectPlugin = function(plugin, params)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local copy = vim.deepcopy(plugin)
 			local key = copy.config.openai_api_key or ""
 			copy.config.openai_api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
-			for provider, _ in pairs(copy.providers) do
-				local s = copy.providers[provider].secret
-				if s and type(s) == "string" then
-					copy.providers[provider].secret = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
-				end
-			end
 			local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(copy))
 			local params_info = string.format("Command params:\n%s", vim.inspect(params))
 			local lines = vim.split(plugin_info .. "\n" .. params_info, "\n")
 			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 			vim.api.nvim_win_set_buf(0, bufnr)
+		end,
+
+		-- GpInspectLog for checking the log file
+		InspectLog = function(plugin, params)
+			local log_file = plugin.config.log_file
+			local buffer = plugin.helpers.get_buffer(log_file)
+			if not buffer then
+				vim.cmd("e " .. log_file)
+			else
+				vim.cmd("buffer " .. buffer)
+			end
 		end,
 
 		-- GpImplement rewrites the provided selection/range based on comments in it
