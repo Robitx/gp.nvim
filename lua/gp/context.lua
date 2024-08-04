@@ -384,15 +384,15 @@ end
 local function make_gitignore_fn(git_root)
 	local base_paths = { git_root }
 	local allow = require("plenary.scandir").__make_gitignore(base_paths)
-	if not allow then
-		return nil
-	end
 
 	return function(entry, rel_path, full_path, is_dir)
 		if entry == ".git" or entry == ".github" then
 			return false
 		end
-		return allow(base_paths, full_path)
+		if allow then
+			return allow(base_paths, full_path)
+		end
+		return true
 	end
 end
 
