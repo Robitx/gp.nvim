@@ -150,8 +150,9 @@ function source.complete(self, request, callback)
 
 	local items = {}
 	local isIncomplete = true
+	local cmd_type = cmd_parts[1]
 
-	if cmd_parts[1]:match("@file") then
+	if cmd_type:match("@file") or cmd_type:match("@include") then
 		-- What's the path we're trying to provide completion for?
 		local path = cmd_parts[2] or ""
 
@@ -161,7 +162,7 @@ function source.complete(self, request, callback)
 		-- Say that the entire list has been provided
 		-- cmp won't call us again to provide an updated list
 		isIncomplete = false
-	elseif cmd_parts[1]:match("@code") then
+	elseif cmd_type:match("@code") then
 		local partial_fn_name = cmd_parts[2] or ""
 
 		-- When the user confirms completion of an item, we alter the
@@ -180,6 +181,7 @@ function source.complete(self, request, callback)
 		items = {
 			{ label = "code", kind = require("cmp").lsp.CompletionItemKind.Keyword },
 			{ label = "file", kind = require("cmp").lsp.CompletionItemKind.Keyword },
+			{ label = "include", kind = require("cmp").lsp.CompletionItemKind.Keyword },
 		}
 		isIncomplete = false
 	else

@@ -98,6 +98,9 @@ function Context.insert_contexts(msg)
 	for cmd in msg:gmatch("@file:[%w%p]+") do
 		table.insert(cmds, cmd)
 	end
+	for cmd in msg:gmatch("@include:[%w%p]+") do
+		table.insert(cmds, cmd)
+	end
 	for cmd in msg:gmatch("@code:[%w%p]+[:%w_-]+") do
 		table.insert(cmds, cmd)
 	end
@@ -108,8 +111,9 @@ function Context.insert_contexts(msg)
 	-- inserted as additional context
 	for _, cmd in ipairs(cmds) do
 		local cmd_parts = Context.cmd_split(cmd)
+		local cmd_type = cmd_parts[1]
 
-		if cmd_parts[1] == "@file" then
+		if cmd_type == "@file" or cmd_type == "@include" then
 			-- Read the reqested file and produce a msg snippet to be joined later
 			local filepath = cmd_parts[2]
 
@@ -118,10 +122,15 @@ function Context.insert_contexts(msg)
 
 			local content = read_file(fullpath)
 			if content then
-				local result = string.format("%s\n```%s```", filepath, content)
+				local result
+				if cmd_type == "@file" then
+					result = string.format("%s\n```%s```", filepath, content)
+				else
+					result = content
+				end
 				table.insert(context_texts, result)
 			end
-		elseif cmd_parts[1] == "@code" then
+		elseif cmd_type == "@code" then
 			local rel_path = cmd_parts[2]
 			local full_fn_name = cmd_parts[3]
 			if not rel_path or not full_fn_name then
