@@ -169,6 +169,14 @@ M.setup = function(opts)
 
 	M.refresh_state()
 
+	if M.config.default_command_agent then
+		M.refresh_state({ command_agent = M.config.default_command_agent })
+	end
+
+	if M.config.default_chat_agent then
+		M.refresh_state({ chat_agent = M.config.default_chat_agent })
+	end
+
 	-- register user commands
 	for hook, _ in pairs(M.hooks) do
 		M.helpers.create_user_command(M.config.cmd_prefix .. hook, function(params)
