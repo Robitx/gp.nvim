@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.7.0](https://github.com/Robitx/gp.nvim/compare/v3.6.1...v3.7.0) (2024-08-04)
+
+
+### Features
+
+* remember last chat without symlinks ([#176](https://github.com/Robitx/gp.nvim/issues/176)) ([df9adc2](https://github.com/Robitx/gp.nvim/commit/df9adc22450c052c9228714cde9b9cf90d6ca3e5))
+* copilot with gpt4-o ([c782f9a](https://github.com/Robitx/gp.nvim/commit/c782f9ace9c95f42c3e169df8366537d8980a62f))
+* better state logging ([63098a5](https://github.com/Robitx/gp.nvim/commit/63098a530a0fd5ba6dae5d7fb45236d9290ac8c2))
+* lazy load secrets (issue: [#152](https://github.com/Robitx/gp.nvim/issues/152)) ([4cea5ae](https://github.com/Robitx/gp.nvim/commit/4cea5aecd1bc4ce0081d2407710ba4741f193b6e))
+* configurable default agents ([#85](https://github.com/Robitx/gp.nvim/issues/85), [#148](https://github.com/Robitx/gp.nvim/issues/148)) ([49d1986](https://github.com/Robitx/gp.nvim/commit/49d1986aa98ef748397594aa26e137dbc9cb2798))
+
+### Bug Fixes
+
+* skip BufEnter logic if buf already prepared (issue: [#139](https://github.com/Robitx/gp.nvim/issues/139)) ([2c3d818](https://github.com/Robitx/gp.nvim/commit/2c3d818a47a9b156af921c9b768c7a31dcccf00f))
+
 ## [3.6.1](https://github.com/Robitx/gp.nvim/compare/v3.6.0...v3.6.1) (2024-08-01)
 
 
