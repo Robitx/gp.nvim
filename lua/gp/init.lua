@@ -1763,7 +1763,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			local fl = qt.first_line
 			local ll = qt.last_line
 			-- remove empty lines from the start and end of the response
-			while true do
+			while fl < ll do
 				-- get content of first_line and last_line
 				flc = vim.api.nvim_buf_get_lines(buf, fl, fl + 1, false)[1]
 				llc = vim.api.nvim_buf_get_lines(buf, ll, ll + 1, false)[1]
@@ -1780,11 +1780,6 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 					break
 				end
 
-				-- break loop lines are equal
-				if fl >= ll then
-					break
-				end
-
 				if not flm then
 					M.helpers.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
@@ -1796,7 +1791,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			end
 
 			-- if fl and ll starts with triple backticks, remove these lines
-			if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
+			if fl < ll and flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
 				-- remove first line with undojoin
 				M.helpers.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
