@@ -372,21 +372,19 @@ function Context.build_symbol_index_for_file(db, src_filepath, generation)
 	return result
 end
 
-local function default_ignore_dirs_and_files(entry, rel_path, full_path, is_dir)
-	if u.string_starts_with(entry, ".") then
-		return false
+local function make_gitignore_fn(git_root)
+	local base_paths = { git_root }
+	local allow = require("plenary.scandir").__make_gitignore(base_paths)
+	if not allow then
+		return nil
 	end
 
-	if is_dir then
-		if entry == "node_modules" then
+	return function(entry, rel_path, full_path, is_dir)
+		if entry == ".git" or entry == ".github" then
 			return false
 		end
-	else
-		if u.string_ends_with(entry, ".txt") or u.string_ends_with(entry, ".md") then
-			return false
-		end
+		return allow(base_paths, full_path)
 	end
-	return true
 end
 
 function Context.build_symbol_index(db)
@@ -399,7 +397,7 @@ function Context.build_symbol_index(db)
 	local generation = u.random_8byte_int()
 
 	u.walk_directory(git_root, {
-		should_process = default_ignore_dirs_and_files,
+		should_process = make_gitignore_fn(git_root),
 
 		process_file = function(rel_path, full_path)
 			if vim.filetype.match({ filename = full_path }) then
@@ -450,7 +448,7 @@ function Context.rebuild_symbol_index_for_changed_files(db)
 	local generation = u.random_8byte_int()
 
 	u.walk_directory(git_root, {
-		should_process = default_ignore_dirs_and_files,
+		should_process = make_gitignore_fn(git_root),
 
 		process_file = function(rel_path, full_path)
 			if vim.filetype.match({ filename = full_path }) then
