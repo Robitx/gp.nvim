@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.7.1](https://github.com/Robitx/gp.nvim/compare/v3.7.0...v3.7.1) (2024-08-05)
+
+
+### Bug Fixes
+
+* check for underflow during backticks trimming (issue: [#152](https://github.com/Robitx/gp.nvim/issues/152)) ([3510217](https://github.com/Robitx/gp.nvim/commit/3510217650e2c3fffb3fc71fd4f5233504851d02))
+* don't override already added secrets (issue: [#188](https://github.com/Robitx/gp.nvim/issues/188)) ([757c78f](https://github.com/Robitx/gp.nvim/commit/757c78fb4cb17b3ec16108704a19c7b7a41ab10b))
+
 ## [3.7.0](https://github.com/Robitx/gp.nvim/compare/v3.6.1...v3.7.0) (2024-08-04)
 
 
