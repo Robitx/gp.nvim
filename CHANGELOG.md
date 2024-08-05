@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.8.0](https://github.com/Robitx/gp.nvim/compare/v3.7.1...v3.8.0) (2024-08-05)
+
+
+### Features
+
+* ollama and perplexity with llama3.1-8B ([8b448c0](https://github.com/Robitx/gp.nvim/commit/8b448c06651ebfc6b810bf37029d0a1ee43c237e))
+
+
+### Bug Fixes
+
+* git root search infinite loop on windows (issue: [#126](https://github.com/Robitx/gp.nvim/issues/126)) ([7eb91da](https://github.com/Robitx/gp.nvim/commit/7eb91daa43d5c6b318be699e2af770904625a4d6))
+
 ## [3.7.1](https://github.com/Robitx/gp.nvim/compare/v3.7.0...v3.7.1) (2024-08-05)
 
 
