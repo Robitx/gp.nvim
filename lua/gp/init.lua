@@ -212,6 +212,10 @@ M.setup = function(opts)
 		require("gp.context").index_all()
 	end, {})
 
+	vim.api.nvim_create_user_command("GpReferenceCurrentFunction", function(_)
+		require("gp.context").reference_current_function()
+	end, {})
+
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
@@ -878,6 +882,74 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	end
 
 	return buf
+end
+
+local function win_for_buf(bufnr)
+	for _, w in ipairs(vim.api.nvim_list_wins()) do
+		if vim.api.nvim_win_get_buf(w) == bufnr then
+			return w
+		end
+	end
+end
+
+local function create_buffer_with_file(file_path)
+	-- Create a new buffer
+	local bufnr = vim.api.nvim_create_buf(true, false)
+
+	-- Set the buffer's name to the file path
+	vim.api.nvim_buf_set_name(bufnr, file_path)
+
+	-- Load the file into the buffer
+	vim.api.nvim_buf_call(bufnr, function()
+		vim.api.nvim_command("edit " .. vim.fn.fnameescape(file_path))
+	end)
+
+	return bufnr
+end
+
+-- Paste some content into the chat buffer
+M.chat_paste = function(content)
+	-- locate the chat buffer
+	local chat_buf
+	local last = M._state.last_chat
+
+	------------------------------------------------
+	-- Try to locate or setup a valid chat buffer --
+	------------------------------------------------
+	-- If don't have a record of the last chat file that's been opened...
+	-- Just create a new chat
+	if not last or vim.fn.filereadable(last) ~= 1 then
+		chat_buf = M.cmd.ChatNew({}, nil, nil)
+	else
+		-- We have a record of the last chat file...
+		-- Can we locate a buffer with the file loaded?
+		last = vim.fn.resolve(last)
+		chat_buf = M.helpers.get_buffer(last)
+
+		if not chat_buf then
+			chat_buf = create_buffer_with_file(last)
+		end
+	end
+
+	--------------------------------------------
+	-- Paste the content into the chat buffer --
+	--------------------------------------------
+	if chat_buf then
+		-- Paste the given `content` at the end of the buffer
+		vim.api.nvim_buf_set_lines(chat_buf, -1, -1, false, { content })
+
+		-- If we can locate a window for the buffer...
+		-- Set the cursor to the end of the file where we just pasted the content
+		local win = win_for_buf(chat_buf)
+		if win then
+			local line_count = vim.api.nvim_buf_line_count(chat_buf)
+			vim.api.nvim_win_set_cursor(win, { line_count, 0 })
+
+			vim.api.nvim_win_call(win, function()
+				vim.api.nvim_command("normal! zz")
+			end)
+		end
+	end
 end
 
 M.cmd.ChatPaste = function(params)

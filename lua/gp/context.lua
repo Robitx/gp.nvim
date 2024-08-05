@@ -568,6 +568,39 @@ function Context.setup_for_chat_buffer(buf)
 	require("gp.completion").setup_for_chat_buffer(buf)
 end
 
+-- Inserts the reference to the function under the cursor into the chat buffer
+function Context.reference_current_function()
+	local db = Db.open()
+	if not db then
+		return
+	end
+
+	local buf = vim.api.nvim_get_current_buf()
+	local rel_path = vim.fn.bufname(buf)
+	local lineno = math.max(vim.api.nvim_win_get_cursor(0)[1] - 1, 0)
+
+	---@type boolean|SymbolDefEntry
+	local res = db.db:eval(
+		[[ 	SELECT * from symbols 
+			WHERE
+				file = ? AND
+				start_line <= ? AND
+				end_line >= ?  ]],
+		{ rel_path, lineno, lineno }
+	)
+
+	db:close()
+
+	if type(res) == "boolean" then
+		logger.error("[context.reference_current_function] Symbol lookup returned unexpected value: " .. res)
+		return
+	end
+
+	local entry = res[1]
+
+	require("gp").chat_paste(string.format("@code:%s:%s", entry.file, entry.name))
+end
+
 Context.setup_autocmd_update_index_on_file_save()
 
 return Context
