@@ -175,13 +175,18 @@ _H.find_git_root = function(path)
 	if path then
 		cwd = vim.fn.fnamemodify(path, ":p:h")
 	end
-	while cwd ~= "/" do
+
+	for _ = 0, 1000 do
 		local files = vim.fn.readdir(cwd)
 		if vim.tbl_contains(files, ".git") then
 			logger.debug("found git root: " .. cwd)
 			return cwd
 		end
-		cwd = vim.fn.fnamemodify(cwd, ":h")
+		local parent = vim.fn.fnamemodify(cwd, ":h")
+		if parent == cwd then
+			break
+		end
+		cwd = parent
 	end
 	logger.debug("git root not found")
 	return ""
