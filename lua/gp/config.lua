@@ -142,11 +142,11 @@ local config = {
 		},
 		{
 			provider = "pplx",
-			name = "ChatPerplexityMixtral",
+			name = "ChatPerplexityLlama3.1-8B",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
+			model = { model = "llama-3.1-sonar-small-128k-chat", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
@@ -172,13 +172,15 @@ local config = {
 		},
 		{
 			provider = "ollama",
-			name = "ChatOllamaLlama3",
+			name = "ChatOllamaLlama3.1-8B",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
 			model = {
-				model = "llama3",
-				num_ctx = 8192,
+				model = "llama3.1",
+				temperature = 0.6,
+				top_p = 1,
+				min_p = 0.05,
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.",
@@ -223,7 +225,7 @@ local config = {
 			name = "CodeCopilot",
 			chat = false,
 			command = true,
-			-- string with the Copilot engine name or table with engine name and parameters if applicable
+			-- string with model name or table with model name and parameters
 			model = { model = "gpt-4o", temperature = 0.8, top_p = 1, n = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").code_system_prompt,
@@ -239,11 +241,11 @@ local config = {
 		},
 		{
 			provider = "pplx",
-			name = "CodePerplexityMixtral",
+			name = "CodePerplexityLlama3.1-8B",
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
+			model = { model = "llama-3.1-sonar-small-128k-chat", temperature = 0.8, top_p = 1 },
 			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
@@ -266,21 +268,18 @@ local config = {
 		},
 		{
 			provider = "ollama",
-			name = "CodeOllamaLlama3",
+			name = "CodeOllamaLlama3.1-8B",
 			chat = false,
 			command = true,
-			-- string with the Copilot engine name or table with engine name and parameters if applicable
+			-- string with model name or table with model name and parameters
 			model = {
-				model = "llama3",
-				temperature = 1.9,
+				model = "llama3.1",
+				temperature = 0.4,
 				top_p = 1,
-				num_ctx = 8192,
+				min_p = 0.05,
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are an AI working as a code editor providing answers.\n\n"
-				.. "Use 4 SPACES FOR INDENTATION.\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 	},
 
