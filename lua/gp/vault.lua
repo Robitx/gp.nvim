@@ -35,9 +35,13 @@ end
 ---@param name string # provider name
 ---@param secret string | table | nil # secret or command to retrieve it
 V.add_secret = function(name, secret)
+	name = alias[name] or name
+	if secrets[name] then
+		logger.debug("vault secret " .. name .. " already exists", true)
+		return
+	end
 	local s = { secret = secret }
 	s = vim.deepcopy(s)
-	name = alias[name] or name
 	secrets[name] = s.secret
 	logger.debug("vault adding secret " .. name .. ": " .. vim.inspect(s.secret), true)
 end
