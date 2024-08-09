@@ -13,6 +13,7 @@ local default_config = require("gp.config")
 local D = {
 	config = {},
 	providers = {},
+	query_dir = vim.fn.stdpath("cache") .. "/gp/query",
 }
 
 ---@param opts table #	user config
@@ -47,6 +48,19 @@ D.setup = function(opts)
 	for name, provider in pairs(D.providers) do
 		vault.add_secret(name, provider.secret)
 		provider.secret = nil
+	end
+
+	D.query_dir = helpers.prepare_dir(D.query_dir, "query store")
+
+	local files = vim.fn.glob(D.query_dir .. "/*.json", false, true)
+	if #files > 200 then
+		logger.debug("too many query files, truncating cache")
+		table.sort(files, function(a, b)
+			return a > b
+		end)
+		for i = 100, #files do
+			helpers.delete_file(files[i])
+		end
 	end
 
 	logger.debug("dispatcher setup finished\n" .. vim.inspect(D))
@@ -348,6 +362,9 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		}
 	end
 
+	local temp_file = D.query_dir .. "/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
+	helpers.table_to_file(payload, temp_file)
+
 	local curl_params = vim.deepcopy(D.config.curl_params or {})
 	local args = {
 		"--no-buffer",
@@ -356,8 +373,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		"-H",
 		"Content-Type: application/json",
 		"-d",
-		vim.json.encode(payload),
-		--[[ "--doesnt_exist" ]]
+		"@" .. temp_file,
 	}
 
 	for _, arg in ipairs(args) do
