@@ -601,6 +601,12 @@ function Context.reference_current_function()
 	require("gp").chat_paste(string.format("@code:%s:%s", entry.file, entry.name))
 end
 
+function Context.reference_current_file()
+	local buf = vim.api.nvim_get_current_buf()
+	local rel_path = vim.fn.bufname(buf)
+	require("gp").chat_paste(string.format("@file:%s", rel_path))
+end
+
 Context.setup_autocmd_update_index_on_file_save()
 
 return Context

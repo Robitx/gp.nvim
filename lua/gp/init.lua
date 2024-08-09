@@ -216,6 +216,10 @@ M.setup = function(opts)
 		require("gp.context").reference_current_function()
 	end, {})
 
+	vim.api.nvim_create_user_command("GpReferenceCurrentFile", function(_)
+		require("gp.context").reference_current_file()
+	end, {})
+
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
