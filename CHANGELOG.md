@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.9.0](https://github.com/Robitx/gp.nvim/compare/v3.8.0...v3.9.0) (2024-08-12)
+
+
+### Features
+
+* cmds without selection (issue: [#194](https://github.com/Robitx/gp.nvim/issues/194)) ([03f34e6](https://github.com/Robitx/gp.nvim/commit/03f34e6db6ed47b4ed1f75d30c1f8de056bbc366))
+
+
+### Bug Fixes
+
+* avoid cmd len limit on windows (issue: [#192](https://github.com/Robitx/gp.nvim/issues/192)) ([a2df34c](https://github.com/Robitx/gp.nvim/commit/a2df34cd3879e33333757ee6674fc5d41440ccd0))
+
 ## [3.8.0](https://github.com/Robitx/gp.nvim/compare/v3.7.1...v3.8.0) (2024-08-05)
 
 
