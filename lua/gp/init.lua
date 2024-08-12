@@ -330,18 +330,18 @@ M.prepare_commands = function()
 
 			-- template is chosen dynamically based on mode in which the command is called
 			local template = M.config.template_command
-			if params.range == 2 then
+			if params.range > 0 then
 				template = M.config.template_selection
-				-- rewrite needs custom template
-				if target == M.Target.rewrite then
-					template = M.config.template_rewrite
-				end
-				if target == M.Target.append then
-					template = M.config.template_append
-				end
-				if target == M.Target.prepend then
-					template = M.config.template_prepend
-				end
+			end
+			-- rewrite needs custom template
+			if target == M.Target.rewrite then
+				template = M.config.template_rewrite
+			end
+			if target == M.Target.append then
+				template = M.config.template_append
+			end
+			if target == M.Target.prepend then
+				template = M.config.template_prepend
 			end
 			if agent then
 				M.Prompt(params, target, agent, template, agent.cmd_prefix, whisper)
@@ -1696,51 +1696,37 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		return
 	end
 
-	-- defaults to normal mode
-	local selection = nil
-	local prefix = ""
-	local start_line = vim.api.nvim_win_get_cursor(0)[1]
-	local end_line = start_line
+	local start_line = params.line1
+	local end_line = params.line2
+	local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
 
-	-- handle range
-	if params.range == 2 then
-		start_line = params.line1
-		end_line = params.line2
-		local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
-
-		local min_indent = nil
-		local use_tabs = false
-		-- measure minimal common indentation for lines with content
-		for i, line in ipairs(lines) do
-			lines[i] = line
-			-- skip whitespace only lines
-			if not line:match("^%s*$") then
-				local indent = line:match("^%s*")
-				-- contains tabs
-				if indent:match("\t") then
-					use_tabs = true
-				end
-				if min_indent == nil or #indent < min_indent then
-					min_indent = #indent
-				end
+	local min_indent = nil
+	local use_tabs = false
+	-- measure minimal common indentation for lines with content
+	for i, line in ipairs(lines) do
+		lines[i] = line
+		-- skip whitespace only lines
+		if not line:match("^%s*$") then
+			local indent = line:match("^%s*")
+			-- contains tabs
+			if indent:match("\t") then
+				use_tabs = true
+			end
+			if min_indent == nil or #indent < min_indent then
+				min_indent = #indent
 			end
 		end
-		if min_indent == nil then
-			min_indent = 0
-		end
-		prefix = string.rep(use_tabs and "\t" or " ", min_indent)
-
-		for i, line in ipairs(lines) do
-			lines[i] = line:sub(min_indent + 1)
-		end
-
-		selection = table.concat(lines, "\n")
-
-		if selection == "" then
-			M.logger.warning("Please select some text to rewrite")
-			return
-		end
 	end
+	if min_indent == nil then
+		min_indent = 0
+	end
+	local prefix = string.rep(use_tabs and "\t" or " ", min_indent)
+
+	for i, line in ipairs(lines) do
+		lines[i] = line:sub(min_indent + 1)
+	end
+
+	local selection = table.concat(lines, "\n")
 
 	M._selection_first_line = start_line
 	M._selection_last_line = end_line
