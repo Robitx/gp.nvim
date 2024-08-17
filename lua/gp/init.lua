@@ -451,24 +451,22 @@ M.not_chat = function(buf, file_name)
 		return "resolved file (" .. file_name .. ") not in chat dir (" .. chat_dir .. ")"
 	end
 
+	local extension = vim.fn.fnamemodify(file_name, ":e")
+	if extension ~= "md" then
+		return "file extension is not .md"
+	end
+
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-	if #lines < 5 then
-		return "file too short"
-	end
 
-	if not lines[1]:match("^# ") then
-		return "missing topic header"
-	end
-
-	local header_found = nil
-	for i = 1, 10 do
-		if i < #lines and lines[i]:match("^- file: ") then
-			header_found = true
+	local header_break_found = false
+	for i = 2, 20 do
+		if i < #lines and lines[i]:match("^%-%-%-%s*$") then
+			header_break_found = true
 			break
 		end
 	end
-	if not header_found then
-		return "missing file header"
+	if not header_break_found then
+		return "missing header break"
 	end
 
 	return nil
