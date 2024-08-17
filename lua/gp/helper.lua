@@ -293,4 +293,24 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 	})
 end
 
+---@param lines string[] # array of lines
+---@return table<string, any>, table<string, number>, number | nil # headers, indices, last header line
+_H.parse_headers = function(lines)
+	local headers = {}
+	local indices = {}
+
+	for i, line in ipairs(lines) do
+		if i > 1 and line:sub(1, 3) == "---" then
+			return headers, indices, i - 1
+		end
+
+		local key, value = line:match("^[-#%s]*(%w+):%s*(.*)%s*")
+		if key ~= nil then
+			headers[key] = value
+			indices[key] = i - 1
+		end
+	end
+
+	return headers, indices, nil
+end
 return _H

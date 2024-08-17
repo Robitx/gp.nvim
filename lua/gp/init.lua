@@ -944,9 +944,6 @@ M.chat_respond = function(params)
 	-- go to normal mode
 	vim.cmd("stopinsert")
 
-	-- get all lines
-	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local reason = M.not_chat(buf, file_name)
@@ -955,26 +952,8 @@ M.chat_respond = function(params)
 		return
 	end
 
-	-- headers are fields before first ---
-	local headers = {}
-	local header_end = nil
-	local line_idx = 0
-	---parse headers
-	for _, line in ipairs(lines) do
-		-- first line starts with ---
-		if line:sub(1, 3) == "---" then
-			header_end = line_idx
-			break
-		end
-		-- parse header fields
-		local key, value = line:match("^[-#] (%w+): (.*)")
-		if key ~= nil then
-			headers[key] = value
-		end
-
-		line_idx = line_idx + 1
-	end
-
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	local headers, indices, header_end = M.helpers.parse_headers(lines)
 	if header_end == nil then
 		M.logger.error("Error while parsing headers: --- not found. Check your chat template.")
 		return
