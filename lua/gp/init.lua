@@ -209,6 +209,17 @@ M.setup = function(opts)
 	end
 
 	M.buf_handler()
+	vim.filetype.add({
+		extension = {
+			md = function(path, buf)
+				M.logger.debug("filetype markdown: " .. path .. " buf: " .. buf)
+				if M.helpers.ends_with(path, ".gp.md") then
+					return "markdown.gpmd"
+				end
+				return "markdown"
+			end,
+		},
+	})
 
 	if vim.fn.executable("curl") == 0 then
 		M.logger.error("curl is not installed, run :checkhealth gp")
@@ -591,7 +602,6 @@ M.buf_handler = function()
 
 		M.prep_chat(buf, file_name)
 		M.display_chat_agent(buf, file_name)
-		M.prep_context(buf, file_name)
 	end, gid)
 
 	M.helpers.autocmd({ "WinEnter" }, nil, function(event)
@@ -1582,23 +1592,6 @@ M.repo_instructions = function()
 
 	local lines = vim.fn.readfile(instruct_file)
 	return table.concat(lines, "\n")
-end
-
-M.prep_context = function(buf, file_name)
-	if not M.helpers.ends_with(file_name, ".gp.md") then
-		return
-	end
-
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-	if M._prepared_bufs[buf] then
-		M.logger.debug("buffer already prepared: " .. buf)
-		return
-	end
-	M._prepared_bufs[buf] = true
-
-	M.prep_md(buf)
 end
 
 M.cmd.Context = function(params)

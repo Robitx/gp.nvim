@@ -313,4 +313,16 @@ _H.parse_headers = function(lines)
 
 	return headers, indices, nil
 end
+
+---@param buf number # buffer number
+---@param event table # event object
+_H.deleted_invalid_autocmd = function(buf, event)
+	if not vim.api.nvim_buf_is_valid(buf) then
+		vim.api.nvim_del_autocmd(event.id)
+		logger.debug("deleting invalid autocmd: " .. event.id .. " for buffer: " .. buf)
+		return true
+	end
+	return false
+end
+
 return _H
