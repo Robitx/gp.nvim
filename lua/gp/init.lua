@@ -1084,8 +1084,7 @@ M.chat_respond = function(params)
 			M.helpers.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
-			-- if topic is ?, then generate it
-			if headers.topic == "?" then
+			if headers.topic and headers.topic:gsub("[^%w]", "") == "" then
 				-- insert last model response
 				table.insert(messages, { role = "assistant", content = qt.response })
 
@@ -1103,23 +1102,18 @@ M.chat_respond = function(params)
 					M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
 					topic_handler,
 					vim.schedule_wrap(function()
-						-- get topic from invisible buffer
 						local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
-						-- close invisible buffer
 						vim.api.nvim_buf_delete(topic_buf, { force = true })
-						-- strip whitespace from ends of topic
 						topic = topic:gsub("^%s*(.-)%s*$", "%1")
-						-- strip dot from end of topic
 						topic = topic:gsub("%.$", "")
 
-						-- if topic is empty do not replace it
 						if topic == "" then
 							return
 						end
 
-						-- replace topic in current buffer
+						local i = indices.topic
 						M.helpers.undojoin(buf)
-						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
+						vim.api.nvim_buf_set_lines(buf, i, i + 1, false, { "# topic: " .. topic })
 					end)
 				)
 			end
