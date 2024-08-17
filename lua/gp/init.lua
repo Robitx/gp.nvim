@@ -1313,13 +1313,22 @@ M.cmd.ChatFinder = function()
 				return
 			end
 
+			table.sort(results, function(a, b)
+				local af = a.file:sub(-24, -11)
+				local bf = b.file:sub(-24, -11)
+				if af == bf then
+					return a.lnum < b.lnum
+				end
+				return af > bf
+			end)
+
 			picker_files = {}
 			preview_lines = {}
 			local picker_lines = {}
 			for _, f in ipairs(results) do
 				if f.line:len() > 0 then
 					table.insert(picker_files, dir .. "/" .. f.file)
-					local fline = string.format("%s:%s %s", f.file:sub(3, -11), f.lnum, f.line)
+					local fline = string.format("%s:%s %s", f.file:sub(-24, -11), f.lnum, f.line)
 					table.insert(picker_lines, fline)
 					table.insert(preview_lines, tonumber(f.lnum))
 				end
