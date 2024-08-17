@@ -208,11 +208,14 @@ M.setup = function(opts)
 		end
 	end
 
-	M.buf_handler()
 	vim.filetype.add({
 		extension = {
 			md = function(path, buf)
 				M.logger.debug("filetype markdown: " .. path .. " buf: " .. buf)
+				if not M.not_chat(buf, path) then
+					return "markdown.gpchat"
+				end
+
 				if M.helpers.ends_with(path, ".gp.md") then
 					return "markdown.gpmd"
 				end
@@ -286,9 +289,7 @@ M.refresh_state = function(update)
 
 	M.prepare_commands()
 
-	local buf = vim.api.nvim_get_current_buf()
-	local file_name = vim.api.nvim_buf_get_name(buf)
-	M.display_chat_agent(buf, file_name)
+	vim.cmd("doautocmd User GpRefresh")
 end
 
 M.Target = {
@@ -439,23 +440,6 @@ M._toggle_resolve = function(kind)
 	return M._toggle_kind.unknown
 end
 
----@param buf number | nil # buffer number
-M.prep_md = function(buf)
-	-- disable swapping for this buffer and set filetype to markdown
-	vim.api.nvim_command("setlocal noswapfile")
-	-- better text wrapping
-	vim.api.nvim_command("setlocal wrap linebreak")
-	-- auto save on TextChanged, InsertLeave
-	vim.api.nvim_command("autocmd TextChanged,InsertLeave <buffer=" .. buf .. "> silent! write")
-
-	-- register shortcuts local to this buffer
-	buf = buf or vim.api.nvim_get_current_buf()
-
-	-- ensure normal mode
-	vim.api.nvim_command("stopinsert")
-	M.helpers.feedkeys("<esc>", "xn")
-end
-
 ---@param buf number # buffer number
 ---@param file_name string # file name
 ---@return string | nil # reason for not being a chat or nil if it is a chat
@@ -488,133 +472,6 @@ M.not_chat = function(buf, file_name)
 	end
 
 	return nil
-end
-
-M.display_chat_agent = function(buf, file_name)
-	if M.not_chat(buf, file_name) then
-		return
-	end
-
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-
-	local ns_id = vim.api.nvim_create_namespace("GpChatExt_" .. file_name)
-	vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
-
-	vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
-		strict = false,
-		right_gravity = true,
-		virt_text_pos = "right_align",
-		virt_text = {
-			{ "Current Agent: [" .. M._state.chat_agent .. "]", "DiagnosticHint" },
-		},
-		hl_mode = "combine",
-	})
-end
-
-M._prepared_bufs = {}
-M.prep_chat = function(buf, file_name)
-	if M.not_chat(buf, file_name) then
-		return
-	end
-
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-
-	M.refresh_state({ last_chat = file_name })
-	if M._prepared_bufs[buf] then
-		M.logger.debug("buffer already prepared: " .. buf)
-		return
-	end
-	M._prepared_bufs[buf] = true
-
-	M.prep_md(buf)
-
-	if M.config.chat_prompt_buf_type then
-		vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
-		vim.fn.prompt_setprompt(buf, "")
-		vim.fn.prompt_setcallback(buf, function()
-			M.cmd.ChatRespond({ args = "" })
-		end)
-	end
-
-	-- setup chat specific commands
-	local range_commands = {
-		{
-			command = "ChatRespond",
-			modes = M.config.chat_shortcut_respond.modes,
-			shortcut = M.config.chat_shortcut_respond.shortcut,
-			comment = "GPT prompt Chat Respond",
-		},
-		{
-			command = "ChatNew",
-			modes = M.config.chat_shortcut_new.modes,
-			shortcut = M.config.chat_shortcut_new.shortcut,
-			comment = "GPT prompt Chat New",
-		},
-	}
-	for _, rc in ipairs(range_commands) do
-		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
-		for _, mode in ipairs(rc.modes) do
-			if mode == "n" or mode == "i" then
-				M.helpers.set_keymap({ buf }, mode, rc.shortcut, function()
-					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
-					-- go to normal mode
-					vim.api.nvim_command("stopinsert")
-					M.helpers.feedkeys("<esc>", "xn")
-				end, rc.comment)
-			else
-				M.helpers.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
-			end
-		end
-	end
-
-	local ds = M.config.chat_shortcut_delete
-	M.helpers.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
-
-	local ss = M.config.chat_shortcut_stop
-	M.helpers.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
-
-	-- conceal parameters in model header so it's not distracting
-	if M.config.chat_conceal_model_params then
-		vim.opt_local.conceallevel = 2
-		vim.opt_local.concealcursor = ""
-		vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
-		vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
-		vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
-		vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
-	end
-end
-
-M.buf_handler = function()
-	local gid = M.helpers.create_augroup("GpBufHandler", { clear = true })
-
-	M.helpers.autocmd({ "BufEnter" }, nil, function(event)
-		local buf = event.buf
-
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-
-		local file_name = vim.api.nvim_buf_get_name(buf)
-
-		M.prep_chat(buf, file_name)
-		M.display_chat_agent(buf, file_name)
-	end, gid)
-
-	M.helpers.autocmd({ "WinEnter" }, nil, function(event)
-		local buf = event.buf
-
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-
-		local file_name = vim.api.nvim_buf_get_name(buf)
-
-		M.display_chat_agent(buf, file_name)
-	end, gid)
 end
 
 M.BufTarget = {
