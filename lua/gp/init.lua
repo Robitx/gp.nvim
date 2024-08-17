@@ -6,6 +6,9 @@
 --------------------------------------------------------------------------------
 local config = require("gp.config")
 
+local uv = vim.uv or vim.loop
+table.unpack = table.unpack or unpack -- 5.1 compatibility
+
 local M = {
 	_Name = "Gp", -- plugin name
 	_state = {}, -- table of state variables
@@ -24,6 +27,7 @@ local M = {
 	tasker = require("gp.tasker"), -- tasker module
 	vault = require("gp.vault"), -- handles secrets
 	whisper = require("gp.whisper"), -- whisper module
+	macro = require("gp.macro"), -- builder for macro completion
 }
 
 --------------------------------------------------------------------------------
@@ -189,12 +193,41 @@ M.setup = function(opts)
 		end)
 	end
 
+	M.logger.debug("hook setup done")
+
+	local ft_completion = M.macro.build_completion({
+		require("gp.macros.target_filetype"),
+	}, {})
+
+	M.logger.debug("ft_completion done")
+
+	local do_completion = M.macro.build_completion({
+		require("gp.macros.target"),
+		require("gp.macros.target_filetype"),
+		require("gp.macros.target_filename"),
+	}, {})
+
+	M.logger.debug("do_completion done")
+
+	M.command_parser = M.macro.build_parser({
+		require("gp.macros.target"),
+		require("gp.macros.target_filetype"),
+		require("gp.macros.target_filename"),
+	})
+
+	M.logger.debug("command_parser done")
+
 	local completions = {
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
 		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
 		Agent = agent_completion,
+		Do = do_completion,
+		Enew = ft_completion,
+		New = ft_completion,
+		Vnew = ft_completion,
+		Tabnew = ft_completion,
 	}
 
 	-- register default commands
@@ -1653,6 +1686,13 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		local filetype = M.helpers.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
+		local state = {}
+		local response = M.command_parser(command, {}, state)
+		if response then
+			command = M.render.template(response.template, response.artifacts)
+			state = response.state
+		end
+
 		local sys_prompt = M.render.prompt_template(agent.system_prompt, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
@@ -1749,7 +1789,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				end,
 			})
 
-			local ft = target.filetype or filetype
+			local ft = state.target_filetype or target.filetype or filetype
 			vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
 			handler = M.dispatcher.create_handler(buf, win, 0, false, "", cursor)
