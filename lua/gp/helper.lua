@@ -272,12 +272,12 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 			logger.debug(
 				"completing user command: "
 					.. cmd_name
-					.. "\narg_lead: "
-					.. arg_lead
-					.. "\ncmd_line: "
-					.. cmd_line
-					.. "\ncursor_pos: "
+					.. " cursor_pos: "
 					.. cursor_pos
+					.. " arg_lead: "
+					.. vim.inspect(arg_lead)
+					.. " cmd_line: "
+					.. vim.inspect(cmd_line)
 			)
 			if not completion then
 				return {}
