@@ -88,6 +88,27 @@ vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "InsertLeave" }, {
 		if M.helpers.deleted_invalid_autocmd(buf, event) then
 			return
 		end
+
+		local filename = vim.api.nvim_buf_get_name(buf)
+		local dir = vim.fn.fnamemodify(filename, ":h")
+
+		local name = vim.fn.fnamemodify(filename, ":t")
+		local _, _, prefix = name:find("^(.*)_[^_]*$")
+		name = prefix and name:sub(#prefix + 2) or name
+
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		local headers, _, _ = M.helpers.parse_headers(lines)
+		local topic = headers["topic"] or ""
+		topic = topic:gsub("[^%w%s]", ""):lower()
+		topic = topic:gsub("%s+", "_"):gsub("^_+", ""):gsub("_+$", "")
+
+		if topic and topic ~= "" and topic ~= prefix then
+			local new_filename = dir .. "/" .. topic .. "_" .. name
+			M.logger.debug("gpchat: renaming buffer " .. buf .. " from " .. filename .. " to " .. new_filename)
+			vim.api.nvim_buf_set_name(buf, new_filename)
+			M.helpers.delete_file(filename)
+		end
+
 		-- M.logger.debug("gpchat: saving buffer " .. buf .. " " .. vim.json.encode(event))
 		vim.api.nvim_command("silent! write")
 	end,
