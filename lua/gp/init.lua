@@ -34,6 +34,13 @@ local M = {
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
+M.cmd.Do = function(params)
+	M.logger.info("Dummy Do command called:\n" .. vim.inspect(params))
+	local result = M.command_parser(params.args, {}, {})
+	result.template = M.render.template(result.template, result.artifacts)
+	M.logger.info("Dummy Do command result:\n" .. vim.inspect(result))
+end
+
 local agent_completion = function()
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
