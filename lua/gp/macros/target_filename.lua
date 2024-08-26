@@ -9,12 +9,12 @@ M = {
 	default = nil,
 	max_occurrences = 1,
 
-	triggered = function(params, state)
+	triggered = function(params)
 		local cropped_line = params.cropped_line
 		return cropped_line:match("@target_filename`[^`]*$")
 	end,
 
-	completion = function(params, state)
+	completion = function(params)
 		-- TODO state.root_dir ?
 		local files = vim.fn.glob("**", true, true)
 		-- local files = vim.fn.getcompletion("", "file")

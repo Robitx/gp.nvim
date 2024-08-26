@@ -20,12 +20,11 @@ M = {
 	default = "rewrite",
 	max_occurrences = 1,
 
-	triggered = function(params, state)
-		local cropped_line = params.cropped_line
-		return cropped_line:match("@target%s+%S*$")
+	triggered = function(params)
+		return params.cropped_line:match("@target%s+%S*$")
 	end,
 
-	completion = function(params, state)
+	completion = function(params)
 		return values
 	end,
 

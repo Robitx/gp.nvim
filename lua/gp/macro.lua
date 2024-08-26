@@ -25,8 +25,8 @@ local logger = require("gp.logger")
 ---@field description string
 ---@field default? string
 ---@field max_occurrences? number
----@field triggered fun(params: gp.Macro_cmd_params, state: table): boolean
----@field completion fun(params: gp.Macro_cmd_params, state: table): string[]
+---@field triggered fun(params: gp.Macro_cmd_params): boolean
+---@field completion fun(params: gp.Macro_cmd_params): string[]
 ---@field parser fun(params: gp.Macro_parser_result): gp.Macro_parser_result
 
 ---@param value string # string to hash
@@ -81,21 +81,20 @@ M.build_parser = function(macros)
 end
 
 ---@param macros gp.Macro[]
----@param state table
----@return fun(arg_lead: string, cmd_line: string, cursor_pos: number): string[]
-M.build_completion = function(macros, state)
+---@param raw boolean | nil # which function to return (completion or raw_completion)
+---@return fun(arg_lead: string, cmd_line: string, cursor_pos: number): string[], boolean | nil
+M.build_completion = function(macros, raw)
 	---@type table<string, gp.Macro>
 	local map = {}
 	for _, macro in pairs(macros) do
 		map[macro.name] = macro
-		state[macro.name .. "_default"] = macro.default
 	end
 
 	---@param arg_lead string
 	---@param cmd_line string
 	---@param cursor_pos number
-	---@return string[]
-	local function completion(arg_lead, cmd_line, cursor_pos)
+	---@return string[], boolean # returns suggestions and whether some macro was triggered
+	local function raw_completion(arg_lead, cmd_line, cursor_pos)
 		local cropped_line = cmd_line:sub(1, cursor_pos)
 
 		---@type gp.Macro_cmd_params
@@ -106,11 +105,13 @@ M.build_completion = function(macros, state)
 			cropped_line = cropped_line,
 		}
 
+		cropped_line = " " .. cropped_line
+
 		local suggestions = {}
+		local triggered = false
 
 		logger.debug("macro completion input: " .. vim.inspect({
 			params = params,
-			state = state,
 		}))
 
 		---@type table<string, number>
@@ -122,8 +123,9 @@ M.build_completion = function(macros, state)
 		end
 		logger.debug("macro completion candidates: " .. vim.inspect(candidates))
 
-		if cand and map[cand] and map[cand].triggered(params, state) then
-			suggestions = map[cand].completion(params, state)
+		if cand and map[cand] and map[cand].triggered(params) then
+			suggestions = map[cand].completion(params)
+			triggered = true
 		elseif cropped_line:match("%s$") or cropped_line:match("%s@%S*$") then
 			for _, c in pairs(macros) do
 				if not candidates[c.name] or candidates[c.name] < c.max_occurrences then
@@ -133,7 +135,16 @@ M.build_completion = function(macros, state)
 		end
 
 		logger.debug("macro completion suggestions: " .. vim.inspect(suggestions))
-		return vim.deepcopy(suggestions)
+		return vim.deepcopy(suggestions), triggered
+	end
+
+	local completion = function(arg_lead, cmd_line, cursor_pos)
+		local suggestions, _ = raw_completion(arg_lead, cmd_line, cursor_pos)
+		return suggestions
+	end
+
+	if raw then
+		return raw_completion
 	end
 
 	return completion

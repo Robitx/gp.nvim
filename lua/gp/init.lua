@@ -197,7 +197,7 @@ M.setup = function(opts)
 
 	local ft_completion = M.macro.build_completion({
 		require("gp.macros.target_filetype"),
-	}, {})
+	})
 
 	M.logger.debug("ft_completion done")
 
@@ -205,7 +205,7 @@ M.setup = function(opts)
 		require("gp.macros.target"),
 		require("gp.macros.target_filetype"),
 		require("gp.macros.target_filename"),
-	}, {})
+	})
 
 	M.logger.debug("do_completion done")
 
