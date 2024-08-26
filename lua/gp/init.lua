@@ -1021,7 +1021,7 @@ M.chat_respond = function(params)
 
 						local i = indices.topic
 						M.helpers.undojoin(buf)
-						vim.api.nvim_buf_set_lines(buf, i, i + 1, false, { "# topic: " .. topic })
+						vim.api.nvim_buf_set_lines(buf, i, i + 1, false, { "topic: " .. topic })
 					end)
 				)
 			end
