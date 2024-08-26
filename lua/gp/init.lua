@@ -861,15 +861,18 @@ M.chat_respond = function(params)
 
 	-- message needs role and content
 	local messages = {}
-	local role = ""
+	local role = "user"
 	local content = ""
 
 	-- iterate over lines
-	local start_index = header_end + 1
+	local start_index = header_end + 2
 	local end_index = #lines
 	if params.range == 2 then
 		start_index = math.max(start_index, params.line1)
 		end_index = math.min(end_index, params.line2)
+	end
+	if start_index > end_index then
+		start_index = end_index
 	end
 
 	local agent = M.get_chat_agent()
@@ -924,14 +927,13 @@ M.chat_respond = function(params)
 			table.insert(messages, { role = role, content = content })
 			role = "assistant"
 			content = ""
-		elseif role ~= "" then
+		else
 			content = content .. "\n" .. line
 		end
 	end
 	-- insert last message not handled in loop
 	table.insert(messages, { role = role, content = content })
 
-	-- replace first empty message with system prompt
 	content = ""
 	if headers.role and headers.role:match("%S") then
 		content = headers.role
@@ -941,13 +943,19 @@ M.chat_respond = function(params)
 	if content:match("%S") then
 		-- make it multiline again if it contains escaped newlines
 		content = content:gsub("\\n", "\n")
-		messages[1] = { role = "system", content = content }
+		table.insert(messages, 1, { role = "system", content = content })
 	end
 
 	-- strip whitespace from ends of content
 	for _, message in ipairs(messages) do
 		message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
 	end
+
+	messages = vim.tbl_filter(function(message)
+		return not (message.content == "" and message.role == "user")
+	end, messages)
+
+	M.logger.debug("messages: " .. vim.inspect(messages), true)
 
 	-- write assistant prompt
 	local last_content_line = M.helpers.last_content_line(buf)
