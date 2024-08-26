@@ -241,20 +241,22 @@ M.setup = function(opts)
 		end
 	end
 
-	vim.filetype.add({
-		extension = {
-			md = function(path, buf)
-				M.logger.debug("filetype markdown: " .. path .. " buf: " .. buf)
-				if not M.not_chat(buf, path) then
-					return "markdown.gpchat"
+	vim.api.nvim_create_autocmd("BufEnter", {
+		pattern = "*.md",
+		callback = function(ev)
+			vim.defer_fn(function()
+				M.logger.debug("Markdown BufEnter: " .. ev.file)
+				local path = ev.file
+				local buf = ev.buf
+				local current_ft = vim.bo[buf].filetype
+				if not M.not_chat(buf, path) and current_ft ~= "markdown.gpchat" then
+					vim.bo[buf].filetype = "markdown.gpchat"
+				elseif M.helpers.ends_with(path, ".gp.md") and current_ft ~= "markdown.gpmd" then
+					vim.bo[buf].filetype = "markdown.gpmd"
 				end
-
-				if M.helpers.ends_with(path, ".gp.md") then
-					return "markdown.gpmd"
-				end
-				return "markdown"
-			end,
-		},
+				vim.cmd("doautocmd User GpRefresh")
+			end, 100)
+		end,
 	})
 
 	if vim.fn.executable("curl") == 0 then
