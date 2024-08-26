@@ -1692,6 +1692,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				finish = M._selection_last_line + ll - fl
 			end
 
+			--TODO: this bugs out when GpEnew called from welcome screen
 			-- select from first_line to last_line
 			vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
 			vim.api.nvim_command("normal! V")
