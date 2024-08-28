@@ -311,6 +311,7 @@ local config = {
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
+	chat_shortcut_help = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>h" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
 	chat_finder_mappings = {

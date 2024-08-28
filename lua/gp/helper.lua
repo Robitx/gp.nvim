@@ -63,6 +63,18 @@ _H.autocmd = function(events, buffers, callback, gid)
 	end
 end
 
+---@param callback function # callback to schedule
+---@param depth number # depth of nested scheduling
+_H.schedule = function(callback, depth)
+	logger.debug("scheduling callback with depth: " .. depth)
+	if depth <= 0 then
+		return callback()
+	end
+	return vim.schedule(function()
+		_H.schedule(callback, depth - 1)
+	end)
+end
+
 ---@param file_name string # name of the file for which to delete buffers
 _H.delete_buffer = function(file_name)
 	-- iterate over buffer list and close all buffers with the same name
@@ -294,24 +306,27 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 end
 
 ---@param lines string[] # array of lines
----@return table<string, any>, table<string, number>, number | nil # headers, indices, last header line
+---@return table<string, any>, table<string, number>, number | nil, table<string, number> # headers, indices, last header line, comments
 _H.parse_headers = function(lines)
 	local headers = {}
 	local indices = {}
+	local comments = {}
 
 	for i, line in ipairs(lines) do
 		if i > 1 and line:sub(1, 3) == "---" then
-			return headers, indices, i - 1
+			return headers, indices, i - 1, comments
 		end
 
 		local key, value = line:match("^[-#%s]*(%w+):%s*(.*)%s*")
 		if key ~= nil then
 			headers[key] = value
 			indices[key] = i - 1
+		elseif line:match("^# ") then
+			comments[line] = i - 1
 		end
 	end
 
-	return headers, indices, nil
+	return headers, indices, nil, comments
 end
 
 ---@param buf number # buffer number

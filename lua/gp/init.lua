@@ -242,17 +242,34 @@ M.setup = function(opts)
 		if M.hooks[cmd] == nil then
 			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, function(params)
 				M.logger.debug("running command: " .. cmd)
-				M.refresh_state()
+				if cmd ~= "ChatHelp" then
+					M.refresh_state()
+				end
 				M.cmd[cmd](params)
 			end, completions[cmd])
 		end
 	end
 
+	vim.filetype.add({
+		extension = {
+			md = function(path, buf)
+				M.logger.debug("filetype markdown: " .. path .. " buf: " .. buf)
+				if not M.not_chat(buf, path) then
+					return "markdown.gpchat"
+				end
+
+				if M.helpers.ends_with(path, ".gp.md") then
+					return "markdown.gpmd"
+				end
+				return "markdown"
+			end,
+		},
+	})
+
 	vim.api.nvim_create_autocmd("BufEnter", {
 		pattern = "*.md",
 		callback = function(ev)
-			vim.defer_fn(function()
-				M.logger.debug("Markdown BufEnter: " .. ev.file)
+			M.helpers.schedule(function()
 				local path = ev.file
 				local buf = ev.buf
 				local current_ft = vim.bo[buf].filetype
@@ -262,7 +279,7 @@ M.setup = function(opts)
 					vim.bo[buf].filetype = "markdown.gpmd"
 				end
 				vim.cmd("doautocmd User GpRefresh")
-			end, 100)
+			end, 3)
 		end,
 	})
 
@@ -311,6 +328,10 @@ M.refresh_state = function(update)
 
 	if M._state.last_chat and vim.fn.filereadable(M._state.last_chat) == 0 then
 		M._state.last_chat = nil
+	end
+
+	if M._state.show_chat_help == nil then
+		M._state.show_chat_help = true
 	end
 
 	for k, _ in pairs(M._state) do
@@ -699,6 +720,7 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		["{{stop_shortcut}}"] = M.config.chat_shortcut_stop.shortcut,
 		["{{delete_shortcut}}"] = M.config.chat_shortcut_delete.shortcut,
 		["{{new_shortcut}}"] = M.config.chat_shortcut_new.shortcut,
+		["{{help_shortcut}}"] = M.config.chat_shortcut_help.shortcut,
 	})
 
 	-- escape underscores (for markdown)
@@ -1039,6 +1061,64 @@ M.chat_respond = function(params)
 			vim.cmd("doautocmd User GpDone")
 		end)
 	)
+end
+
+---@param buf number
+M.chat_help = function(buf)
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	M.logger.debug("ChatHelp: buffer: " .. buf .. " file: " .. file_name)
+	local reason = M.not_chat(buf, file_name)
+	if reason then
+		M.logger.debug("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
+		return
+	end
+
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	local _, _, header_end, comments = M.helpers.parse_headers(lines)
+	if header_end == nil then
+		M.logger.error("Error while parsing headers: --- not found. Check your chat template.")
+		return
+	end
+
+	local help_template = M.render.template(M.defaults.chat_help, {
+		["{{user_prefix}}"] = M.config.chat_user_prefix,
+		["{{respond_shortcut}}"] = M.config.chat_shortcut_respond.shortcut,
+		["{{cmd_prefix}}"] = M.config.cmd_prefix,
+		["{{stop_shortcut}}"] = M.config.chat_shortcut_stop.shortcut,
+		["{{delete_shortcut}}"] = M.config.chat_shortcut_delete.shortcut,
+		["{{new_shortcut}}"] = M.config.chat_shortcut_new.shortcut,
+		["{{help_shortcut}}"] = M.config.chat_shortcut_help.shortcut,
+	})
+
+	local help_lines = vim.split(help_template, "\n")
+	local help_map = {}
+	for _, line in ipairs(help_lines) do
+		help_map[line] = true
+	end
+
+	local insert_help = true
+	local drop_lines = {}
+	for comment, index in pairs(comments) do
+		if help_map[comment] then
+			insert_help = false
+			table.insert(drop_lines, index)
+		end
+	end
+
+	if M._state.show_chat_help and insert_help then
+		vim.api.nvim_buf_set_lines(buf, header_end, header_end, false, help_lines)
+	elseif not M._state.show_chat_help and not insert_help then
+		table.sort(drop_lines, function(a, b)
+			return a > b
+		end)
+		for _, index in ipairs(drop_lines) do
+			vim.api.nvim_buf_set_lines(buf, index, index + 1, false, {})
+		end
+	end
+end
+
+M.cmd.ChatHelp = function()
+	M.refresh_state({ show_chat_help = not M._state.show_chat_help })
 end
 
 M.cmd.ChatRespond = function(params)

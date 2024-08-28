@@ -37,6 +37,12 @@ local commands = {
 		shortcut = M.config.chat_shortcut_new.shortcut,
 		comment = "GPT prompt Chat New",
 	},
+	{
+		command = "ChatHelp",
+		modes = M.config.chat_shortcut_help.modes,
+		shortcut = M.config.chat_shortcut_help.shortcut,
+		comment = "GPT prompt Chat Help",
+	},
 }
 for _, rc in ipairs(commands) do
 	local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
@@ -123,6 +129,8 @@ vim.api.nvim_create_autocmd({ "User" }, {
 		end
 
 		M.logger.debug("gpchat: refreshing buffer " .. buf .. " " .. vim.json.encode(event))
+
+		M.chat_help(buf)
 
 		vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
 
