@@ -340,4 +340,19 @@ _H.deleted_invalid_autocmd = function(buf, event)
 	return false
 end
 
+---@param buf number # buffer number
+---@param caller string | nil # cause of the save
+---@return boolean # true if successful, false otherwise
+_H.save_buffer = function(buf, caller)
+    if not vim.api.nvim_buf_is_valid(buf) then
+        return false
+    end
+    local success = pcall(vim.api.nvim_buf_call, buf, function()
+        vim.cmd('silent! write')
+    end)
+	caller = caller or "unknown"
+	logger.debug("saving buffer: " .. buf .. " success: " .. vim.inspect(success) .. " caller: " .. vim.inspect(caller))
+    return success
+end
+
 return _H

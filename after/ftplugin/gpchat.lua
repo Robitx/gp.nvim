@@ -76,18 +76,6 @@ if M.config.chat_conceal_model_params then
 	vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
 end
 
-vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
-	buffer = buf,
-	callback = function(event)
-		if M.helpers.deleted_invalid_autocmd(buf, event) then
-			return
-		end
-		-- M.logger.debug("gpchat: entering buffer " .. buf .. " " .. vim.json.encode(event))
-
-		vim.cmd("doautocmd User GpRefresh")
-	end,
-})
-
 vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "InsertLeave" }, {
 	buffer = buf,
 	callback = function(event)
@@ -115,8 +103,7 @@ vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "InsertLeave" }, {
 			M.helpers.delete_file(filename)
 		end
 
-		-- M.logger.debug("gpchat: saving buffer " .. buf .. " " .. vim.json.encode(event))
-		vim.api.nvim_command("silent! write")
+		M.helpers.save_buffer(buf, "gpchat TextChanged InsertLeave autocmd")
 	end,
 })
 vim.api.nvim_create_autocmd({ "User" }, {
@@ -143,5 +130,7 @@ vim.api.nvim_create_autocmd({ "User" }, {
 			},
 			hl_mode = "combine",
 		})
+
+		M.helpers.save_buffer(buf, "gpchat User GpRefresh autocmd")
 	end,
 })

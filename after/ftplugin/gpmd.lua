@@ -15,7 +15,7 @@ vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave" }, {
 			return
 		end
 		M.logger.debug("gpmd: saving buffer " .. buf .. " " .. vim.json.encode(event))
-		vim.api.nvim_command("silent! write")
+		M.helpers.save_buffer(buf, "gpmd TextChanged InsertLeave autocmd")
 	end,
 })
 
