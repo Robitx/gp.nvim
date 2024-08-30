@@ -250,22 +250,6 @@ M.setup = function(opts)
 		end
 	end
 
-	vim.filetype.add({
-		extension = {
-			md = function(path, buf)
-				M.logger.debug("filetype markdown: " .. path .. " buf: " .. buf)
-				if not M.not_chat(buf, path) then
-					return "markdown.gpchat"
-				end
-
-				if M.helpers.ends_with(path, ".gp.md") then
-					return "markdown.gpmd"
-				end
-				return "markdown"
-			end,
-		},
-	})
-
 	vim.api.nvim_create_autocmd("BufEnter", {
 		pattern = "*.md",
 		callback = function(ev)
@@ -279,7 +263,7 @@ M.setup = function(opts)
 					vim.bo[buf].filetype = "markdown.gpmd"
 				end
 				vim.cmd("doautocmd User GpRefresh")
-			end, 3)
+			end, 1)
 		end,
 	})
 
@@ -731,8 +715,11 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 	-- strip leading and trailing newlines
 	template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
 
+	local lines = vim.split(template, "\n")
+	lines = M.chat_header_lines(lines)
+
 	-- create chat file
-	vim.fn.writefile(vim.split(template, "\n"), filename)
+	vim.fn.writefile(lines, filename)
 	local target = M.resolve_buf_target(params)
 	local buf = M.open_buf(filename, target, M._toggle_kind.chat, toggle)
 
@@ -1063,22 +1050,22 @@ M.chat_respond = function(params)
 	)
 end
 
----@param buf number
-M.chat_help = function(buf)
-	local file_name = vim.api.nvim_buf_get_name(buf)
-	M.logger.debug("ChatHelp: buffer: " .. buf .. " file: " .. file_name)
-	local reason = M.not_chat(buf, file_name)
-	if reason then
-		M.logger.debug("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
-		return
-	end
-
-	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+---@param lines table # array of lines to process
+---@return table # updated array of lines
+---@return number # original header end
+---@return number # new header end
+M.chat_header_lines = function(lines)
 	local _, _, header_end, comments = M.helpers.parse_headers(lines)
 	if header_end == nil then
 		M.logger.error("Error while parsing headers: --- not found. Check your chat template.")
-		return
+		return lines, 0, 0
 	end
+
+	if header_end + 1 >= #lines then
+		return lines, 0, 0
+	end
+
+	local header_lines = table.concat(vim.list_slice(lines, 0, header_end + 1), "\n")
 
 	local help_template = M.render.template(M.defaults.chat_help, {
 		["{{user_prefix}}"] = M.config.chat_user_prefix,
@@ -1105,16 +1092,48 @@ M.chat_help = function(buf)
 		end
 	end
 
+	local new_header_end = header_end
+
 	if M._state.show_chat_help and insert_help then
-		vim.api.nvim_buf_set_lines(buf, header_end, header_end, false, help_lines)
+		for i = #help_lines, 1, -1 do
+			table.insert(lines, new_header_end + 1, help_lines[i])
+		end
+		new_header_end = new_header_end + #help_lines
 	elseif not M._state.show_chat_help and not insert_help then
 		table.sort(drop_lines, function(a, b)
 			return a > b
 		end)
 		for _, index in ipairs(drop_lines) do
-			vim.api.nvim_buf_set_lines(buf, index, index + 1, false, {})
+			table.remove(lines, index + 1)
+		end
+		new_header_end = new_header_end - #drop_lines
+	end
+
+	local j = 1
+	while j <= new_header_end do
+		if lines[j]:match("^%s*$") then
+			table.remove(lines, j)
+			new_header_end = new_header_end - 1
+		else
+			j = j + 1
 		end
 	end
+
+	return lines, header_end, new_header_end
+end
+
+---@param buf number
+M.chat_header = function(buf)
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	M.logger.debug("ChatHelp: buffer: " .. buf .. " file: " .. file_name)
+	local reason = M.not_chat(buf, file_name)
+	if reason then
+		M.logger.debug("File " .. vim.inspect(file_name) .. " does not look like a chat file: " .. vim.inspect(reason))
+		return
+	end
+
+	local lines, old_header_end, header_end = M.chat_header_lines(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+	vim.api.nvim_buf_set_lines(buf, 0, old_header_end + 1, false, vim.list_slice(lines, 0, header_end + 1))
 end
 
 M.cmd.ChatHelp = function()

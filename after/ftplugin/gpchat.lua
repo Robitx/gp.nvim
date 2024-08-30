@@ -117,16 +117,21 @@ vim.api.nvim_create_autocmd({ "User" }, {
 
 		M.logger.debug("gpchat: refreshing buffer " .. buf .. " " .. vim.json.encode(event))
 
-		M.chat_help(buf)
+		M.chat_header(buf)
 
 		vim.api.nvim_buf_clear_namespace(buf, ns_id, 0, -1)
 
+		local msg = "Current Agent: [" .. M._state.chat_agent .. "]"
+		if not M._state.show_chat_help then
+			msg = "Toggle help: " .. M.config.chat_shortcut_help.shortcut .. "  |  " .. msg
+		end
+
 		vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
 			strict = false,
-			right_gravity = true,
+			right_gravity = false,
 			virt_text_pos = "right_align",
 			virt_text = {
-				{ "Current Agent: [" .. M._state.chat_agent .. "]", "DiagnosticHint" },
+				{ msg, "DiagnosticHint" },
 			},
 			hl_mode = "combine",
 		})
