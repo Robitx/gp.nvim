@@ -179,15 +179,10 @@ M.setup = function(opts)
 	table.sort(M._chat_agents)
 	table.sort(M._command_agents)
 
-	M.refresh_state()
-
-	if M.config.default_command_agent then
-		M.refresh_state({ command_agent = M.config.default_command_agent })
-	end
-
-	if M.config.default_chat_agent then
-		M.refresh_state({ chat_agent = M.config.default_chat_agent })
-	end
+	M.refresh_state({
+		command_agent = M.config.default_command_agent,
+		chat_agent = M.config.default_chat_agent,
+	})
 
 	-- register user commands
 	for hook, _ in pairs(M.hooks) do
@@ -238,14 +233,18 @@ M.setup = function(opts)
 		Tabnew = ft_completion,
 	}
 
+	local updates = {
+		ChatHelp = function()
+			return { show_chat_help = not M._state.show_chat_help }
+		end,
+	}
+
 	-- register default commands
 	for cmd, _ in pairs(M.cmd) do
 		if M.hooks[cmd] == nil then
 			M.helpers.create_user_command(M.config.cmd_prefix .. cmd, function(params)
 				M.logger.debug("running command: " .. cmd)
-				if cmd ~= "ChatHelp" then
-					M.refresh_state()
-				end
+				M.refresh_state((updates[cmd] or function() end)())
 				M.cmd[cmd](params)
 			end, completions[cmd])
 		end
@@ -255,15 +254,20 @@ M.setup = function(opts)
 		pattern = "*.md",
 		callback = function(ev)
 			M.helpers.schedule(function()
-				local path = ev.file
 				local buf = ev.buf
 				local current_ft = vim.bo[buf].filetype
-				if not M.not_chat(buf, path) and current_ft ~= "markdown.gpchat" then
-					vim.bo[buf].filetype = "markdown.gpchat"
-				elseif M.helpers.ends_with(path, ".gp.md") and current_ft ~= "markdown.gpmd" then
-					vim.bo[buf].filetype = "markdown.gpmd"
+
+				if current_ft == "markdown.gpchat" then
+					vim.cmd("doautocmd User GpRefresh")
+				elseif current_ft ~= "markdown.gpmd" then
+					local path = ev.file
+					if M.helpers.ends_with(path, ".gp.md") then
+						vim.bo[buf].filetype = "markdown.gpmd"
+					elseif M.not_chat(buf, path) == nil then
+						vim.bo[buf].filetype = "markdown.gpchat"
+						vim.cmd("doautocmd User GpRefresh")
+					end
 				end
-				vim.cmd("doautocmd User GpRefresh")
 			end, 1)
 		end,
 	})
@@ -1159,9 +1163,7 @@ M.chat_header = function(buf)
 	vim.api.nvim_buf_set_lines(buf, 0, old_header_end + 1, false, vim.list_slice(lines, 0, header_end + 1))
 end
 
-M.cmd.ChatHelp = function()
-	M.refresh_state({ show_chat_help = not M._state.show_chat_help })
-end
+M.cmd.ChatHelp = function() end
 
 M.cmd.ChatRespond = function(params)
 	if params.args == "" and vim.v.count == 0 then
