@@ -18,7 +18,7 @@ M.chat_help = [[
 # Response generation can be terminated by using `{{stop_shortcut}}` or :{{cmd_prefix}}ChatStop command.
 # Chats are saved automatically. To delete this chat, use `{{delete_shortcut}}` or :{{cmd_prefix}}ChatDelete.
 # Be cautious of very long chats. Start a fresh chat by using `{{new_shortcut}}` or :{{cmd_prefix}}ChatNew.
-# See available macros by typing @ in the chat. Toggle this	help by using `{{help_shortcut}}` or :{{cmd_prefix}}ChatHelp.]]
+# Add context macros by typing @ in the chat. Toggle this help by `{{help_shortcut}}` or :{{cmd_prefix}}ChatHelp.]]
 
 M.chat_template = [[
 ---

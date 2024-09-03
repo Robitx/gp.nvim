@@ -28,6 +28,7 @@ local M = {
 	vault = require("gp.vault"), -- handles secrets
 	whisper = require("gp.whisper"), -- whisper module
 	macro = require("gp.macro"), -- builder for macro completion
+	buffer_state = require("gp.buffer_state"), -- buffer state module
 }
 
 --------------------------------------------------------------------------------
@@ -264,6 +265,23 @@ M.setup = function(opts)
 				end
 				vim.cmd("doautocmd User GpRefresh")
 			end, 1)
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("BufEnter", {
+		callback = function(ev)
+			local buf = ev.buf
+			local context_dir = M.buffer_state.get_key(buf, "context_dir")
+			context_dir = context_dir or M.helpers.find_git_root()
+			if context_dir == "" then
+				context_dir = vim.fn.getcwd()
+			end
+
+			local full_path = vim.fn.fnamemodify(context_dir, ":p")
+			if vim.fn.isdirectory(full_path) == 1 then
+				full_path = vim.fn.resolve(full_path)
+				M.buffer_state.set(buf, "context_dir", full_path)
+			end
 		end,
 	})
 
@@ -695,9 +713,16 @@ M.new_chat = function(params, toggle, system_prompt, agent)
 		system_prompt = ""
 	end
 
+	local context_dir = M.buffer_state.get_key(vim.api.nvim_get_current_buf(), "context_dir")
+	context_dir = context_dir or M.helpers.find_git_root()
+	if context_dir == "" then
+		context_dir = vim.fn.getcwd()
+	end
+	context_dir = "contextDir: " .. context_dir .. "\n"
+
 	local template = M.render.template(M.config.chat_template or require("gp.defaults").chat_template, {
 		["{{filename}}"] = string.match(filename, "([^/]+)$"),
-		["{{optional_headers}}"] = model .. provider .. system_prompt,
+		["{{optional_headers}}"] = model .. provider .. system_prompt .. context_dir,
 		["{{user_prefix}}"] = M.config.chat_user_prefix,
 		["{{respond_shortcut}}"] = M.config.chat_shortcut_respond.shortcut,
 		["{{cmd_prefix}}"] = M.config.cmd_prefix,
@@ -1064,8 +1089,6 @@ M.chat_header_lines = function(lines)
 	if header_end + 1 >= #lines then
 		return lines, 0, 0
 	end
-
-	local header_lines = table.concat(vim.list_slice(lines, 0, header_end + 1), "\n")
 
 	local help_template = M.render.template(M.defaults.chat_help, {
 		["{{user_prefix}}"] = M.config.chat_user_prefix,

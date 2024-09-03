@@ -1,10 +1,12 @@
 local logger = require("gp.logger")
+local buffer_state = require("gp.buffer_state")
 
 ---@class gp.Macro_cmd_params
 ---@field arg_lead string
 ---@field cmd_line string
 ---@field cursor_pos number
 ---@field cropped_line string
+---@field state table
 
 ---@class gp.Macro_parser_result
 ---@field template string
@@ -65,7 +67,7 @@ M.build_parser = function(macros)
 		local result = {
 			template = " " .. template .. " ",
 			artifacts = artifacts or {},
-			state = state or {},
+			state = state or buffer_state.get(vim.api.nvim_get_current_buf()),
 		}
 		logger.debug("macro parser input: " .. vim.inspect(result))
 
@@ -103,6 +105,7 @@ M.build_completion = function(macros, raw)
 			cmd_line = cmd_line,
 			cursor_pos = cursor_pos,
 			cropped_line = cropped_line,
+			state = buffer_state.get(vim.api.nvim_get_current_buf()),
 		}
 
 		cropped_line = " " .. cropped_line

@@ -103,6 +103,18 @@ vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "InsertLeave" }, {
 			M.helpers.delete_file(filename)
 		end
 
+		local context_dir = headers["contextDir"] or "?"
+		local new_context_dir = nil
+		if context_dir ~= "?" and context_dir ~= "" then
+			local full_path = vim.fn.fnamemodify(context_dir, ":p")
+			if vim.fn.isdirectory(full_path) == 1 then
+				new_context_dir = vim.fn.resolve(full_path)
+			else
+				M.logger.warning("gpchat: contextDir " .. full_path .. " is not a directory")
+			end
+		end
+		M.buffer_state.set(buf, "context_dir", new_context_dir)
+
 		M.helpers.save_buffer(buf, "gpchat TextChanged InsertLeave autocmd")
 	end,
 })
