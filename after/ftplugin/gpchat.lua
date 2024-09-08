@@ -151,3 +151,31 @@ vim.api.nvim_create_autocmd({ "User" }, {
 		M.helpers.save_buffer(buf, "gpchat User GpRefresh autocmd")
 	end,
 })
+
+local has_cmp, cmp = pcall(require, "cmp")
+if not has_cmp then
+	M.logger.debug("gpchat: cmp not found, skipping cmp setup")
+	return
+end
+
+M.macro.build_cmp_source("gpchat", {
+	require("gp.macros.context_file"),
+})
+
+local sources = {
+	{ name = "gpchat" },
+}
+for _, source in pairs(cmp.get_config().sources) do
+	if source.name ~= "gpchat" and source.name ~= "buffer" then
+		table.insert(sources, source)
+	end
+end
+
+M.logger.debug("gpchat: cmp sources " .. vim.inspect(sources))
+
+cmp.setup.buffer({
+	-- keyword_length = 1,
+	max_item_count = 100,
+	completion = { autocomplete = { require("cmp.types").cmp.TriggerEvent.TextChanged } },
+	sources = sources,
+})

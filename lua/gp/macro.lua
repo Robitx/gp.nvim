@@ -153,4 +153,95 @@ M.build_completion = function(macros, raw)
 	return completion
 end
 
+local registered_cmp_sources = {}
+M.build_cmp_source = function(name, macros)
+	if registered_cmp_sources[name] then
+		logger.debug("cmp source " .. name .. " already registered")
+		return nil
+	end
+	local source = {}
+
+	source.new = function()
+		return setmetatable({}, { __index = source })
+	end
+
+	source.get_trigger_characters = function()
+		return { "@", " " }
+	end
+
+	local completion = M.build_completion(macros, true)
+
+	source.complete = function(self, params, callback)
+		local ctx = params.context
+		local suggestions, triggered = completion(ctx.cursor_before_line:match("%S*$"), ctx.cursor_line, ctx.cursor.col)
+
+		if not triggered and not ctx.cursor_before_line:match("%s*@%S*$") then
+			suggestions = {}
+		end
+
+		logger.debug("macro completion suggestions: " .. vim.inspect(suggestions))
+
+		local items = {}
+		for _, suggestion in ipairs(suggestions) do
+			table.insert(items, {
+				label = suggestion,
+				kind = require("cmp").lsp.CompletionItemKind.Keyword,
+				documentation = name,
+			})
+		end
+		logger.debug("macro cmp complete output: " .. vim.inspect(items))
+
+		callback(items)
+	end
+
+	local has_cmp, cmp = pcall(require, "cmp")
+	if not has_cmp then
+		logger.warning("cmp not found, skipping cmp source registration")
+		return source
+	end
+
+	cmp.register_source(name, source)
+	registered_cmp_sources[name] = true
+
+	if true then
+		return source
+	end
+
+	cmp.event:on("complete_done", function(event)
+		if not event or not event.entry or event.entry.source.name ~= name then
+			return
+		end
+		local ctx = event.entry.source.context
+		local suggestions, triggered = completion(ctx.cursor_before_line:match("%S*$"), ctx.cursor_line, ctx.cursor.col)
+		logger.debug(
+			"macro cmp complete_done suggestions: " .. vim.inspect(suggestions) .. " triggered: " .. vim.inspect(triggered)
+		)
+		if not suggestions or not triggered then
+			return
+		end
+
+		vim.schedule(function()
+			-- insert a space if not already present at the cursor
+			local cursor_col = vim.api.nvim_win_get_cursor(0)[2]
+			local line = vim.api.nvim_get_current_line()
+			logger.debug(
+				"macro cmp complete_done cursor_col: "
+					.. cursor_col
+					.. " line: "
+					.. line
+					.. " char: "
+					.. line:sub(cursor_col, cursor_col)
+			)
+			if line:sub(cursor_col, cursor_col) ~= " " then
+				vim.api.nvim_put({ " " }, "c", false, true)
+			end
+			vim.schedule(function()
+				cmp.complete(suggestions)
+			end)
+		end)
+	end)
+
+	return source
+end
+
 return M

@@ -229,7 +229,9 @@ M.setup = function(opts)
 		require("gp.macros.context_file"),
 	})
 
-	M.logger.debug("command_parser done")
+	M.chat_parser = M.macro.build_parser({
+		require("gp.macros.context_file"),
+	})
 
 	local completions = {
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
@@ -1035,8 +1037,13 @@ M.chat_respond = function(params)
 		table.insert(messages, 1, { role = "system", content = content })
 	end
 
-	-- strip whitespace from ends of content
+	local state = M.buffer_state.get(buf)
 	for _, message in ipairs(messages) do
+		local response = M.chat_parser(message.content, {}, state)
+		if response then
+			message.content = M.render.template(response.template, response.artifacts)
+			state = response.state
+		end
 		message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
 	end
 
