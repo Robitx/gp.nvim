@@ -1,6 +1,6 @@
 local macro = require("gp.macro")
 
-local values = vim.fn.getcompletion("", "filetype")
+local values = nil
 
 local M = {}
 
@@ -16,6 +16,9 @@ M = {
 	end,
 
 	completion = function(params)
+		if not values then
+			values = vim.fn.getcompletion("", "filetype")
+		end
 		return values
 	end,
 
