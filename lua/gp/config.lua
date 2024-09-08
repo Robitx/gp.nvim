@@ -370,6 +370,8 @@ local config = {
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
 	template_command = "{{command}}",
+	template_context_file = "\n\nHere is a file {{filename}} for additional context:"
+		.. "\n\n```\n{{content}}\n```\n\n",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
 	-- Whisper costs $0.006 / minute (rounded to the nearest second)
