@@ -200,11 +200,17 @@ M.setup = function(opts)
 
 	local ft_completion = M.macro.build_completion({
 		require("gp.macros.target_filetype"),
+		require("gp.macros.agent"),
+	})
+
+	local base_completion = M.macro.build_completion({
+		require("gp.macros.agent"),
 	})
 
 	M.logger.debug("ft_completion done")
 
 	local do_completion = M.macro.build_completion({
+		require("gp.macros.agent"),
 		require("gp.macros.target"),
 		require("gp.macros.target_filetype"),
 		require("gp.macros.target_filename"),
@@ -213,6 +219,7 @@ M.setup = function(opts)
 	M.logger.debug("do_completion done")
 
 	M.command_parser = M.macro.build_parser({
+		require("gp.macros.agent"),
 		require("gp.macros.target"),
 		require("gp.macros.target_filetype"),
 		require("gp.macros.target_filename"),
@@ -231,6 +238,10 @@ M.setup = function(opts)
 		New = ft_completion,
 		Vnew = ft_completion,
 		Tabnew = ft_completion,
+		Rewrite = base_completion,
+		Prepend = base_completion,
+		Append = base_completion,
+		Popup = base_completion,
 	}
 
 	local updates = {
@@ -286,6 +297,9 @@ M.setup = function(opts)
 				full_path = vim.fn.resolve(full_path)
 				M.buffer_state.set(buf, "context_dir", full_path)
 			end
+
+			local filename = vim.api.nvim_buf_get_name(buf)
+			M.buffer_state.set(buf, "is_chat", M.not_chat(buf, filename) == nil)
 		end,
 	})
 
@@ -395,6 +409,32 @@ M.Target = {
 		return { type = 7, filetype = filetype }
 	end,
 }
+
+---@param target number | table # target to get name for
+---@return string # name of the target
+---@return string | nil # filetype of the target, if applicable
+M.get_target_name = function(target)
+	local names = {}
+	for name, value in pairs(M.Target) do
+		if type(value) == "number" then
+			names[value] = name
+		elseif type(value) == "function" then
+			local result = value()
+			if type(result) == "table" and result.type then
+				names[result.type] = name
+			end
+		end
+	end
+
+	if type(target) == "number" then
+		return names[target] or "unknown"
+	elseif type(target) == "table" and target.type then
+		return names[target.type] or "unknown", target.filetype
+	end
+
+	M.logger.error("Invalid target type: " .. vim.inspect(target))
+	return "unknown"
+end
 
 -- creates prompt commands for each target
 M.prepare_commands = function()
@@ -1828,12 +1868,14 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		local filetype = M.helpers.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local state = {}
+		local state = M.buffer_state.get(buf)
 		local response = M.command_parser(command, {}, state)
 		if response then
 			command = M.render.template(response.template, response.artifacts)
 			state = response.state
 		end
+
+		agent = state.agent or agent
 
 		local sys_prompt = M.render.prompt_template(agent.system_prompt, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
@@ -1964,13 +2006,20 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			return
 		end
 
-		-- if prompt is provided, ask the user to enter the command
-		vim.ui.input({ prompt = prompt, default = whisper }, function(input)
-			if not input or input == "" then
-				return
-			end
-			cb(input)
-		end)
+		-- old shortcuts might produce stuff like `:GpRewrite<cr>` this
+		-- used to be handled by vim.ui.input, which has trouble with completion
+		local command = ":" .. start_line .. "," .. end_line .. "Gp"
+		local targetName, filetype = M.get_target_name(target)
+		targetName = targetName:gsub("^%l", string.upper)
+		command = command .. targetName
+		command = command .. " @agent " .. agent.name
+		filetype = filetype and " @target_filetype " .. filetype or ""
+		command = command .. filetype
+		whisper = whisper and " " .. whisper or ""
+		command = command .. whisper
+		command = command .. " "
+
+		vim.api.nvim_feedkeys(command, "n", false)
 	end)
 end
 
