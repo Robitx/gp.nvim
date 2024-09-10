@@ -41,7 +41,7 @@ end
 
 -- setup function
 M._setup_called = false
----@param opts table | nil # table with options
+---@param opts GpConfig? # table with options
 M.setup = function(opts)
 	M._setup_called = true
 
