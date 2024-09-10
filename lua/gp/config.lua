@@ -5,6 +5,7 @@
 -- Default config
 --------------------------------------------------------------------------------
 
+---@class GpConfig
 -- README_REFERENCE_MARKER_START
 local config = {
 	-- Please start with minimal config possible.
@@ -317,11 +318,12 @@ local config = {
 	-- use prompt buftype for chats (:h prompt-buffer)
 	chat_prompt_buf_type = false,
 
-	-- how to display GpChatToggle or GpContext: popup / split / vsplit / tabnew
+	-- how to display GpChatToggle or GpContext
+	---@type "popup" | "split" | "vsplit" | "tabnew"
 	toggle_target = "vsplit",
 
 	-- styling for chatfinder
-	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
+	---@type "single" | "double" | "rounded" | "solid" | "shadow" | "none"
 	style_chat_finder_border = "single",
 	-- margins are number of characters or lines
 	style_chat_finder_margin_bottom = 8,
@@ -332,7 +334,7 @@ local config = {
 	style_chat_finder_preview_ratio = 0.5,
 
 	-- styling for popup
-	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
+	---@type "single" | "double" | "rounded" | "solid" | "shadow" | "none"
 	style_popup_border = "single",
 	-- margins are number of characters or lines
 	style_popup_margin_bottom = 8,
