@@ -313,6 +313,9 @@ local config = {
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
+	chat_finder_mappings = {
+		delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-d>" },
+	},
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
 	-- use prompt buftype for chats (:h prompt-buffer)

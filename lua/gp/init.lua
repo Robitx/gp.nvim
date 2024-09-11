@@ -1192,6 +1192,7 @@ M.cmd.ChatFinder = function()
 	M._chat_finder_opened = true
 
 	local dir = M.config.chat_dir
+	local delete_shortcut = M.config.chat_finder_mappings.delete or M.config.chat_shortcut_delete
 
 	-- prepare unique group name and register augroup
 	local gid = M.helpers.create_augroup("GpChatFinder", { clear = true })
@@ -1205,7 +1206,7 @@ M.cmd.ChatFinder = function()
 	local right = M.config.style_chat_finder_margin_right or 2
 	local picker_buf, picker_win, picker_close, picker_resize = M.render.popup(
 		nil,
-		"Picker: j/k <Esc>|exit <Enter>|open " .. M.config.chat_shortcut_delete.shortcut .. "|del i|srch",
+		"Picker: j/k <Esc>|exit <Enter>|open " .. delete_shortcut.shortcut .. "|del i|srch",
 		function(w, h)
 			local wh = h - top - bottom - 2
 			local ww = w - left - right - 2
@@ -1457,8 +1458,8 @@ M.cmd.ChatFinder = function()
 	-- dd on picker or preview window will delete file
 	M.helpers.set_keymap(
 		{ command_buf, picker_buf, preview_buf },
-		{ "i", "n", "v" },
-		M.config.chat_shortcut_delete.shortcut,
+		delete_shortcut.mode,
+		delete_shortcut.shortcut,
 		function()
 			local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 			local file = picker_files[index]
