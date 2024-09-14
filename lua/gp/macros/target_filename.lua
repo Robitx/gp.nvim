@@ -1,4 +1,5 @@
 local macro = require("gp.macro")
+local gp = require("gp")
 
 local M = {}
 
@@ -15,11 +16,11 @@ M = {
 	end,
 
 	completion = function(params)
-		-- TODO state.root_dir ?
-		local files = vim.fn.glob("**", true, true)
-		-- local files = vim.fn.getcompletion("", "file")
+		local root_dir = params.state.context_dir or vim.fn.getcwd()
+		local files = vim.fn.globpath(root_dir, "**", false, true)
+		local root_dir_length = #root_dir + 2
 		files = vim.tbl_map(function(file)
-			return file .. " `"
+			return file:sub(root_dir_length) .. " `"
 		end, files)
 		return files
 	end,
@@ -34,9 +35,14 @@ M = {
 		value = value:match("^%s*(.-)%s*$")
 		local placeholder = macro.generate_placeholder(M.name, value)
 
-		result.template = template:sub(1, s - 2) .. placeholder .. template:sub(e + 1)
-		result.state[M.name] = value
+		local full_path = value
+		if vim.fn.fnamemodify(full_path, ":p") ~= value then
+			full_path = vim.fn.fnamemodify(result.state.context_dir .. "/" .. value, ":p")
+		end
+
 		result.artifacts[placeholder] = ""
+		result.template = template:sub(1, s - 1) .. placeholder .. template:sub(e + 1)
+		result.state[M.name:sub(1, -2)] = full_path
 		return result
 	end,
 }

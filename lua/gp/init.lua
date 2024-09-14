@@ -199,9 +199,10 @@ M.setup = function(opts)
 	M.logger.debug("hook setup done")
 
 	local ft_completion = M.macro.build_completion({
-		require("gp.macros.target_filetype"),
 		require("gp.macros.agent"),
 		require("gp.macros.context_file"),
+		require("gp.macros.target_filename"),
+		require("gp.macros.target_filetype"),
 	})
 
 	local base_completion = M.macro.build_completion({
@@ -213,20 +214,20 @@ M.setup = function(opts)
 
 	local do_completion = M.macro.build_completion({
 		require("gp.macros.agent"),
-		require("gp.macros.target"),
-		require("gp.macros.target_filetype"),
-		require("gp.macros.target_filename"),
 		require("gp.macros.context_file"),
+		require("gp.macros.target"),
+		require("gp.macros.target_filename"),
+		require("gp.macros.target_filetype"),
 	})
 
 	M.logger.debug("do_completion done")
 
 	M.command_parser = M.macro.build_parser({
 		require("gp.macros.agent"),
-		require("gp.macros.target"),
-		require("gp.macros.target_filetype"),
-		require("gp.macros.target_filename"),
 		require("gp.macros.context_file"),
+		require("gp.macros.target"),
+		require("gp.macros.target_filename"),
+		require("gp.macros.target_filetype"),
 	})
 
 	M.chat_parser = M.macro.build_parser({
@@ -1969,7 +1970,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				win = vim.api.nvim_get_current_win()
 			end
 
-			buf = vim.api.nvim_create_buf(true, true)
+			buf = vim.api.nvim_create_buf(true, false)
 			vim.api.nvim_set_current_buf(buf)
 
 			local group = M.helpers.create_augroup("GpScratchSave" .. M.helpers.uuid(), { clear = true })
@@ -1986,6 +1987,11 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 
 			local ft = state.target_filetype or target.filetype or filetype
 			vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
+			local name = state.target_filename
+			if name then
+				vim.api.nvim_buf_set_name(buf, name)
+				M.helpers.save_buffer(buf, "Prompt created buffer")
+			end
 
 			handler = M.dispatcher.create_handler(buf, win, 0, false, "", cursor)
 		end
