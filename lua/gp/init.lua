@@ -1458,7 +1458,7 @@ M.cmd.ChatFinder = function()
 	-- dd on picker or preview window will delete file
 	M.helpers.set_keymap(
 		{ command_buf, picker_buf, preview_buf },
-		delete_shortcut.mode,
+		delete_shortcut.modes,
 		delete_shortcut.shortcut,
 		function()
 			local index = vim.api.nvim_win_get_cursor(picker_win)[1]
