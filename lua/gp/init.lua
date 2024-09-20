@@ -1461,6 +1461,26 @@ M.cmd.ChatFinder = function()
 		delete_shortcut.modes,
 		delete_shortcut.shortcut,
 		function()
+			local mode = vim.api.nvim_get_mode().mode
+			if mode == "v" then
+				-- get visual selection
+				vim.cmd([[execute "normal! \<ESC>"]])
+				local line1 = vim.api.nvim_buf_get_mark(0, "<")[1]
+				local line2 = vim.api.nvim_buf_get_mark(0, ">")[1]
+				vim.g.lines = {	line1, line2 }
+				if line1 == line2 then
+				   M.helpers.delete_file(picker_files[line1])
+				   return
+				end
+				for i = line1, line2 do
+					local file = picker_files[i]
+					if file then
+						M.helpers.delete_file(file)
+					end
+				end
+				refresh_picker()
+				return
+			end			-- delete without confirmation
 			local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 			local file = picker_files[index]
 
