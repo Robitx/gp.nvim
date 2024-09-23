@@ -1467,7 +1467,6 @@ M.cmd.ChatFinder = function()
 				vim.cmd([[execute "normal! \<ESC>"]])
 				local line1 = vim.api.nvim_buf_get_mark(0, "<")[1]
 				local line2 = vim.api.nvim_buf_get_mark(0, ">")[1]
-				vim.g.lines = {	line1, line2 }
 				if line1 == line2 then
 				   M.helpers.delete_file(picker_files[line1])
 				   return
