@@ -1489,7 +1489,7 @@ end
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
-		M.logger.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
+		print(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
 		return
 	end
 
