@@ -1513,6 +1513,10 @@ M.cmd.Agent = function(params)
 	end
 end
 
+M.cmd.Log = function()
+  vim.cmd(string.format('tabnew %s', M.config.log_file))
+end
+
 M.cmd.NextAgent = function()
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
