@@ -2,6 +2,8 @@
 -- Dispatcher handles the communication between the plugin and LLM providers.
 --------------------------------------------------------------------------------
 
+local uv = vim.uv or vim.loop
+
 local logger = require("gp.logger")
 local tasker = require("gp.tasker")
 local vault = require("gp.vault")
@@ -18,7 +20,7 @@ local D = {
 
 ---@param opts table #	user config
 D.setup = function(opts)
-	logger.debug("dispatcher setup started\n" .. vim.inspect(opts))
+	logger.debug("dispatcher: setup started\n" .. vim.inspect(opts))
 
 	D.config.curl_params = opts.curl_params or default_config.curl_params
 
@@ -52,9 +54,26 @@ D.setup = function(opts)
 
 	D.query_dir = helpers.prepare_dir(D.query_dir, "query store")
 
-	local files = vim.fn.glob(D.query_dir .. "/*.json", false, true)
+	local files = {}
+	local handle = uv.fs_scandir(D.query_dir)
+	if handle then
+		local name, type
+		while true do
+			name, type = uv.fs_scandir_next(handle)
+			if not name then
+				break
+			end
+			local path = D.query_dir .. "/" .. name
+			type = type or uv.fs_stat(path).type
+			if type == "file" and name:match("%.json$") then
+				table.insert(files, path)
+			end
+		end
+	end
+
+	logger.debug("dispatcher: query files: " .. #files)
 	if #files > 200 then
-		logger.debug("too many query files, truncating cache")
+		logger.debug("dispatcher: too many query files, truncating cache")
 		table.sort(files, function(a, b)
 			return a > b
 		end)
@@ -63,7 +82,7 @@ D.setup = function(opts)
 		end
 	end
 
-	logger.debug("dispatcher setup finished\n" .. vim.inspect(D))
+	logger.debug("dispatcher: setup finished\n" .. vim.inspect(D))
 end
 
 ---@param messages table

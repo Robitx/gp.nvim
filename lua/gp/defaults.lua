@@ -13,15 +13,18 @@ M.code_system_prompt = "You are an AI working as a code editor.\n\n"
 	.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
 	.. "START AND END YOUR ANSWER WITH:\n\n```"
 
-M.chat_template = [[
-# topic: ?
+M.chat_help = [[
+# Write your queries after {{user_prefix}}. Use `{{respond_shortcut}}` or :{{cmd_prefix}}ChatRespond to generate a response.
+# Response generation can be terminated by using `{{stop_shortcut}}` or :{{cmd_prefix}}ChatStop command.
+# Chats are saved automatically. To delete this chat, use `{{delete_shortcut}}` or :{{cmd_prefix}}ChatDelete.
+# Be cautious of very long chats. Start a fresh chat by using `{{new_shortcut}}` or :{{cmd_prefix}}ChatNew.
+# Add context macros by typing @ in the chat. Toggle this help by `{{help_shortcut}}` or :{{cmd_prefix}}ChatHelp.]]
 
-- file: {{filename}}
+M.chat_template = [[
+---
+topic: ?
 {{optional_headers}}
-Write your queries after {{user_prefix}}. Use `{{respond_shortcut}}` or :{{cmd_prefix}}ChatRespond to generate a response.
-Response generation can be terminated by using `{{stop_shortcut}}` or :{{cmd_prefix}}ChatStop command.
-Chats are saved automatically. To delete this chat, use `{{delete_shortcut}}` or :{{cmd_prefix}}ChatDelete.
-Be cautious of very long chats. Start a fresh chat by using `{{new_shortcut}}` or :{{cmd_prefix}}ChatNew.
+]] .. M.chat_help .. [[
 
 ---
 
@@ -29,8 +32,8 @@ Be cautious of very long chats. Start a fresh chat by using `{{new_shortcut}}` o
 ]]
 
 M.short_chat_template = [[
-# topic: ?
-- file: {{filename}}
+---
+topic: ?
 ---
 
 {{user_prefix}}

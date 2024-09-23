@@ -63,6 +63,18 @@ _H.autocmd = function(events, buffers, callback, gid)
 	end
 end
 
+---@param callback function # callback to schedule
+---@param depth number # depth of nested scheduling
+_H.schedule = function(callback, depth)
+	logger.debug("scheduling callback with depth: " .. depth)
+	if depth <= 0 then
+		return callback()
+	end
+	return vim.schedule(function()
+		_H.schedule(callback, depth - 1)
+	end)
+end
+
 ---@param file_name string # name of the file for which to delete buffers
 _H.delete_buffer = function(file_name)
 	-- iterate over buffer list and close all buffers with the same name
@@ -272,12 +284,12 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 			logger.debug(
 				"completing user command: "
 					.. cmd_name
-					.. "\narg_lead: "
-					.. arg_lead
-					.. "\ncmd_line: "
-					.. cmd_line
-					.. "\ncursor_pos: "
+					.. " cursor_pos: "
 					.. cursor_pos
+					.. " arg_lead: "
+					.. vim.inspect(arg_lead)
+					.. " cmd_line: "
+					.. vim.inspect(cmd_line)
 			)
 			if not completion then
 				return {}
@@ -291,6 +303,56 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 			return {}
 		end,
 	})
+end
+
+---@param lines string[] # array of lines
+---@return table<string, any>, table<string, number>, number | nil, table<string, number> # headers, indices, last header line, comments
+_H.parse_headers = function(lines)
+	local headers = {}
+	local indices = {}
+	local comments = {}
+
+	for i, line in ipairs(lines) do
+		if i > 1 and line:sub(1, 3) == "---" then
+			return headers, indices, i - 1, comments
+		end
+
+		local key, value = line:match("^[-#%s]*(%w+):%s*(.*)%s*")
+		if key ~= nil then
+			headers[key] = value
+			indices[key] = i - 1
+		elseif line:match("^# ") then
+			comments[line] = i - 1
+		end
+	end
+
+	return headers, indices, nil, comments
+end
+
+---@param buf number # buffer number
+---@param event table # event object
+_H.deleted_invalid_autocmd = function(buf, event)
+	if not vim.api.nvim_buf_is_valid(buf) then
+		vim.api.nvim_del_autocmd(event.id)
+		logger.debug("deleting invalid autocmd: " .. event.id .. " for buffer: " .. buf)
+		return true
+	end
+	return false
+end
+
+---@param buf number # buffer number
+---@param caller string | nil # cause of the save
+---@return boolean # true if successful, false otherwise
+_H.save_buffer = function(buf, caller)
+    if not vim.api.nvim_buf_is_valid(buf) then
+        return false
+    end
+    local success = pcall(vim.api.nvim_buf_call, buf, function()
+        vim.cmd('silent! write')
+    end)
+	caller = caller or "unknown"
+	logger.debug("saving buffer: " .. buf .. " success: " .. vim.inspect(success) .. " caller: " .. vim.inspect(caller))
+    return success
 end
 
 return _H

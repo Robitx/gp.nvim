@@ -216,13 +216,6 @@ M.grep_directory = function(buf, directory, pattern, callback)
 				})
 			end
 		end
-		table.sort(results, function(a, b)
-			if a.file == b.file then
-				return a.lnum < b.lnum
-			else
-				return a.file > b.file
-			end
-		end)
 		callback(results, re)
 	end)
 end

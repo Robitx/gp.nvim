@@ -311,6 +311,7 @@ local config = {
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
+	chat_shortcut_help = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>h" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
 	chat_finder_mappings = {
@@ -369,6 +370,8 @@ local config = {
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
 		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
 	template_command = "{{command}}",
+	template_context_file = "\n\nHere is a file {{filename}} for additional context:"
+		.. "\n\n```\n{{content}}\n```\n\n",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
 	-- Whisper costs $0.006 / minute (rounded to the nearest second)
