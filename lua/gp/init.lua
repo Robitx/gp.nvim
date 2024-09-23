@@ -200,38 +200,47 @@ M.setup = function(opts)
 
 	local ft_completion = M.macro.build_completion({
 		require("gp.macros.agent"),
-		require("gp.macros.context_file"),
 		require("gp.macros.target_filename"),
 		require("gp.macros.target_filetype"),
+		require("gp.macros.with_current_buf"),
+		require("gp.macros.with_file"),
+		require("gp.macros.with_repo_instructions"),
 	})
 
 	local base_completion = M.macro.build_completion({
 		require("gp.macros.agent"),
-		require("gp.macros.context_file"),
+		require("gp.macros.with_current_buf"),
+		require("gp.macros.with_file"),
+		require("gp.macros.with_repo_instructions"),
 	})
 
 	M.logger.debug("ft_completion done")
 
 	local do_completion = M.macro.build_completion({
 		require("gp.macros.agent"),
-		require("gp.macros.context_file"),
 		require("gp.macros.target"),
 		require("gp.macros.target_filename"),
 		require("gp.macros.target_filetype"),
+		require("gp.macros.with_current_buf"),
+		require("gp.macros.with_file"),
+		require("gp.macros.with_repo_instructions"),
 	})
 
 	M.logger.debug("do_completion done")
 
 	M.command_parser = M.macro.build_parser({
 		require("gp.macros.agent"),
-		require("gp.macros.context_file"),
 		require("gp.macros.target"),
 		require("gp.macros.target_filename"),
 		require("gp.macros.target_filetype"),
+		require("gp.macros.with_current_buf"),
+		require("gp.macros.with_file"),
+		require("gp.macros.with_repo_instructions"),
 	})
 
 	M.chat_parser = M.macro.build_parser({
-		require("gp.macros.context_file"),
+		require("gp.macros.with_file"),
+		require("gp.macros.with_repo_instructions"),
 	})
 
 	local completions = {
@@ -1665,25 +1674,6 @@ M.get_chat_agent = function(name)
 	}
 end
 
--- tries to find an .gp.md file in the root of current git repo
----@return string # returns instructions from the .gp.md file
-M.repo_instructions = function()
-	local git_root = M.helpers.find_git_root()
-
-	if git_root == "" then
-		return ""
-	end
-
-	local instruct_file = git_root .. "/.gp.md"
-
-	if vim.fn.filereadable(instruct_file) == 0 then
-		return ""
-	end
-
-	local lines = vim.fn.readfile(instruct_file)
-	return table.concat(lines, "\n")
-end
-
 M.cmd.Context = function(params)
 	M._toggle_close(M._toggle_kind.popup)
 	-- if there is no selection, try to close context toggle
@@ -1893,11 +1883,6 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
-		local repo_instructions = M.repo_instructions()
-		if repo_instructions ~= "" then
-			table.insert(messages, { role = "system", content = repo_instructions })
-		end
-
 		local user_prompt = M.render.prompt_template(template, command, selection, filetype, filename)
 		table.insert(messages, { role = "user", content = user_prompt })
 
@@ -2034,6 +2019,8 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		command = command .. filetype
 		whisper = whisper and " " .. whisper or ""
 		command = command .. whisper
+		command = command .. " @with_repo_instructions"
+		command = command .. " @with_current_buf"
 		command = command .. " "
 
 		vim.api.nvim_feedkeys(command, "n", false)

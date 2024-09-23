@@ -159,7 +159,8 @@ if not has_cmp then
 end
 
 M.macro.build_cmp_source("gpchat", {
-	require("gp.macros.context_file"),
+	require("gp.macros.with_file"),
+	require("gp.macros.with_repo_instructions"),
 })
 
 local sources = {

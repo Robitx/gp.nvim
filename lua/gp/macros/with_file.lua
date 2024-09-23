@@ -5,14 +5,14 @@ local M = {}
 
 ---@type gp.Macro
 M = {
-	name = "context_file`",
+	name = "with_file`",
 	description = "replaces the macro with the content of the specified file",
 	default = nil,
 	max_occurrences = 100,
 
 	triggered = function(params)
 		local cropped_line = params.cropped_line
-		return cropped_line:match("@context_file`[^`]*$")
+		return cropped_line:match("@with_file`[^`]*$")
 	end,
 
 	completion = function(params)
@@ -27,7 +27,7 @@ M = {
 
 	parser = function(result)
 		local template = result.template
-		local macro_pattern = "@context_file`([^`]*)`"
+		local macro_pattern = "@with_file`([^`]*)`"
 
 		for _ = 1, M.max_occurrences do
 			local s, e, value = template:find(macro_pattern)
