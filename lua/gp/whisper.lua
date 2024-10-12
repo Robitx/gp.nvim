@@ -13,6 +13,7 @@ local vault = require("gp.vault")
 local default_config = require("gp.config")
 
 local W = {
+	--@class GpConfig
 	config = {},
 	cmd = {},
 	disabled = false,
@@ -52,11 +53,11 @@ local whisper = function(callback, language)
 		return
 	end
 
-	local bearer = vault.get_secret("openai_api_key")
-	if not bearer then
-		logger.error("OpenAI API key not found")
-		return
-	end
+	-- get the secret for whisper. It can be empty as well, in case of running local whisper server
+	local bearer = W.config.secret or vault.get_secret("openai_api_key")
+
+	-- get the model.
+	local model = W.config.model or "whisper-1"
 
 	local rec_file = W.config.store_dir .. "/rec.wav"
 	local rec_options = {
@@ -180,33 +181,45 @@ local whisper = function(callback, language)
 
 	-- transcribe the recording
 	local transcribe = function()
-		local cmd = "cd "
-			.. W.config.store_dir
-			.. " && "
-			.. "export LC_NUMERIC='C' && "
-			-- normalize volume to -3dB
-			.. "sox --norm=-3 rec.wav norm.wav && "
-			-- get RMS level dB * silence threshold
-			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
+		local cd_cmd = "cd " .. W.config.store_dir
+		local export_lc_numeric_cmd = "export LC_NUMERIC='C'"
+		local sox_norm_cmd = "sox --norm=-3 rec.wav norm.wav"
+		local sox_silence_t = "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
 			.. " | sed -e 's/.* //' | awk '{print $1*"
 			.. W.config.silence
-			.. "}') && "
-			-- remove silence, speed up, pad and convert to mp3
-			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
-			.. " pad 0.1 0.1 tempo "
+			.. "}')"
+		local remove_silence_cmd = "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB' pad 0.1 0.1 tempo "
 			.. W.config.tempo
-			.. " && "
-			-- call openai
-			.. curl
+
+		local curl_bearer_header = ""
+		if bearer ~= "" then
+			curl_bearer_header = '-H "Authorization: Bearer ' .. bearer .. '" '
+		end
+
+		local curl_cmd = curl
 			.. " --max-time 20 "
 			.. W.config.endpoint
-			.. ' -s -H "Authorization: Bearer '
-			.. bearer
-			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="'
+			.. " -s "
+			.. curl_bearer_header
+			.. '-H "Content-Type: multipart/form-data" '
+			.. '-F model="'
+			.. model
+			.. '" -F "language='
 			.. language
-			.. '" -F file="@final.mp3" '
+			.. '" -F "file=@final.mp3" '
 			.. '-F response_format="json"'
+
+		local cmd = cd_cmd
+			.. " && "
+			.. export_lc_numeric_cmd
+			.. " && "
+			.. sox_norm_cmd
+			.. " && "
+			.. sox_silence_t
+			.. " && "
+			.. remove_silence_cmd
+			.. " && "
+			.. curl_cmd
 
 		tasker.run(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
 			if code ~= 0 then
