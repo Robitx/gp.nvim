@@ -379,8 +379,12 @@ local config = {
 		-- you can disable whisper completely by whisper = {disable = true}
 		disable = false,
 
-		-- OpenAI audio/transcriptions api endpoint to transcribe audio to text
+		-- OpenAI compatible audio/transcriptions api endpoint to transcribe audio to text
 		endpoint = "https://api.openai.com/v1/audio/transcriptions",
+
+		-- Override the secret for whisper. It can be empty as well, in case of running local whisper server
+		secret = os.getenv("OPENAI_API_KEY"),
+
 		-- directory for storing whisper files
 		store_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
 		-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
@@ -404,6 +408,10 @@ local config = {
 		-- whisper_rec_cmd = {"arecord", "-c", "1", "-f", "S16_LE", "-r", "48000", "-d", "3600", "rec.wav"},
 		-- whisper_rec_cmd = {"ffmpeg", "-y", "-f", "avfoundation", "-i", ":0", "-t", "3600", "rec.wav"},
 		rec_cmd = nil,
+
+		-- Whisper model to use. See https://platform.openai.com/docs/models/whisper for more info for OpenAI models
+		-- Can also set a custom model. Locally, or groq-compatible models can be used.
+		model = "whisper-1",
 	},
 
 	-- image generation settings
