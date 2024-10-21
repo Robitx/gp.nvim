@@ -63,10 +63,12 @@ local whisper = function(callback, language)
 		sox = {
 			cmd = "sox",
 			opts = {
-				"-c",
-				"1",
 				"--buffer",
 				"32",
+				"-c",
+				"2", -- Two channels (stereo)
+				"-b 16",
+				"-r 16000",
 				"-d",
 				"rec.wav",
 				"trim",
@@ -187,12 +189,12 @@ local whisper = function(callback, language)
 			-- normalize volume to -3dB
 			.. "sox --norm=-3 rec.wav norm.wav && "
 			-- get RMS level dB * silence threshold
-			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
+			.. "t=$(sox 'norm.wav' -n channels 2 stats 2>&1 | grep 'RMS lev dB' "
 			.. " | sed -e 's/.* //' | awk '{print $1*"
 			.. W.config.silence
 			.. "}') && "
 			-- remove silence, speed up, pad and convert to mp3
-			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
+			.. "sox -q norm.wav -C 196.5 final.wav silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
 			.. " pad 0.1 0.1 tempo "
 			.. W.config.tempo
 			.. " && "
@@ -203,9 +205,7 @@ local whisper = function(callback, language)
 			.. ' -s -H "Authorization: Bearer '
 			.. bearer
 			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="'
-			.. language
-			.. '" -F file="@final.mp3" '
+			.. '-F file="@final.wav" '
 			.. '-F response_format="json"'
 
 		tasker.run(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
