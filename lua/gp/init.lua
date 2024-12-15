@@ -193,6 +193,7 @@ M.setup = function(opts)
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
 		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
+		ChatLast = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
 		Agent = agent_completion,
 	}
@@ -897,7 +898,7 @@ M.cmd.ChatLast = function(params)
 		end
 		buf = win_found and buf or M.open_buf(last, M.resolve_buf_target(params), toggle and M._toggle_kind.chat or nil, toggle)
 		-- if there is a selection, paste it
-		if params.range ~= 2 then
+		if params.range == 2 then
 			M.render.append_selection(params, cbuf, buf, M.config.template_selection)
 			M.helpers.feedkeys("G", "xn")
 		end
