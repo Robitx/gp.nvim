@@ -483,6 +483,10 @@ buffer (chat agents if current buffer is a chat and command agents otherwise).
 The agent setting is persisted on disk across Neovim instances.
 
 
+:GpListAgents                                                    *:GpListAgents*
+
+Lists all available agents.
+
 IMAGE COMMANDS                                        *gp.nvim-image-commands*
 
 

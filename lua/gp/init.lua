@@ -1513,6 +1513,20 @@ M.cmd.Agent = function(params)
 	end
 end
 
+M.cmd.ListAgents = function()
+	local messages = { "List of available agents (* - Chat Agent, # - Command Agent):" }
+	for name, agent in pairs(M.agents) do
+		if name == M._state.chat_agent then
+			table.insert(messages, "* " .. name)
+		elseif name == M._state.command_agent then
+			table.insert(messages, "# " .. name)
+		else
+			table.insert(messages, "- " .. name)
+		end
+	end
+	M.logger.info(table.concat(messages, "\n"))
+end
+
 M.cmd.NextAgent = function()
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)

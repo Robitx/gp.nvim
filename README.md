@@ -369,6 +369,11 @@ Displays currently used agents for chat and command instructions.
 
 Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
 
+#### `:GpListAgents` <!-- {doc=:GpListAgents}  -->
+
+Lists all available agents.
+
+
 ## Image commands
 
 #### `:GpImage` <!-- {doc=:GpImage}  -->
