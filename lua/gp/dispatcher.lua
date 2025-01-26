@@ -187,6 +187,19 @@ D.prepare_payload = function(messages, model, provider)
 		output.stream = false
 	end
 
+	if provider == "deepseek" and model.model == "deepseek-reasoner" then
+		for i = #messages, 1, -1 do
+			if messages[i].role == "system" then
+				table.remove(messages, i)
+			end
+		end
+		-- remove max_tokens, top_p, temperature for reason model
+		output.max_tokens = nil
+		output.temperature = nil
+		output.top_p = nil
+		output.stream = true
+	end
+
 	return output
 end
 
@@ -198,6 +211,7 @@ end
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
 local query = function(buf, provider, payload, handler, on_exit, callback)
+	local is_reasoning = payload.model == "deepseek-reasoner"
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		logger.error(
@@ -238,9 +252,15 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
+
 				local content = ""
+				local reasoning_content = ""
+
 				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
+					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.reasoning_content then
+						reasoning_content = line.choices[1].delta.reasoning_content
+					end
 					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
 						content = line.choices[1].delta.content
 					end
@@ -264,10 +284,16 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
-
-				if content and type(content) == "string" then
+				if reasoning_content ~= "" and type(reasoning_content) == "string" then
+					handler(qid, reasoning_content, true)
+				elseif content ~= "" and type(content) == "string" then
+					if is_reasoning then
+						handler(qid, "\n", true)
+						handler(qid, "\n</details><!-- }}} -->\n\n", false)
+						is_reasoning = false
+					end
 					qt.response = qt.response .. content
-					handler(qid, content)
+					handler(qid, content, false)
 				end
 			end
 		end
@@ -393,7 +419,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 	end
 
 	local temp_file = D.query_dir ..
-		"/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
+					"/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
 	helpers.table_to_file(payload, temp_file)
 
 	local curl_params = vim.deepcopy(D.config.curl_params or {})
@@ -463,7 +489,7 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	})
 
 	local response = ""
-	return vim.schedule_wrap(function(qid, chunk)
+	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
 		local qt = tasker.get_query(qid)
 		if not qt then
 			return
@@ -501,6 +527,13 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 		local lines = vim.split(response, "\n")
 		for i, l in ipairs(lines) do
 			lines[i] = prefix .. l
+		end
+
+		-- prepend prefix > to each line inside CoT
+		if is_reasoning then
+			for i, l in ipairs(lines) do
+				lines[i] = "> " .. l
+			end
 		end
 
 		local unfinished_lines = {}
