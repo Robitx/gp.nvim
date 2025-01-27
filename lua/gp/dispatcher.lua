@@ -338,9 +338,9 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 
 
-				if qt.response == "" then
-					logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
-				end
+				-- if qt.response == "" then
+				-- 	logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
+				-- end
 
 				-- optional on_exit handler
 				if type(on_exit) == "function" then
