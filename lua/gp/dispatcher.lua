@@ -337,6 +337,11 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
+				if is_reasoning then
+					handler(qid, "\n", true)
+					handler(qid, "\n</details><!-- }}} -->\n\n", false)
+					is_reasoning = false
+				end
 
 				-- if qt.response == "" then
 				-- 	logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
