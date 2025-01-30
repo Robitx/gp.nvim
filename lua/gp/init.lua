@@ -1094,7 +1094,7 @@ M.chat_respond = function(params)
 	-- Add CoT for DeepSeek-Reasoner
 	if agent_name == "DeepSeekReasoner" then
 		vim.api.nvim_buf_set_lines(buf, last_content_line + 3, last_content_line + 3, false,
-			{ "<details>", "<summary>CoT</summary><!-- {{{ -->", "" })
+			{ "<details>", "<summary>CoT</summary>", "" })
 		offset = 1
 	end
 
