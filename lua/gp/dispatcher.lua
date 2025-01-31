@@ -174,7 +174,11 @@ D.prepare_payload = function(messages, model, provider)
 		top_p = math.max(0, math.min(1, model.top_p or 1)),
 	}
 
-	if provider == "openai" and model.model:sub(1, 2) == "o1" then
+	if provider == "openai" and model.model:sub(1, 1) == "o" then
+		if model.model:sub(1, 2) == "o3" then
+			output.reasoning_effort = model.reasoning_effort or "medium"
+		end
+
 		for i = #messages, 1, -1 do
 			if messages[i].role == "system" then
 				table.remove(messages, i)
@@ -184,7 +188,6 @@ D.prepare_payload = function(messages, model, provider)
 		output.max_tokens = nil
 		output.temperature = nil
 		output.top_p = nil
-		output.stream = false
 	end
 
 	return output
