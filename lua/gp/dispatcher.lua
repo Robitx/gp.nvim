@@ -211,7 +211,7 @@ end
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
 local query = function(buf, provider, payload, handler, on_exit, callback)
-	local is_reasoning = payload.model == "deepseek-reasoner"
+	local is_reasoning = payload.model == "deepseek-reasoner" or payload.model == "deepseek-r1"
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		logger.error(
