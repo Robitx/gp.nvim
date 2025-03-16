@@ -187,19 +187,6 @@ D.prepare_payload = function(messages, model, provider)
 		output.stream = false
 	end
 
-	if provider == "deepseek" and model.model == "deepseek-reasoner" then
-		for i = #messages, 1, -1 do
-			if messages[i].role == "system" then
-				table.remove(messages, i)
-			end
-		end
-		-- remove max_tokens, top_p, temperature for reason model
-		output.max_tokens = nil
-		output.temperature = nil
-		output.top_p = nil
-		output.stream = true
-	end
-
 	return output
 end
 
@@ -210,8 +197,8 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
-local query = function(buf, provider, payload, handler, on_exit, callback)
-	local is_reasoning = payload.model == "deepseek-reasoner" or payload.model == "deepseek-r1"
+---@param is_reasoning boolean # whether model is reasoning model
+local query = function(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		logger.error(
@@ -288,8 +275,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					handler(qid, reasoning_content, true)
 				elseif content ~= "" and type(content) == "string" then
 					if is_reasoning then
-						handler(qid, "\n", true)
-						handler(qid, "\n</details>\n\n", false)
+						handler(qid, "\n</details>\n</think>\n", false)
 						is_reasoning = false
 					end
 					qt.response = qt.response .. content
@@ -338,8 +324,8 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 
 				if is_reasoning then
-					handler(qid, "\n", true)
-					handler(qid, "\n</details>\n\n", false)
+					handler(qid, "\n", false)
+					handler(qid, "\n</details>\n</think>\n", false)
 					is_reasoning = false
 				end
 
@@ -456,16 +442,17 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
-D.query = function(buf, provider, payload, handler, on_exit, callback)
+---@param is_reasoning boolean # whether the model is reasoning model
+D.query = function(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 	if provider == "copilot" then
 		return vault.run_with_secret(provider, function()
 			vault.refresh_copilot_bearer(function()
-				query(buf, provider, payload, handler, on_exit, callback)
+				query(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 			end)
 		end)
 	end
 	vault.run_with_secret(provider, function()
-		query(buf, provider, payload, handler, on_exit, callback)
+		query(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 	end)
 end
 
