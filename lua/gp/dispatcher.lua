@@ -169,22 +169,24 @@ D.prepare_payload = function(messages, model, provider)
 		model = model.model,
 		stream = true,
 		messages = messages,
-		max_tokens = model.max_tokens or 4096,
-		temperature = math.max(0, math.min(2, model.temperature or 1)),
-		top_p = math.max(0, math.min(1, model.top_p or 1)),
 	}
 
-	if provider == "openai" and model.model:sub(1, 2) == "o1" then
+	-- do not set max_tokens, temperature, top_p for o1 and o3. extend the list in the future
+	local excluded_models = {
+		["o1"] = true,
+		["o3"] = true,
+	}
+	if provider == "openai" and excluded_models[model.model:sub(1, 2)] then
 		for i = #messages, 1, -1 do
 			if messages[i].role == "system" then
 				table.remove(messages, i)
 			end
 		end
-		-- remove max_tokens, top_p, temperature for o1 models. https://platform.openai.com/docs/guides/reasoning/beta-limitations
-		output.max_tokens = nil
-		output.temperature = nil
-		output.top_p = nil
 		output.stream = false
+	else
+		output.max_tokens = model.max_tokens or 4096
+		output.temperature = math.max(0, math.min(2, model.temperature or 1))
+		output.top_p = math.max(0, math.min(1, model.top_p or 1))
 	end
 
 	return output
