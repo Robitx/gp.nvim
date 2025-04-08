@@ -157,7 +157,7 @@ local config = {
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
+			model = { model = "claude-3-5-sonnet-latest", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
@@ -167,7 +167,7 @@ local config = {
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
+			model = { model = "claude-3-haiku-latest", temperature = 0.8, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
@@ -255,7 +255,7 @@ local config = {
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "claude-3-5-sonnet-20240620", temperature = 0.8, top_p = 1 },
+			model = { model = "claude-3-5-sonnet-latest", temperature = 0.8, top_p = 1 },
 			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
@@ -264,7 +264,7 @@ local config = {
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "claude-3-haiku-20240307", temperature = 0.8, top_p = 1 },
+			model = { model = "claude-3-haiku-latest", temperature = 0.8, top_p = 1 },
 			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
