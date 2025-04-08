@@ -358,17 +358,17 @@ local config = {
 	command_auto_select_response = true,
 
 	-- templates
-	template_selection = "I have the following from {{filename}}:"
+	template_selection = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following from {{filename}}:"
+	template_rewrite = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
-	template_append = "I have the following from {{filename}}:"
+		.. "\n\nRespond exclusively with the snippet that should replace the primary selection above.",
+	template_append = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
-	template_prepend = "I have the following from {{filename}}:"
+		.. "\n\nRespond exclusively with the snippet that should be appended after the primary selection above.",
+	template_prepend = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
+		.. "\n\nRespond exclusively with the snippet that should be prepended before the primary selection above.",
 	template_command = "{{command}}",
 	template_context_file = "\n\nHere is a file {{filename}} for additional context:"
 		.. "\n\n```\n{{content}}\n```\n\n",
