@@ -1485,7 +1485,6 @@ end
 --------------------------------------------------------------------------------
 -- Prompt logic
 --------------------------------------------------------------------------------
-
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
@@ -1952,13 +1951,24 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			return
 		end
 
-		-- if prompt is provided, ask the user to enter the command
-		vim.ui.input({ prompt = prompt, default = whisper }, function(input)
+		local function input_callback(input)
 			if not input or input == "" then
 				return
 			end
 			cb(input)
-		end)
+		end
+
+		-- if prompt is provided, ask the user to enter the command
+		if M.config.command_floating_window then
+			M.helpers.floating_input({
+				prompt = prompt,
+				default = whisper,
+				accept_shortcut = M.config.chat_shortcut_respond.shortcut,
+				accept_modes = M.config.chat_shortcut_respond.modes
+			}, input_callback)
+		else
+			vim.ui.input({ prompt = prompt, default = whisper }, input_callback)
+		end
 	end)
 end
 
