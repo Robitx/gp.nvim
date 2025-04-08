@@ -174,7 +174,7 @@ D.prepare_payload = function(messages, model, provider)
 		top_p = math.max(0, math.min(1, model.top_p or 1)),
 	}
 
-	if provider == "openai" and model.model:sub(1, 1) == "o" then
+	if (provider == "openai" or provider == "copilot") and model.model:sub(1, 1) == "o" then
 		if model.model:sub(1, 2) == "o3" then
 			output.reasoning_effort = model.reasoning_effort or "medium"
 		end
@@ -303,7 +303,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 				local raw_response = qt.raw_response
 				local content = qt.response
-				if qt.provider == 'openai' and content == "" and raw_response:match('choices') and raw_response:match("content") then
+				if (qt.provider == 'openai' or qt.provider == 'copilot') and content == "" and raw_response:match('choices') and raw_response:match("content") then
 					local response = vim.json.decode(raw_response)
 					if response.choices and response.choices[1] and response.choices[1].message and response.choices[1].message.content then
 						content = response.choices[1].message.content
