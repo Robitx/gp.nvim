@@ -33,10 +33,13 @@ M.setup = function(path, sensitive)
 	if vim.fn.isdirectory(dir) == 0 then
 		vim.fn.mkdir(dir, "p")
 	end
+
+	local file_stats = uv.fs_stat(path)
+	M.debug("Log file " .. file .. " has " .. (file_stats and file_stats.size or 0) .. " bytes")
+
 	file = path
 
-	-- truncate log file if it's too big
-	if uv.fs_stat(file) then
+	if file_stats and file_stats.size > 5 * 1024 * 1024 then
 		local content = {}
 		for line in io.lines(file) do
 			table.insert(content, line)
