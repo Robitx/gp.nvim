@@ -1162,8 +1162,8 @@ M.chat_respond = function(params)
 						-- strip dot from end of topic
 						topic = topic:gsub("%.$", "")
 
-						-- if topic is empty do not replace it
-						if topic == "" then
+						-- if topic is empty or too long do not replace it
+						if topic == "" or #topic > 50 then
 							return
 						end
 
