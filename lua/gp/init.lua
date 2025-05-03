@@ -193,6 +193,7 @@ M.setup = function(opts)
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
 		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
+		ChatLast = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
 		Agent = agent_completion,
 	}
@@ -642,7 +643,7 @@ end
 
 ---@param file_name string
 ---@param target number | nil # buf target
----@param kind number # nil or a toggle kind
+---@param kind number | nil # nil or a toggle kind, must be toggle kind when toggle is true
 ---@param toggle boolean # whether to toggle
 ---@return number # buffer number
 M.open_buf = function(file_name, target, kind, toggle)
@@ -652,6 +653,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 	M._toggle_close(M._toggle_kind.popup)
 
 	if toggle then
+		---@cast kind number
 		M._toggle_close(kind)
 	end
 
@@ -863,6 +865,46 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	end
 
 	M.new_chat(params, true, system_prompt, agent)
+end
+
+---@param params table
+---@return number | nil # buffer number or nil if no last chat
+M.cmd.ChatLast = function(params)
+	local toggle = false
+	-- if the range is 2, we want to create a new chat file with the selection
+	if M._toggle_close(M._toggle_kind.chat) then
+		params.args = params.args or ""
+		if params.args == "" then
+			params.args = M.config.toggle_target
+		end
+		toggle = true
+	end
+	local last = M._state.last_chat
+	if last and vim.fn.filereadable(last) == 1 then
+		last = vim.fn.resolve(last)
+		-- get current buffer, for pasting selection if necessary
+		local cbuf = vim.api.nvim_get_current_buf()
+		local buf = M.helpers.get_buffer(last)
+		local win_found = false
+		if buf then
+			for _, w in ipairs(vim.api.nvim_list_wins()) do
+				if vim.api.nvim_win_get_buf(w) == buf then
+					vim.api.nvim_set_current_win(w)
+					vim.api.nvim_set_current_buf(buf)
+					win_found = true
+					break
+				end
+			end
+		end
+		buf = win_found and buf or M.open_buf(last, M.resolve_buf_target(params), toggle and M._toggle_kind.chat or nil, toggle)
+		-- if there is a selection, paste it
+		if params.range == 2 then
+			M.render.append_selection(params, cbuf, buf, M.config.template_selection)
+			M.helpers.feedkeys("G", "xn")
+		end
+		return buf
+	end
+	return nil
 end
 
 M.cmd.ChatPaste = function(params)
