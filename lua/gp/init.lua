@@ -473,7 +473,11 @@ M.not_chat = function(buf, file_name)
 		end
 	end
 	if not header_found then
-		return nil
+		if M.config.slim_template_header then
+			return nil
+		else
+			return "missing file header"
+		end
 	end
 
 	return nil
