@@ -109,7 +109,7 @@ require("gp").setup(conf)
 ```
 ## 2. OpenAI API key
 
-Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [4. Configuration](#4-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
+Make sure you have OpenAI API key. [Get one here](https://platform.openai.com/account/api-keys) and use it in the [5. Configuration](#5-configuration). Also consider setting up [usage limits](https://platform.openai.com/account/billing/limits) so you won't get suprised at the end of the month.
 
 The OpenAI API key can be passed to the plugin in multiple ways:
 
