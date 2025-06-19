@@ -1031,22 +1031,37 @@ M.chat_respond = function(params)
 	agent_suffix = M.render.template(agent_suffix, { ["{{agent}}"] = agent_name })
 
 	local old_default_user_prefix = "🗨:"
+	local in_cot_block = false -- Flag to track if we're inside a CoT block
+
 	for index = start_index, end_index do
 		local line = lines[index]
-		if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
-			table.insert(messages, { role = role, content = content })
-			role = "user"
-			content = line:sub(#M.config.chat_user_prefix + 1)
-		elseif line:sub(1, #old_default_user_prefix) == old_default_user_prefix then
-			table.insert(messages, { role = role, content = content })
-			role = "user"
-			content = line:sub(#old_default_user_prefix + 1)
-		elseif line:sub(1, #agent_prefix) == agent_prefix then
-			table.insert(messages, { role = role, content = content })
-			role = "assistant"
-			content = ""
-		elseif role ~= "" then
-			content = content .. "\n" .. line
+
+		if line:match("^<think>$") then
+			in_cot_block = true
+		end
+
+		-- Skip lines if we're inside a CoT block
+		if not in_cot_block then
+			-- Original logic for handling chat messages
+			if line:sub(1, #M.config.chat_user_prefix) == M.config.chat_user_prefix then
+				table.insert(messages, { role = role, content = content })
+				role = "user"
+				content = line:sub(#M.config.chat_user_prefix + 1)
+			elseif line:sub(1, #old_default_user_prefix) == old_default_user_prefix then
+				table.insert(messages, { role = role, content = content })
+				role = "user"
+				content = line:sub(#old_default_user_prefix + 1)
+			elseif line:sub(1, #agent_prefix) == agent_prefix then
+				table.insert(messages, { role = role, content = content })
+				role = "assistant"
+				content = ""
+			elseif role ~= "" then
+				content = content .. "\n" .. line
+			end
+		end
+
+		if line:match("^</think>$") then
+			in_cot_block = false
 		end
 	end
 	-- insert last message not handled in loop
@@ -1063,6 +1078,8 @@ M.chat_respond = function(params)
 		-- make it multiline again if it contains escaped newlines
 		content = content:gsub("\\n", "\n")
 		messages[1] = { role = "system", content = content }
+	else
+		table.remove(messages, 1)
 	end
 
 	-- strip whitespace from ends of content
@@ -1074,12 +1091,23 @@ M.chat_respond = function(params)
 	local last_content_line = M.helpers.last_content_line(buf)
 	vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
+	local offset = 0
+	local is_reasoning = false
+	-- Add CoT for DeepSeekReasoner
+	if string.match(agent_name, "^DeepSeekReasoner") then
+		vim.api.nvim_buf_set_lines(buf, last_content_line + 3, last_content_line + 3, false,
+			{ "<think>", "<details>", "<summary>CoT</summary>", "" })
+		offset = 1
+		is_reasoning = true
+	end
+
 	-- call the model and write response
 	M.dispatcher.query(
 		buf,
 		headers.provider or agent.provider,
 		M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
-		M.dispatcher.create_handler(buf, win, M.helpers.last_content_line(buf), true, "", not M.config.chat_free_cursor),
+		M.dispatcher.create_handler(buf, win, M.helpers.last_content_line(buf) + offset, true, "",
+			not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.tasker.get_query(qid)
 			if not qt then
@@ -1125,7 +1153,8 @@ M.chat_respond = function(params)
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
-						local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
+						-- instead of the first line, get the last two line can skip CoT
+						local topic = vim.api.nvim_buf_get_lines(topic_buf, -3, -1, false)[1]
 						-- close invisible buffer
 						vim.api.nvim_buf_delete(topic_buf, { force = true })
 						-- strip whitespace from ends of topic
@@ -1133,15 +1162,17 @@ M.chat_respond = function(params)
 						-- strip dot from end of topic
 						topic = topic:gsub("%.$", "")
 
-						-- if topic is empty do not replace it
-						if topic == "" then
+						-- if topic is empty or too long do not replace it
+						if topic == "" or #topic > 50 then
 							return
 						end
 
 						-- replace topic in current buffer
 						M.helpers.undojoin(buf)
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
-					end)
+					end),
+					nil,
+					false
 				)
 			end
 			if not M.config.chat_free_cursor then
@@ -1149,7 +1180,9 @@ M.chat_respond = function(params)
 				M.helpers.cursor_to_line(line, buf, win)
 			end
 			vim.cmd("doautocmd User GpDone")
-		end)
+		end),
+		nil,
+		is_reasoning
 	)
 end
 
@@ -1813,9 +1846,9 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			end
 
 			-- select from first_line to last_line
-			vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
-			vim.api.nvim_command("normal! V")
-			vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
+			-- vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
+			-- vim.api.nvim_command("normal! V")
+			-- vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
 		end
 
 		-- prepare messages
@@ -1935,7 +1968,8 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 				on_exit(qid)
 				vim.cmd("doautocmd User GpDone")
 			end),
-			callback
+			callback,
+			false
 		)
 	end
 
