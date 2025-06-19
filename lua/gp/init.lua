@@ -1846,9 +1846,9 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			end
 
 			-- select from first_line to last_line
-			vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
-			vim.api.nvim_command("normal! V")
-			vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
+			-- vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
+			-- vim.api.nvim_command("normal! V")
+			-- vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
 		end
 
 		-- prepare messages
