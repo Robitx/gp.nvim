@@ -10,20 +10,19 @@ local M = {
 	_Name = "Gp", -- plugin name
 	_state = {}, -- table of state variables
 	agents = {}, -- table of agents
-	cmd = {}, -- default command functions
+	cmd = require("gp.cmd"), -- command module
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
 	defaults = require("gp.defaults"), -- some useful defaults
 	deprecator = require("gp.deprecator"), -- handle deprecated options
 	dispatcher = require("gp.dispatcher"), -- handle communication with LLM providers
 	helpers = require("gp.helper"), -- helper functions
-	imager = require("gp.imager"), -- image generation module
+	image = require("gp.image"), -- image module
 	logger = require("gp.logger"), -- logger module
 	render = require("gp.render"), -- render module
 	spinner = require("gp.spinner"), -- spinner module
 	tasker = require("gp.tasker"), -- tasker module
 	vault = require("gp.vault"), -- handles secrets
-	whisper = require("gp.whisper"), -- whisper module
 }
 
 --------------------------------------------------------------------------------
@@ -78,7 +77,7 @@ M.setup = function(opts)
 	image_opts.state_dir = state_dir
 	image_opts.cmd_prefix = cmd_prefix
 	image_opts.secret = image_opts.secret or openai_api_key
-	M.imager.setup(image_opts)
+	M.image.setup(image_opts)
 	M.config.image = nil
 	opts.image = nil
 

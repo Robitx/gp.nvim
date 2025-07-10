@@ -395,38 +395,6 @@ local config = {
 	-- by eliminating silence and speeding up the tempo of the recording
 	-- we can reduce the cost by 50% or more and get the results faster
 
-	whisper = {
-		-- you can disable whisper completely by whisper = {disable = true}
-		disable = false,
-
-		-- OpenAI audio/transcriptions api endpoint to transcribe audio to text
-		endpoint = "https://api.openai.com/v1/audio/transcriptions",
-		-- directory for storing whisper files
-		store_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
-		-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
-		-- decibels are negative, the recording is normalized to -3dB =>
-		-- increase this number to pick up more (weaker) sounds as possible speech
-		-- decrease this number to pick up only louder sounds as possible speech
-		-- you can disable silence trimming by setting this a very high number (like 1000.0)
-		silence = "1.75",
-		-- whisper tempo (1.0 is normal speed)
-		tempo = "1.75",
-		-- The language of the input audio, in ISO-639-1 format.
-		language = "en",
-		-- command to use for recording can be nil (unset) for automatic selection
-		-- string ("sox", "arecord", "ffmpeg") or table with command and arguments:
-		-- sox is the most universal, but can have start/end cropping issues caused by latency
-		-- arecord is linux only, but has no cropping issues and is faster
-		-- ffmpeg in the default configuration is macos only, but can be used on any platform
-		-- (see https://trac.ffmpeg.org/wiki/Capture/Desktop for more info)
-		-- below is the default configuration for all three commands:
-		-- whisper_rec_cmd = {"sox", "-c", "1", "--buffer", "32", "-d", "rec.wav", "trim", "0", "60:00"},
-		-- whisper_rec_cmd = {"arecord", "-c", "1", "-f", "S16_LE", "-r", "48000", "-d", "3600", "rec.wav"},
-		-- whisper_rec_cmd = {"ffmpeg", "-y", "-f", "avfoundation", "-i", ":0", "-t", "3600", "rec.wav"},
-		rec_cmd = nil,
-	},
-
-	-- image generation settings
 	image = {
 		-- you can disable image generation logic completely by image = {disable = true}
 		disable = false,
