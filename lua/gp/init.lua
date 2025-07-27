@@ -7,23 +7,23 @@
 local config = require("gp.config")
 
 local M = {
-	_Name = "Gp", -- plugin name
-	_state = {}, -- table of state variables
-	agents = {}, -- table of agents
-	cmd = {}, -- default command functions
-	config = {}, -- config variables
-	hooks = {}, -- user defined command functions
-	defaults = require("gp.defaults"), -- some useful defaults
+	_Name = "Gp",                          -- plugin name
+	_state = {},                           -- table of state variables
+	agents = {},                           -- table of agents
+	cmd = {},                              -- default command functions
+	config = {},                           -- config variables
+	hooks = {},                            -- user defined command functions
+	defaults = require("gp.defaults"),     -- some useful defaults
 	deprecator = require("gp.deprecator"), -- handle deprecated options
 	dispatcher = require("gp.dispatcher"), -- handle communication with LLM providers
-	helpers = require("gp.helper"), -- helper functions
-	imager = require("gp.imager"), -- image generation module
-	logger = require("gp.logger"), -- logger module
-	render = require("gp.render"), -- render module
-	spinner = require("gp.spinner"), -- spinner module
-	tasker = require("gp.tasker"), -- tasker module
-	vault = require("gp.vault"), -- handles secrets
-	whisper = require("gp.whisper"), -- whisper module
+	helpers = require("gp.helper"),        -- helper functions
+	imager = require("gp.imager"),         -- image generation module
+	logger = require("gp.logger"),         -- logger module
+	render = require("gp.render"),         -- render module
+	spinner = require("gp.spinner"),       -- spinner module
+	tasker = require("gp.tasker"),         -- tasker module
+	vault = require("gp.vault"),           -- handles secrets
+	whisper = require("gp.whisper"),       -- whisper module
 }
 
 --------------------------------------------------------------------------------
@@ -137,11 +137,11 @@ M.setup = function(opts)
 		elseif not agent.model or not agent.system_prompt then
 			M.logger.warning(
 				"Agent "
-					.. name
-					.. " is missing model or system_prompt\n"
-					.. "If you want to disable an agent, use: { name = '"
-					.. name
-					.. "', disable = true },"
+				.. name
+				.. " is missing model or system_prompt\n"
+				.. "If you want to disable an agent, use: { name = '"
+				.. name
+				.. "', disable = true },"
 			)
 			M.agents[name] = nil
 		end
@@ -282,9 +282,9 @@ end
 
 M.Target = {
 	rewrite = 0, -- for replacing the selection, range or the current line
-	append = 1, -- for appending after the selection, range or the current line
+	append = 1,  -- for appending after the selection, range or the current line
 	prepend = 2, -- for prepending before the selection, range or the current line
-	popup = 3, -- for writing into the popup window
+	popup = 3,   -- for writing into the popup window
 
 	-- for writing into a new buffer
 	---@param filetype nil | string # nil = same as the original buffer
@@ -378,8 +378,8 @@ M._toggle = {}
 
 M._toggle_kind = {
 	unknown = 0, -- unknown toggle
-	chat = 1, -- chat toggle
-	popup = 2, -- popup toggle
+	chat = 1,    -- chat toggle
+	popup = 2,   -- popup toggle
 	context = 3, -- context toggle
 }
 
@@ -387,13 +387,13 @@ M._toggle_kind = {
 ---@return boolean # true if toggle was closed
 M._toggle_close = function(kind)
 	if
-		M._toggle[kind]
-		and M._toggle[kind].win
-		and M._toggle[kind].buf
-		and M._toggle[kind].close
-		and vim.api.nvim_win_is_valid(M._toggle[kind].win)
-		and vim.api.nvim_buf_is_valid(M._toggle[kind].buf)
-		and vim.api.nvim_win_get_buf(M._toggle[kind].win) == M._toggle[kind].buf
+					M._toggle[kind]
+					and M._toggle[kind].win
+					and M._toggle[kind].buf
+					and M._toggle[kind].close
+					and vim.api.nvim_win_is_valid(M._toggle[kind].win)
+					and vim.api.nvim_buf_is_valid(M._toggle[kind].buf)
+					and vim.api.nvim_win_get_buf(M._toggle[kind].win) == M._toggle[kind].buf
 	then
 		if #vim.api.nvim_list_wins() == 1 then
 			M.logger.warning("Can't close the last window.")
@@ -609,10 +609,10 @@ end
 
 M.BufTarget = {
 	current = 0, -- current window
-	popup = 1, -- popup window
-	split = 2, -- split window
-	vsplit = 3, -- vsplit window
-	tabnew = 4, -- new tab
+	popup = 1,   -- popup window
+	split = 2,   -- split window
+	vsplit = 3,  -- vsplit window
+	tabnew = 4,  -- new tab
 }
 
 ---@param params table | string # table with args or string args
@@ -1233,7 +1233,7 @@ M.cmd.ChatFinder = function()
 	local command_buf, command_win, command_close, command_resize = M.render.popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
-			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
+		.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
 		function(w, h)
 			return w - left - right, 1, h - bottom, left
 		end,
@@ -1546,7 +1546,7 @@ M.cmd.NextAgent = function()
 	set_agent(agent_list[1])
 end
 
-M.cmd.AgentSelect = function()
+M.cmd.SelectAgent = function()
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.not_chat(buf, file_name) == nil
