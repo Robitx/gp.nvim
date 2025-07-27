@@ -369,7 +369,7 @@ Displays currently used agents for chat and command instructions.
 
 Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
 
-#### `:GpSelectAgent` <!-- {doc=:GPSelectAgent}  -->
+#### `:GpSelectAgent` <!-- {doc=:GpSelectAgent}  -->
 
 Opens a selection interface using `vim.ui.select` to choose from all available agents, allowing you to directly select the desired agent from a list. Works seamlessly with telescope if available.
 
