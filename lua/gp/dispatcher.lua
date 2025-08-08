@@ -207,7 +207,8 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
-local query = function(buf, provider, payload, handler, on_exit, callback)
+---@param is_reasoning boolean # whether model is reasoning model
+local query = function(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		logger.error(
@@ -248,9 +249,15 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
+
 				local content = ""
+				local reasoning_content = ""
+
 				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
+					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.reasoning_content then
+						reasoning_content = line.choices[1].delta.reasoning_content
+					end
 					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
 						content = line.choices[1].delta.content
 					end
@@ -274,10 +281,15 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
-
-				if content and type(content) == "string" then
+				if reasoning_content ~= "" and type(reasoning_content) == "string" then
+					handler(qid, reasoning_content, true)
+				elseif content ~= "" and type(content) == "string" then
+					if is_reasoning then
+						handler(qid, "\n</details>\n</think>\n", false)
+						is_reasoning = false
+					end
 					qt.response = qt.response .. content
-					handler(qid, content)
+					handler(qid, content, false)
 				end
 			end
 		end
@@ -321,10 +333,15 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
-
-				if qt.response == "" then
-					logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
+				if is_reasoning then
+					handler(qid, "\n", false)
+					handler(qid, "\n</details>\n</think>\n", false)
+					is_reasoning = false
 				end
+
+				-- if qt.response == "" then
+				-- 	logger.error(qt.provider .. " response is empty: \n" .. vim.inspect(qt.raw_response))
+				-- end
 
 				-- optional on_exit handler
 				if type(on_exit) == "function" then
@@ -403,7 +420,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 	end
 
 	local temp_file = D.query_dir ..
-		"/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
+					"/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
 	helpers.table_to_file(payload, temp_file)
 
 	local curl_params = vim.deepcopy(D.config.curl_params or {})
@@ -435,16 +452,17 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 ---@param callback function | nil # optional callback handler
-D.query = function(buf, provider, payload, handler, on_exit, callback)
+---@param is_reasoning boolean # whether the model is reasoning model
+D.query = function(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 	if provider == "copilot" then
 		return vault.run_with_secret(provider, function()
 			vault.refresh_copilot_bearer(function()
-				query(buf, provider, payload, handler, on_exit, callback)
+				query(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 			end)
 		end)
 	end
 	vault.run_with_secret(provider, function()
-		query(buf, provider, payload, handler, on_exit, callback)
+		query(buf, provider, payload, handler, on_exit, callback, is_reasoning)
 	end)
 end
 
@@ -473,7 +491,7 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	})
 
 	local response = ""
-	return vim.schedule_wrap(function(qid, chunk)
+	return vim.schedule_wrap(function(qid, chunk, is_reasoning)
 		local qt = tasker.get_query(qid)
 		if not qt then
 			return
@@ -513,6 +531,13 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 			lines[i] = prefix .. l
 		end
 
+		-- prepend prefix > to each line inside CoT
+		if is_reasoning then
+			for i, l in ipairs(lines) do
+				lines[i] = "> " .. l
+			end
+		end
+
 		local unfinished_lines = {}
 		for i = finished_lines + 1, #lines do
 			table.insert(unfinished_lines, lines[i])
@@ -521,9 +546,9 @@ D.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 		vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + finished_lines, false, unfinished_lines)
 
 		local new_finished_lines = math.max(0, #lines - 1)
-		for i = finished_lines, new_finished_lines do
-			vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
-		end
+		-- for i = finished_lines, new_finished_lines do
+		-- 	vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
+		-- end
 		finished_lines = new_finished_lines
 
 		local end_line = first_line + #vim.split(response, "\n")
