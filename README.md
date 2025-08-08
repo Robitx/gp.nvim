@@ -149,7 +149,7 @@ Below is an example of the relevant configuration part enabling some of these. T
 			secret = {
 				"bash",
 				"-c",
-				"cat ~/.config/github-copilot/hosts.json | sed -n 's/.*"oauth_token":"\([^"]*\)".*/\1/p'",
+				"cat ~/.config/github-copilot/apps.json | sed -n 's/.*"oauth_token":"\([^"]*\)".*/\1/p'",
 			},
 		},
 
