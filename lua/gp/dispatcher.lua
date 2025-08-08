@@ -127,8 +127,8 @@ D.prepare_payload = function(messages, model, provider)
 				},
 			},
 			generationConfig = {
-				temperature = math.max(0, math.min(2, model.temperature or 1)),
-				maxOutputTokens = model.max_tokens or 8192,
+				--temperature = math.max(0, math.min(2, model.temperature or 1)),
+				--maxOutputTokens = model.max_tokens or 8192,
 				topP = math.max(0, math.min(1, model.top_p or 1)),
 				topK = model.top_k or 100,
 			},
