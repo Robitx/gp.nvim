@@ -9,9 +9,11 @@ M.chat_system_prompt = "You are a general AI assistant.\n\n"
 	.. "- Don't elide any code from your output if the answer requires coding.\n"
 	.. "- Take a deep breath; You've got this!\n"
 
-M.code_system_prompt = "You are an AI working as a code editor.\n\n"
-	.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-	.. "START AND END YOUR ANSWER WITH:\n\n```"
+M.code_system_prompt = "You are an AI code generation engine.\n\n"
+    .. "Your *ONLY* output MUST be the raw code snippet requested.\n"
+    .. "DO NOT include any introductory sentences, explanations, or conclusions.\n"
+    .. "DO NOT write anything before the opening ``` or after the closing ```.\n"
+    .. "Your entire response MUST start *immediately* with ``` and end *immediately* with ```."
 
 M.chat_help = [[
 # Write your queries after {{user_prefix}}. Use `{{respond_shortcut}}` or :{{cmd_prefix}}ChatRespond to generate a response.
