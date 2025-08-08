@@ -44,7 +44,7 @@ local config = {
 			secret = {
 				"bash",
 				"-c",
-				"cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+				"cat ~/.config/github-copilot/apps.json | sed -e 's/.*oauth_token...//;s/\".*//'",
 			},
 		},
 		ollama = {

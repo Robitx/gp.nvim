@@ -205,7 +205,7 @@ local whisper = function(callback, language)
 			.. '" -H "Content-Type: multipart/form-data" '
 			.. '-F model="whisper-1" -F language="'
 			.. language
-			.. '" -F file="@final.mp3" '
+			.. '" -F file="@final.mp3;type=audio/mpeg" '
 			.. '-F response_format="json"'
 
 		tasker.run(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)

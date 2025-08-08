@@ -247,6 +247,7 @@ M.setup = function(opts)
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
 		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
+		ChatLast = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
 		Agent = agent_completion,
 		Do = do_completion,
@@ -632,7 +633,7 @@ end
 
 ---@param file_name string
 ---@param target number | nil # buf target
----@param kind number # nil or a toggle kind
+---@param kind number | nil # nil or a toggle kind, must be toggle kind when toggle is true
 ---@param toggle boolean # whether to toggle
 ---@return number # buffer number
 M.open_buf = function(file_name, target, kind, toggle)
@@ -642,6 +643,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 	M._toggle_close(M._toggle_kind.popup)
 
 	if toggle then
+		---@cast kind number
 		M._toggle_close(kind)
 	end
 
@@ -864,6 +866,46 @@ M.cmd.ChatToggle = function(params, system_prompt, agent)
 	end
 
 	M.new_chat(params, true, system_prompt, agent)
+end
+
+---@param params table
+---@return number | nil # buffer number or nil if no last chat
+M.cmd.ChatLast = function(params)
+	local toggle = false
+	-- if the range is 2, we want to create a new chat file with the selection
+	if M._toggle_close(M._toggle_kind.chat) then
+		params.args = params.args or ""
+		if params.args == "" then
+			params.args = M.config.toggle_target
+		end
+		toggle = true
+	end
+	local last = M._state.last_chat
+	if last and vim.fn.filereadable(last) == 1 then
+		last = vim.fn.resolve(last)
+		-- get current buffer, for pasting selection if necessary
+		local cbuf = vim.api.nvim_get_current_buf()
+		local buf = M.helpers.get_buffer(last)
+		local win_found = false
+		if buf then
+			for _, w in ipairs(vim.api.nvim_list_wins()) do
+				if vim.api.nvim_win_get_buf(w) == buf then
+					vim.api.nvim_set_current_win(w)
+					vim.api.nvim_set_current_buf(buf)
+					win_found = true
+					break
+				end
+			end
+		end
+		buf = win_found and buf or M.open_buf(last, M.resolve_buf_target(params), toggle and M._toggle_kind.chat or nil, toggle)
+		-- if there is a selection, paste it
+		if params.range == 2 then
+			M.render.append_selection(params, cbuf, buf, M.config.template_selection)
+			M.helpers.feedkeys("G", "xn")
+		end
+		return buf
+	end
+	return nil
 end
 
 M.cmd.ChatPaste = function(params)
@@ -1628,6 +1670,58 @@ M.cmd.NextAgent = function()
 	set_agent(agent_list[1])
 end
 
+M.cmd.SelectAgent = function()
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	local is_chat = M.not_chat(buf, file_name) == nil
+	local current_agent, agent_list
+
+	if is_chat then
+		current_agent = M._state.chat_agent
+		agent_list = M._chat_agents
+	else
+		current_agent = M._state.command_agent
+		agent_list = M._command_agents
+	end
+
+	if #agent_list == 0 then
+		M.logger.warning("No agents available")
+		return
+	end
+
+	-- Create options with current agent highlighted
+	local options = {}
+	for _, agent_name in ipairs(agent_list) do
+		if agent_name == current_agent then
+			table.insert(options, agent_name .. " (current)")
+		else
+			table.insert(options, agent_name)
+		end
+	end
+
+	vim.ui.select(options, {
+		prompt = is_chat and "Select chat agent:" or "Select command agent:",
+		format_item = function(item)
+			return item
+		end,
+	}, function(choice)
+		if not choice then
+			return
+		end
+
+		-- Remove " (current)" suffix if present
+		local agent_name = choice:gsub(" %(current%)$", "")
+
+		if is_chat then
+			M.refresh_state({ chat_agent = agent_name })
+			M.logger.info("Chat agent: " .. M._state.chat_agent)
+		else
+			M.refresh_state({ command_agent = agent_name })
+			M.logger.info("Command agent: " .. M._state.command_agent)
+		end
+	end)
+end
+
 ---@param name string | nil
 ---@return table | nil # { cmd_prefix, name, model, system_prompt, provider}
 M.get_command_agent = function(name)
@@ -1897,7 +1991,9 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		-- mode specific logic
 		if target == M.Target.rewrite then
 			-- delete selection
-			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+			if not (start_line - 1 == 0 and end_line - 1 == 0 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == "") then
+			  vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+			end
 			-- prepare handler
 			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.append then

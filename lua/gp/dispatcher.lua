@@ -180,15 +180,11 @@ D.prepare_payload = function(messages, model, provider)
 		return payload
 	end
 
-	if provider == "copilot" and model.model == "gpt-4o" then
-		model.model = "gpt-4o-2024-05-13"
-	end
-
 	local output = {
 		model = model.model,
 		stream = true,
 		messages = messages,
-		max_tokens = model.max_tokens or 4096,
+		max_completion_tokens = model.max_completion_tokens or 4096,
 		temperature = math.max(0, math.min(2, model.temperature or 1)),
 		top_p = math.max(0, math.min(1, model.top_p or 1)),
 	}
@@ -204,6 +200,13 @@ D.prepare_payload = function(messages, model, provider)
 			end
 		end
 		-- remove max_tokens, top_p, temperature for o1 models. https://platform.openai.com/docs/guides/reasoning/beta-limitations
+		output.max_completion_tokens = nil
+		output.temperature = nil
+		output.top_p = nil
+	end
+
+	if model.model == "gpt-5" or  model.model == "gpt-5-mini" then
+		-- remove max_tokens, top_p, temperature for gpt-5 models (duh)
 		output.max_tokens = nil
 		output.temperature = nil
 		output.top_p = nil

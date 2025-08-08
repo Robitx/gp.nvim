@@ -1,4 +1,4 @@
-*gp.nvim.txt*               For Neovim              Last change: 2025 April 08
+*gp.nvim.txt*              For Neovim              Last change: 2025 August 08
 
 ==============================================================================
 Table of Contents                                  *gp.nvim-table-of-contents*
@@ -128,7 +128,7 @@ Snippets for your preferred package manager:
 
 Make sure you have OpenAI API key. Get one here
 <https://platform.openai.com/account/api-keys> and use it in the
-|gp.nvim-4.-configuration|. Also consider setting up usage limits
+|gp.nvim-5.-configuration|. Also consider setting up usage limits
 <https://platform.openai.com/account/billing/limits> so you won’t get
 suprised at the end of the month.
 
@@ -181,7 +181,7 @@ still supported for compatibility).
                 secret = {
                     "bash",
                     "-c",
-                    "cat ~/.config/github-copilot/hosts.json | sed -e 's/.*oauth_token...//;s/\".*//'",
+                    "cat ~/.config/github-copilot/apps.json | sed -e 's/.*oauth_token...//;s/\".*//'",
                 },
             },
     
@@ -483,6 +483,13 @@ buffer (chat agents if current buffer is a chat and command agents otherwise).
 The agent setting is persisted on disk across Neovim instances.
 
 
+:GpSelectAgent                                                *:GpSelectAgent*
+
+Opens a selection interface using `vim.ui.select` to choose from all available
+agents, allowing you to directly select the desired agent from a list. Works
+seamlessly with telescope if available.
+
+
 IMAGE COMMANDS                                        *gp.nvim-image-commands*
 
 
@@ -668,6 +675,7 @@ them at one place).
     
     vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
     vim.keymap.set({"n", "i", "v", "x"}, "<C-g>n", "<cmd>GpNextAgent<cr>", keymapOptions("Next Agent"))
+    vim.keymap.set({"n", "i", "v", "x"}, "<C-g>l", "<cmd>GpSelectAgent<cr>", keymapOptions("Select Agent"))
     
     -- optional Whisper commands with prefix <C-g>w
     vim.keymap.set({"n", "i"}, "<C-g>ww", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
@@ -722,6 +730,7 @@ Or go more fancy by using which-key.nvim
             { "<C-g>gv", ":<C-u>'<,'>GpVnew<cr>", desc = "Visual GpVnew" },
             { "<C-g>i", ":<C-u>'<,'>GpImplement<cr>", desc = "Implement selection" },
             { "<C-g>n", "<cmd>GpNextAgent<cr>", desc = "Next Agent" },
+            { "<C-g>l", "<cmd>GpSelectAgent<cr>", desc = "Select Agent" },
             { "<C-g>p", ":<C-u>'<,'>GpChatPaste<cr>", desc = "Visual Chat Paste" },
             { "<C-g>r", ":<C-u>'<,'>GpRewrite<cr>", desc = "Visual Rewrite" },
             { "<C-g>s", "<cmd>GpStop<cr>", desc = "GpStop" },
@@ -758,6 +767,7 @@ Or go more fancy by using which-key.nvim
             { "<C-g>gt", "<cmd>GpTabnew<cr>", desc = "GpTabnew" },
             { "<C-g>gv", "<cmd>GpVnew<cr>", desc = "GpVnew" },
             { "<C-g>n", "<cmd>GpNextAgent<cr>", desc = "Next Agent" },
+            { "<C-g>l", "<cmd>GpSelectAgent<cr>", desc = "Select Agent" },
             { "<C-g>r", "<cmd>GpRewrite<cr>", desc = "Inline Rewrite" },
             { "<C-g>s", "<cmd>GpStop<cr>", desc = "GpStop" },
             { "<C-g>t", "<cmd>GpChatToggle<cr>", desc = "Toggle Chat" },
@@ -793,6 +803,7 @@ Or go more fancy by using which-key.nvim
             { "<C-g>gt", "<cmd>GpTabnew<cr>", desc = "GpTabnew" },
             { "<C-g>gv", "<cmd>GpVnew<cr>", desc = "GpVnew" },
             { "<C-g>n", "<cmd>GpNextAgent<cr>", desc = "Next Agent" },
+            { "<C-g>l", "<cmd>GpSelectAgent<cr>", desc = "Select Agent" },
             { "<C-g>r", "<cmd>GpRewrite<cr>", desc = "Inline Rewrite" },
             { "<C-g>s", "<cmd>GpStop<cr>", desc = "GpStop" },
             { "<C-g>t", "<cmd>GpChatToggle<cr>", desc = "Toggle Chat" },
