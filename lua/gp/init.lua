@@ -62,7 +62,8 @@ M.setup = function(opts)
 	local state_dir = opts.state_dir or M.config.state_dir
 	local openai_api_key = opts.openai_api_key or M.config.openai_api_key
 
-	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive)
+	local log_level = opts.log_level == nil and M.config.log_level or opts.log_level
+	M.logger.setup(opts.log_file or M.config.log_file, opts.log_sensitive, log_level)
 
 	M.vault.setup({ state_dir = state_dir, curl_params = curl_params })
 

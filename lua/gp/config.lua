@@ -85,6 +85,8 @@ local config = {
 	-- write sensitive data to log file for	debugging purposes (like api keys)
 	log_sensitive = false,
 
+	log_level = vim.log.levels.DEBUG,
+
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
 
