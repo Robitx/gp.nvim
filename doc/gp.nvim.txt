@@ -252,7 +252,7 @@ options might get deprecated and so on - it’s better to change only things
 where the default doesn’t fit your needs.
 
 
-https://github.com/Robitx/gp.nvim/blob/1be358df28e39132f894871d387d9373ab3636fa/lua/gp/config.lua#L10-L630
+https://github.com/Robitx/gp.nvim/blob/ad38132e8af81ce95260a392478b63b9963b409d/lua/gp/config.lua#L10-L630
 
 
 ==============================================================================
