@@ -1940,7 +1940,9 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		-- mode specific logic
 		if target == M.Target.rewrite then
 			-- delete selection
-			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+			if not (start_line - 1 == 0 and end_line - 1 == 0 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == "") then
+			  vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+			end
 			-- prepare handler
 			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)
 		elseif target == M.Target.append then
