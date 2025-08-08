@@ -298,18 +298,6 @@ subcommands for layout specification:
 - `:GpChatToggle popup` Toggle chat in a popup window.
 
 
-:GpChatLast                                                      *:GpChatLast*
-
-Open the last active chat. Any visual selection or specified range will be
-pasted into the chat. This command also supports subcommands for layout
-specification:
-
-- `:GpChatLast vsplit` Open the last chat in a vertical split window.
-- `:GpChatLast split` Open the last chat in a horizontal split window.
-- `:GpChatLast tabnew` Open the last chat in a new tab.
-- `:GpChatLast popup` Open the last chat in a popup window.
-
-
 :GpChatFinder                                                  *:GpChatFinder*
 
 Open a dialog to search through chats.
