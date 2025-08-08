@@ -143,11 +143,11 @@ local config = {
 		},
 		{
 			provider = "googleai",
-			name = "ChatGemini",
+			name = "ChatGemini-2-5-Pro",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gemini-pro", temperature = 1.1, top_p = 1 },
+			model = { model = "gemini-2.5-pro-exp-03-25", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = require("gp.defaults").chat_system_prompt,
 		},
@@ -253,11 +253,11 @@ local config = {
 		},
 		{
 			provider = "googleai",
-			name = "CodeGemini",
+			name = "CodeGemini-2-5-Pro",
 			chat = false,
 			command = true,
 			-- string with model name or table with model name and parameters
-			model = { model = "gemini-pro", temperature = 0.8, top_p = 1 },
+			model = { model = "gemini-2.5-pro-exp-03-25", temperature = 0.8, top_p = 1 },
 			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
@@ -331,6 +331,7 @@ local config = {
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
+	chat_shortcut_help = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>h" },
 	-- default search term when using :GpChatFinder
 	chat_finder_pattern = "topic ",
 	chat_finder_mappings = {
@@ -377,18 +378,20 @@ local config = {
 	command_auto_select_response = true,
 
 	-- templates
-	template_selection = "I have the following from {{filename}}:"
+	template_selection = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following from {{filename}}:"
+	template_rewrite = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
-	template_append = "I have the following from {{filename}}:"
+		.. "\n\nRespond exclusively with the snippet that should replace the primary selection above.",
+	template_append = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
-	template_prepend = "I have the following from {{filename}}:"
+		.. "\n\nRespond exclusively with the snippet that should be appended after the primary selection above.",
+	template_prepend = "I have the following primary snippet from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
+		.. "\n\nRespond exclusively with the snippet that should be prepended before the primary selection above.",
 	template_command = "{{command}}",
+	template_context_file = "\n\nHere is a file {{filename}} for additional context:"
+		.. "\n\n```\n{{content}}\n```\n\n",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
 	-- Whisper costs $0.006 / minute (rounded to the nearest second)
