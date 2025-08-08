@@ -369,6 +369,10 @@ Displays currently used agents for chat and command instructions.
 
 Choose a new agent based on its name, listing options based on the current buffer (chat agents if current buffer is a chat and command agents otherwise). The agent setting is persisted on disk across Neovim instances.
 
+#### `:GpSelectAgent` <!-- {doc=:GpSelectAgent}  -->
+
+Opens a selection interface using `vim.ui.select` to choose from all available agents, allowing you to directly select the desired agent from a list. Works seamlessly with telescope if available.
+
 ## Image commands
 
 #### `:GpImage` <!-- {doc=:GpImage}  -->
@@ -530,6 +534,7 @@ vim.keymap.set("v", "<C-g>x", ":<C-u>'<,'>GpContext<cr>", keymapOptions("Visual 
 
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>s", "<cmd>GpStop<cr>", keymapOptions("Stop"))
 vim.keymap.set({"n", "i", "v", "x"}, "<C-g>n", "<cmd>GpNextAgent<cr>", keymapOptions("Next Agent"))
+vim.keymap.set({"n", "i", "v", "x"}, "<C-g>j", "<cmd>GpSelectAgent<cr>", keymapOptions("Select Agent"))
 
 -- optional Whisper commands with prefix <C-g>w
 vim.keymap.set({"n", "i"}, "<C-g>ww", "<cmd>GpWhisper<cr>", keymapOptions("Whisper"))
@@ -582,6 +587,7 @@ require("which-key").add({
         { "<C-g>gv", ":<C-u>'<,'>GpVnew<cr>", desc = "Visual GpVnew" },
         { "<C-g>i", ":<C-u>'<,'>GpImplement<cr>", desc = "Implement selection" },
         { "<C-g>n", "<cmd>GpNextAgent<cr>", desc = "Next Agent" },
+        { "<C-g>j", "<cmd>GpSelectAgent<cr>", desc = "Select Agent" },
         { "<C-g>p", ":<C-u>'<,'>GpChatPaste<cr>", desc = "Visual Chat Paste" },
         { "<C-g>r", ":<C-u>'<,'>GpRewrite<cr>", desc = "Visual Rewrite" },
         { "<C-g>s", "<cmd>GpStop<cr>", desc = "GpStop" },
@@ -618,6 +624,7 @@ require("which-key").add({
         { "<C-g>gt", "<cmd>GpTabnew<cr>", desc = "GpTabnew" },
         { "<C-g>gv", "<cmd>GpVnew<cr>", desc = "GpVnew" },
         { "<C-g>n", "<cmd>GpNextAgent<cr>", desc = "Next Agent" },
+        { "<C-g>j", "<cmd>GpSelectAgent<cr>", desc = "Select Agent" },
         { "<C-g>r", "<cmd>GpRewrite<cr>", desc = "Inline Rewrite" },
         { "<C-g>s", "<cmd>GpStop<cr>", desc = "GpStop" },
         { "<C-g>t", "<cmd>GpChatToggle<cr>", desc = "Toggle Chat" },
@@ -653,6 +660,7 @@ require("which-key").add({
         { "<C-g>gt", "<cmd>GpTabnew<cr>", desc = "GpTabnew" },
         { "<C-g>gv", "<cmd>GpVnew<cr>", desc = "GpVnew" },
         { "<C-g>n", "<cmd>GpNextAgent<cr>", desc = "Next Agent" },
+        { "<C-g>j", "<cmd>GpSelectAgent<cr>", desc = "Select Agent" },
         { "<C-g>r", "<cmd>GpRewrite<cr>", desc = "Inline Rewrite" },
         { "<C-g>s", "<cmd>GpStop<cr>", desc = "GpStop" },
         { "<C-g>t", "<cmd>GpChatToggle<cr>", desc = "Toggle Chat" },

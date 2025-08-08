@@ -1546,6 +1546,58 @@ M.cmd.NextAgent = function()
 	set_agent(agent_list[1])
 end
 
+M.cmd.SelectAgent = function()
+	local buf = vim.api.nvim_get_current_buf()
+	local file_name = vim.api.nvim_buf_get_name(buf)
+	local is_chat = M.not_chat(buf, file_name) == nil
+	local current_agent, agent_list
+
+	if is_chat then
+		current_agent = M._state.chat_agent
+		agent_list = M._chat_agents
+	else
+		current_agent = M._state.command_agent
+		agent_list = M._command_agents
+	end
+
+	if #agent_list == 0 then
+		M.logger.warning("No agents available")
+		return
+	end
+
+	-- Create options with current agent highlighted
+	local options = {}
+	for _, agent_name in ipairs(agent_list) do
+		if agent_name == current_agent then
+			table.insert(options, agent_name .. " (current)")
+		else
+			table.insert(options, agent_name)
+		end
+	end
+
+	vim.ui.select(options, {
+		prompt = is_chat and "Select chat agent:" or "Select command agent:",
+		format_item = function(item)
+			return item
+		end,
+	}, function(choice)
+		if not choice then
+			return
+		end
+
+		-- Remove " (current)" suffix if present
+		local agent_name = choice:gsub(" %(current%)$", "")
+
+		if is_chat then
+			M.refresh_state({ chat_agent = agent_name })
+			M.logger.info("Chat agent: " .. M._state.chat_agent)
+		else
+			M.refresh_state({ command_agent = agent_name })
+			M.logger.info("Command agent: " .. M._state.command_agent)
+		end
+	end)
+end
+
 ---@param name string | nil
 ---@return table | nil # { cmd_prefix, name, model, system_prompt, provider}
 M.get_command_agent = function(name)
