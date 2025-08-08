@@ -128,7 +128,7 @@ Snippets for your preferred package manager:
 
 Make sure you have OpenAI API key. Get one here
 <https://platform.openai.com/account/api-keys> and use it in the
-|gp.nvim-4.-configuration|. Also consider setting up usage limits
+|gp.nvim-5.-configuration|. Also consider setting up usage limits
 <https://platform.openai.com/account/billing/limits> so you won’t get
 suprised at the end of the month.
 
