@@ -161,10 +161,6 @@ D.prepare_payload = function(messages, model, provider)
 		return payload
 	end
 
-	if provider == "copilot" and model.model == "gpt-4o" then
-		model.model = "gpt-4o-2024-05-13"
-	end
-
 	local output = {
 		model = model.model,
 		stream = true,
