@@ -127,8 +127,8 @@ D.prepare_payload = function(messages, model, provider)
 				},
 			},
 			generationConfig = {
-				--temperature = math.max(0, math.min(2, model.temperature or 1)),
-				--maxOutputTokens = model.max_tokens or 8192,
+				temperature = math.max(0, math.min(2, model.temperature or 1)),
+				maxOutputTokens = model.max_tokens or 8192,
 				topP = math.max(0, math.min(1, model.top_p or 1)),
 				topK = model.top_k or 100,
 			},
@@ -185,6 +185,13 @@ D.prepare_payload = function(messages, model, provider)
 			end
 		end
 		-- remove max_tokens, top_p, temperature for o1 models. https://platform.openai.com/docs/guides/reasoning/beta-limitations
+		output.max_tokens = nil
+		output.temperature = nil
+		output.top_p = nil
+	end
+
+	if model.model == "gpt-5" then
+		-- remove max_tokens, top_p, temperature for gpt-5 models (duh)
 		output.max_tokens = nil
 		output.temperature = nil
 		output.top_p = nil
