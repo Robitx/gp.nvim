@@ -190,7 +190,7 @@ D.prepare_payload = function(messages, model, provider)
 		output.top_p = nil
 	end
 
-	if model.model == "gpt-5" then
+	if model.model == "gpt-5" or  model.model == "gpt-5-mini" then
 		-- remove max_tokens, top_p, temperature for gpt-5 models (duh)
 		output.max_tokens = nil
 		output.temperature = nil
