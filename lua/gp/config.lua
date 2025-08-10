@@ -204,7 +204,7 @@ local config = {
 			-- string with model name or table with model name and parameters
 			model = {
 				model = "qwen3:8b",
-				think = false, -- toggle thinking in ollama's "thinkings" models
+				think = false, -- toggle thinking mode for Ollama's thinking models
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.",
