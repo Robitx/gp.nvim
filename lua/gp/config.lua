@@ -197,6 +197,19 @@ local config = {
 			system_prompt = "You are a general AI assistant.",
 		},
 		{
+			provider = "ollama",
+			name = "ChatQwen3-8B",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = {
+				model = "qwen3:8b",
+				think = false, -- toggle thinking in ollama's "thinkings" models
+			},
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.",
+		},
+		{
 			provider = "lmstudio",
 			name = "ChatLMStudio",
 			chat = true,
