@@ -155,8 +155,8 @@ D.prepare_payload = function(messages, model, provider)
 			messages = messages,
 			system = system,
 			max_tokens = model.max_tokens or 4096,
-			temperature = math.max(0, math.min(2, model.temperature or 1)),
-			top_p = math.max(0, math.min(1, model.top_p or 1)),
+			temperature = model.temperature and math.max(0, math.min(2, model.temperature)) or nil,
+			top_p = model.top_p and math.max(0, math.min(1, model.top_p)) or nil,
 		}
 		return payload
 	end
