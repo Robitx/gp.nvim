@@ -436,7 +436,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		}
 		endpoint = render.template_replace(endpoint, "{{model}}", payload.model)
 	elseif provider == "ollama" then
-		-- Ollama local API typically doesn't require authentication
 		headers = {}
 	else -- default to openai compatible headers
 		headers = {
