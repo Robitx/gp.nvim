@@ -49,7 +49,7 @@ local config = {
 		},
 		ollama = {
 			disable = true,
-			endpoint = "http://localhost:11434/v1/chat/completions",
+			endpoint = "http://localhost:11434/api/chat",
 			secret = "dummy_secret",
 		},
 		lmstudio = {

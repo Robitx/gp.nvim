@@ -270,6 +270,15 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
+				if qt.provider == "ollama" then
+					if line:match('"message":') and line:match('"content":') then
+						local success, decoded = pcall(vim.json.decode, line)
+						if success and decoded.message and decoded.message.content then
+							content = decoded.message.content
+						end
+					end
+				end
+
 
 				if content and type(content) == "string" then
 					qt.response = qt.response .. content
@@ -391,6 +400,9 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"api-key: " .. bearer,
 		}
 		endpoint = render.template_replace(endpoint, "{{model}}", payload.model)
+	elseif provider == "ollama" then
+		-- Ollama local API typically doesn't require authentication
+		headers = {}
 	else -- default to openai compatible headers
 		headers = {
 			"-H",
