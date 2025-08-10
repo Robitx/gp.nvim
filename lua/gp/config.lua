@@ -29,7 +29,7 @@ local config = {
 		-- secret : "sk-...",
 		-- secret = os.getenv("env_name.."),
 		openai = {
-			disable = false,
+			disable = true,
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			-- secret = os.getenv("OPENAI_API_KEY"),
 		},
@@ -103,6 +103,7 @@ local config = {
 			disable = true,
 		},
 		{
+			provider = "openai",
 			name = "ChatGPT4o",
 			chat = true,
 			command = false,
