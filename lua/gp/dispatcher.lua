@@ -410,8 +410,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"x-api-key: " .. bearer,
 			"-H",
 			"anthropic-version: 2023-06-01",
-			"-H",
-			"anthropic-beta: messages-2023-12-15",
 		}
 	elseif provider == "azure" then
 		headers = {
