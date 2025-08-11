@@ -234,11 +234,11 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		last_line = -1,
 		ns_id = nil,
 		ex_id = nil,
-		in_thinking_block = false,
 	})
 
 	local out_reader = function()
 		local buffer = ""
+		local anthropic_thinking = false -- local state for Anthropic thinking blocks
 
 		---@param lines_chunk string
 		local function process_lines(lines_chunk)
@@ -266,10 +266,10 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 						line = vim.json.decode(line)
 						if line.content_block then
 							if line.content_block.type == "thinking" then
-								qt.in_thinking_block = true
+								anthropic_thinking = true
 								content = "<think>"
-							elseif line.content_block.type == "text" and qt.in_thinking_block then
-								qt.in_thinking_block = false
+							elseif line.content_block.type == "text" and anthropic_thinking then
+								anthropic_thinking = false
 								content = "</think>\n\n"
 							end
 						end
