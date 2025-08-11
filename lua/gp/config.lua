@@ -173,6 +173,16 @@ local config = {
 		},
 		{
 			provider = "anthropic",
+			name = "ChatClaude-Sonnet-4-Thinking",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "claude-sonnet-4-20250514", thinking_budget = 1024 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = require("gp.defaults").chat_system_prompt,
+		},
+		{
+			provider = "anthropic",
 			name = "ChatClaude-3-5-Haiku",
 			chat = true,
 			command = false,

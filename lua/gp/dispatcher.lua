@@ -158,6 +158,14 @@ D.prepare_payload = function(messages, model, provider)
 			temperature = model.temperature and math.max(0, math.min(2, model.temperature)) or nil,
 			top_p = model.top_p and math.max(0, math.min(1, model.top_p)) or nil,
 		}
+
+		if model.thinking_budget ~= nil then
+			payload.thinking = {
+				type = "enabled",
+				budget_tokens = model.thinking_budget
+			}
+		end
+
 		return payload
 	end
 
@@ -226,6 +234,7 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		last_line = -1,
 		ns_id = nil,
 		ex_id = nil,
+		in_thinking_block = false,
 	})
 
 	local out_reader = function()
@@ -252,14 +261,33 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 					end
 				end
 
-				if qt.provider == "anthropic" and line:match('"text":') then
+				if qt.provider == "anthropic" and (line:match('"text":') or line:match('"thinking"')) then
 					if line:match("content_block_start") or line:match("content_block_delta") then
 						line = vim.json.decode(line)
-						if line.delta and line.delta.text then
-							content = line.delta.text
+						
+						-- Handle content block start events  
+						if line.content_block then
+							if line.content_block.type == "thinking" then
+								qt.in_thinking_block = true
+								content = "<think>"
+							elseif line.content_block.type == "text" then
+								-- If we were in a thinking block, close it
+								if qt.in_thinking_block then
+									qt.in_thinking_block = false
+									content = "</think>\n\n"
+								end
+							end
 						end
-						if line.content_block and line.content_block.text then
-							content = line.content_block.text
+						
+						-- Handle content block delta events
+						if line.delta then
+							if line.delta.type == "thinking_delta" then
+								content = line.delta.thinking or ""
+							elseif line.delta.type == "text_delta" then
+								content = line.delta.text or ""  
+							elseif line.delta.text then
+								content = line.delta.text
+							end
 						end
 					end
 				end
