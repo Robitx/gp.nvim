@@ -338,11 +338,12 @@ local config = {
 	chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
 	-- The banner shown at the top of each chat file.
 	chat_template = require("gp.defaults").chat_template,
+	slim_template_header = true,
 	-- if you want more real estate in your chat files and don't need the helper text
 	-- chat_template = require("gp.defaults").short_chat_template,
 	-- chat topic generation prompt
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
-		.. " in two or three words. Respond only with those words.",
+					.. " in two or three words. Respond only with those words.",
 	-- chat topic model (string with model name or table with model name and parameters)
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
@@ -401,16 +402,16 @@ local config = {
 
 	-- templates
 	template_selection = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
+					.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
+					.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+					.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
 	template_append = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
+					.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+					.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
 	template_prepend = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
+					.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
+					.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
 	template_command = "{{command}}",
 
 	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
@@ -592,9 +593,9 @@ local config = {
 		-- GpImplement rewrites the provided selection/range based on comments in it
 		Implement = function(gp, params)
 			local template = "Having following from {{filename}}:\n\n"
-				.. "```{{filetype}}\n{{selection}}\n```\n\n"
-				.. "Please rewrite this according to the contained instructions."
-				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
+							.. "```{{filetype}}\n{{selection}}\n```\n\n"
+							.. "Please rewrite this according to the contained instructions."
+							.. "\n\nRespond exclusively with the snippet that should replace the selection above."
 
 			local agent = gp.get_command_agent()
 			gp.logger.info("Implementing selection with agent: " .. agent.name)
@@ -605,7 +606,7 @@ local config = {
 				agent,
 				template,
 				nil, -- command will run directly without any prompting for user input
-				nil -- no predefined instructions (e.g. speech-to-text from Whisper)
+				nil  -- no predefined instructions (e.g. speech-to-text from Whisper)
 			)
 		end,
 
