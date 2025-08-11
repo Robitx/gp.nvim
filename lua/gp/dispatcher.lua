@@ -169,6 +169,41 @@ D.prepare_payload = function(messages, model, provider)
 		return payload
 	end
 
+	if provider == "ollama" then
+		local payload = {
+			model = model.model,
+			stream = true,
+			messages = messages,
+		}
+
+		if model.think ~= nil then
+			payload.think = model.think
+		end
+
+		local options = {}
+		if model.temperature then
+			options.temperature = math.max(0, math.min(2, model.temperature))
+		end
+		if model.top_p then
+			options.top_p = math.max(0, math.min(1, model.top_p))
+		end
+		if model.min_p then
+			options.min_p = math.max(0, math.min(1, model.min_p))
+		end
+		if model.num_ctx then
+			options.num_ctx = model.num_ctx
+		end
+		if model.top_k then
+			options.top_k = model.top_k
+		end
+
+		if next(options) then
+			payload.options = options
+		end
+
+		return payload
+	end
+
 	local output = {
 		model = model.model,
 		stream = true,
@@ -286,6 +321,15 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				if qt.provider == "googleai" then
 					if line:match('"text":') then
 						content = vim.json.decode("{" .. line .. "}").text
+					end
+				end
+
+				if qt.provider == "ollama" then
+					if line:match('"message":') and line:match('"content":') then
+						local success, decoded = pcall(vim.json.decode, line)
+						if success and decoded.message and decoded.message.content then
+							content = decoded.message.content
+						end
 					end
 				end
 
@@ -408,6 +452,8 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"api-key: " .. bearer,
 		}
 		endpoint = render.template_replace(endpoint, "{{model}}", payload.model)
+	elseif provider == "ollama" then
+		headers = {}
 	else -- default to openai compatible headers
 		headers = {
 			"-H",

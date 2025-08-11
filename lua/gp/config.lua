@@ -49,7 +49,7 @@ local config = {
 		},
 		ollama = {
 			disable = true,
-			endpoint = "http://localhost:11434/v1/chat/completions",
+			endpoint = "http://localhost:11434/api/chat",
 			secret = "dummy_secret",
 		},
 		lmstudio = {
@@ -202,6 +202,19 @@ local config = {
 				temperature = 0.6,
 				top_p = 1,
 				min_p = 0.05,
+			},
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = "You are a general AI assistant.",
+		},
+		{
+			provider = "ollama",
+			name = "ChatQwen3-8B",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = {
+				model = "qwen3:8b",
+				think = false, -- toggle thinking mode for Ollama's thinking models
 			},
 			-- system prompt (use this to specify the persona/role of the AI)
 			system_prompt = "You are a general AI assistant.",
