@@ -264,29 +264,20 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				if qt.provider == "anthropic" and (line:match('"text":') or line:match('"thinking"')) then
 					if line:match("content_block_start") or line:match("content_block_delta") then
 						line = vim.json.decode(line)
-						
-						-- Handle content block start events  
 						if line.content_block then
 							if line.content_block.type == "thinking" then
 								qt.in_thinking_block = true
 								content = "<think>"
-							elseif line.content_block.type == "text" then
-								-- If we were in a thinking block, close it
-								if qt.in_thinking_block then
-									qt.in_thinking_block = false
-									content = "</think>\n\n"
-								end
+							elseif line.content_block.type == "text" and qt.in_thinking_block then
+								qt.in_thinking_block = false
+								content = "</think>\n\n"
 							end
 						end
-						
-						-- Handle content block delta events
 						if line.delta then
 							if line.delta.type == "thinking_delta" then
 								content = line.delta.thinking or ""
 							elseif line.delta.type == "text_delta" then
-								content = line.delta.text or ""  
-							elseif line.delta.text then
-								content = line.delta.text
+								content = line.delta.text or ""
 							end
 						end
 					end
