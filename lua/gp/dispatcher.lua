@@ -211,6 +211,7 @@ D.prepare_payload = function(messages, model, provider)
 		max_completion_tokens = model.max_completion_tokens or 4096,
 		temperature = math.max(0, math.min(2, model.temperature or 1)),
 		top_p = math.max(0, math.min(1, model.top_p or 1)),
+		reasoning_format = model.reasoning_format,
 	}
 
 	if (provider == "openai" or provider == "copilot") and model.model:sub(1, 1) == "o" then
