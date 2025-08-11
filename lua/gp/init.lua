@@ -1159,11 +1159,17 @@ M.chat_respond = function(params)
 				local topic_buf = vim.api.nvim_create_buf(false, true)
 				local topic_handler = M.dispatcher.create_handler(topic_buf, nil, 0, false, "", false)
 
-				-- call the model
+				-- call the model (remove thinking_budget for Anthropic topic generation)
+				local topic_model = headers.model or agent.model
+				local provider = headers.provider or agent.provider
+				if provider == "anthropic" and topic_model.thinking_budget then
+					topic_model = vim.deepcopy(topic_model)
+					topic_model.thinking_budget = nil
+				end
 				M.dispatcher.query(
 					nil,
-					headers.provider or agent.provider,
-					M.dispatcher.prepare_payload(messages, headers.model or agent.model, headers.provider or agent.provider),
+					provider,
+					M.dispatcher.prepare_payload(messages, topic_model, provider),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
