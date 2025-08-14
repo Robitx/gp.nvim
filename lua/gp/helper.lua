@@ -293,4 +293,71 @@ _H.create_user_command = function(cmd_name, cmd_func, completion, desc)
 	})
 end
 
+_H.floating_input = function(opts, cb)
+	if not opts.accept_shortcut or not opts.accept_modes then
+		error('accept_shortcut and accept_modes must be provided for floating_input()')
+	end
+
+	-- Create a scratch buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+
+	-- Set buffer options
+	vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
+	vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
+
+	-- Calculate window size and position
+	local width = opts.width or math.floor(vim.api.nvim_win_get_width(0) / 2)
+	local height = opts.height or math.floor(vim.api.nvim_win_get_height(0) / 2)
+	local win_opts = {
+		relative = 'editor',
+		width = width,
+		height = height,
+		col = math.floor((vim.o.columns - width) / 2),
+		row = math.floor((vim.o.lines - height) / 2),
+		style = 'minimal',
+		border = 'rounded'
+	}
+
+	-- Create window
+	local win = vim.api.nvim_open_win(buf, true, win_opts)
+
+	-- Add title if prompt is provided
+	if opts.prompt then
+		vim.api.nvim_win_set_option(win, 'winhl', 'Normal:Normal')
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, {opts.prompt, ""})
+		vim.api.nvim_win_set_cursor(win, {2, 0})
+	end
+
+	-- Set default content if provided
+	if opts.default and opts.default ~= "" then
+		vim.api.nvim_buf_set_lines(buf, -1, -1, false, {opts.default})
+	end
+
+	-- Set up the key mapping to accept the input
+	vim.keymap.set(opts.accept_modes, opts.accept_shortcut, function()
+		-- Get buffer content
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+		-- Remove prompt and empty line if they exist
+		if opts.prompt and lines[1] == opts.prompt then
+			table.remove(lines, 1) -- Remove prompt line
+			if lines[1] == "" then
+				table.remove(lines, 1) -- Remove empty line after prompt
+			end
+		end
+
+		local content = table.concat(lines, '\n')
+
+		-- Close the window
+		vim.api.nvim_win_close(win, true)
+
+		-- Invoke the callback with the content
+		cb(content)
+	end, { buffer = buf, nowait = true })
+
+	vim.schedule(function()
+		vim.api.nvim_command("startinsert")
+	end)
+end
+
 return _H

@@ -398,6 +398,8 @@ local config = {
 	-- auto select command response (easier chaining of commands)
 	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
+	-- if enabled, will use a floating window + scratch buffer for reading user command
+	command_floating_window = false,
 
 	-- templates
 	template_selection = "I have the following from {{filename}}:"
