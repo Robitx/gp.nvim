@@ -169,38 +169,27 @@ D.prepare_payload = function(messages, model, provider)
 		return payload
 	end
 
-	if provider == "ollama" then
+	if provider == "xai" then
+		local system = ""
+		local i = 1
+		while i < #messages do
+			if messages[i].role == "system" then
+				system = system .. messages[i].content .. "\n"
+				table.remove(messages, i)
+			else
+				i = i + 1
+			end
+		end
+
 		local payload = {
 			model = model.model,
 			stream = true,
 			messages = messages,
+			system = system,
+			max_tokens = model.max_tokens or 4096,
+			temperature = math.max(0, math.min(2, model.temperature or 1)),
+			top_p = math.max(0, math.min(1, model.top_p or 1)),
 		}
-
-		if model.think ~= nil then
-			payload.think = model.think
-		end
-
-		local options = {}
-		if model.temperature then
-			options.temperature = math.max(0, math.min(2, model.temperature))
-		end
-		if model.top_p then
-			options.top_p = math.max(0, math.min(1, model.top_p))
-		end
-		if model.min_p then
-			options.min_p = math.max(0, math.min(1, model.min_p))
-		end
-		if model.num_ctx then
-			options.num_ctx = model.num_ctx
-		end
-		if model.top_k then
-			options.top_k = model.top_k
-		end
-
-		if next(options) then
-			payload.options = options
-		end
-
 		return payload
 	end
 
@@ -454,6 +443,14 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 		endpoint = render.template_replace(endpoint, "{{model}}", payload.model)
 	elseif provider == "ollama" then
 		headers = {}
+	elseif provider == "xai" then
+		-- currently xai only uses bearer token for authentication.
+		-- since I cannot sure its going to be that way for long time
+		-- branching out as another condition.
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+		}
 	else -- default to openai compatible headers
 		headers = {
 			"-H",
