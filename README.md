@@ -393,6 +393,10 @@ Choose a new "image agent" based on its name. In the context of images, agent is
 
 Stops all currently running responses and jobs.
 
+#### `:GpLog` <!-- {doc=:GpLog}  -->
+
+Opens the gp.nvim logfile.
+
 #### `:GpInspectPlugin` <!-- {doc=:GpInspectPlugin}  -->
 
 Inspects the GPT prompt plugin object in a new scratch buffer.

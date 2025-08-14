@@ -579,7 +579,7 @@ local config = {
 		end,
 
 		-- GpInspectLog for checking the log file
-		InspectLog = function(plugin, params)
+		Log = function(plugin, params)
 			local log_file = plugin.config.log_file
 			local buffer = plugin.helpers.get_buffer(log_file)
 			if not buffer then
