@@ -7,6 +7,7 @@ local uv = vim.uv or vim.loop
 local M = {}
 
 local file = "/dev/null"
+local log_level = vim.log.levels.DEBUG
 local uuid = ""
 local store_sensitive = false
 
@@ -25,9 +26,11 @@ end
 
 ---@param path string # path to log file
 ---@param sensitive boolean | nil # whether to store sensitive data in logs
-M.setup = function(path, sensitive)
+---@param level number
+M.setup = function(path, sensitive, level)
 	store_sensitive = sensitive or false
 	uuid = string.format("%x", math.random(0, 0xFFFF)) .. string.format("%x", os.time() % 0xFFFF)
+	log_level = level
 	M.debug("New neovim instance [" .. uuid .. "] started, setting log file to " .. path)
 	local dir = vim.fn.fnamemodify(path, ":h")
 	if vim.fn.isdirectory(dir) == 0 then
@@ -70,6 +73,10 @@ end
 ---@param slevel string # log level as string
 ---@param sensitive boolean | nil # sensitive log
 local log = function(msg, level, slevel, sensitive)
+	if level <= log_level then
+		return
+	end
+
 	local raw = msg
 	if sensitive then
 		if not store_sensitive then
@@ -90,10 +97,6 @@ local log = function(msg, level, slevel, sensitive)
 	if log_file then
 		log_file:write(raw .. "\n")
 		log_file:close()
-	end
-
-	if level <= vim.log.levels.DEBUG then
-		return
 	end
 
 	vim.schedule(function()
