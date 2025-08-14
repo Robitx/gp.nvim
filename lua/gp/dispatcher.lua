@@ -476,8 +476,6 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"api-key: " .. bearer,
 		}
 		endpoint = render.template_replace(endpoint, "{{model}}", payload.model)
-	elseif provider == "ollama" then
-		headers = {}
 	elseif provider == "xai" then
 		-- currently xai only uses bearer token for authentication.
 		-- since I cannot sure its going to be that way for long time
@@ -486,6 +484,8 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"-H",
 			"Authorization: Bearer " .. bearer,
 		}
+	elseif provider == "ollama" then
+		headers = {}
 	else -- default to openai compatible headers
 		headers = {
 			"-H",
