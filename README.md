@@ -131,6 +131,7 @@ The following LLM providers are currently supported besides OpenAI:
 - [Perplexity.ai](https://www.perplexity.ai/pro) Pro users have $5/month free API credits available (the default PPLX agent uses Mixtral-8x7b).
 - [Anthropic](https://www.anthropic.com/api) to access Claude models, which currently outperform GPT-4 in some benchmarks.
 - [Google Gemini](https://ai.google.dev/) with a quite generous free range but some geo-restrictions (EU).
+- [x.ai](https://x.ai/api) to access Grok-4 with pre-paid credit plans (No free credit available at this moment).
 - Any other "OpenAI chat/completions" compatible endpoint (Azure, LM Studio, etc.)
 
 Below is an example of the relevant configuration part enabling some of these. The `secret` field has the same capabilities as `openai_api_key` (which is still supported for compatibility).
@@ -170,6 +171,11 @@ Below is an example of the relevant configuration part enabling some of these. T
 		anthropic = {
 			endpoint = "https://api.anthropic.com/v1/messages",
 			secret = os.getenv("ANTHROPIC_API_KEY"),
+		},
+
+		xai = {
+			endpoint = "https://api.x.ai/v1/chat/completions",
+			secret = os.getenv("XAI_API_KEY"),
 		},
 	},
 ```

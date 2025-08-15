@@ -169,6 +169,30 @@ D.prepare_payload = function(messages, model, provider)
 		return payload
 	end
 
+	if provider == "xai" then
+		local system = ""
+		local i = 1
+		while i < #messages do
+			if messages[i].role == "system" then
+				system = system .. messages[i].content .. "\n"
+				table.remove(messages, i)
+			else
+				i = i + 1
+			end
+		end
+
+		local payload = {
+			model = model.model,
+			stream = true,
+			messages = messages,
+			system = system,
+			max_tokens = model.max_tokens or 4096,
+			temperature = math.max(0, math.min(2, model.temperature or 1)),
+			top_p = math.max(0, math.min(1, model.top_p or 1)),
+		}
+		return payload
+	end
+
 	if provider == "ollama" then
 		local payload = {
 			model = model.model,
@@ -452,6 +476,14 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"api-key: " .. bearer,
 		}
 		endpoint = render.template_replace(endpoint, "{{model}}", payload.model)
+	elseif provider == "xai" then
+		-- currently xai only uses bearer token for authentication.
+		-- since I cannot sure its going to be that way for long time
+		-- branching out as another condition.
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
+		}
 	elseif provider == "ollama" then
 		headers = {}
 	else -- default to openai compatible headers

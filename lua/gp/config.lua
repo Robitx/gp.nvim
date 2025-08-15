@@ -72,6 +72,11 @@ local config = {
 			endpoint = "https://api.anthropic.com/v1/messages",
 			secret = os.getenv("ANTHROPIC_API_KEY"),
 		},
+		xai = {
+			disable = true,
+			endpoint = "https://api.x.ai/v1/chat/completions",
+			secret = os.getenv("XAI_API_KEY"),
+		},
 	},
 
 	-- prefix for all commands
@@ -308,6 +313,15 @@ local config = {
 			command = true,
 			-- string with model name or table with model name and parameters
 			model = { model = "claude-3-5-haiku-latest", temperature = 0.8, top_p = 1 },
+			system_prompt = require("gp.defaults").code_system_prompt,
+		},
+		{
+			provider = "xai",
+			name = "Grok-4",
+			chat = false,
+			command = true,
+			-- string with model name or table with model name and parameters
+			model = { model = "grok-4-latest", temperature = 0 },
 			system_prompt = require("gp.defaults").code_system_prompt,
 		},
 		{
