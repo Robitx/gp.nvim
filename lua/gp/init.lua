@@ -1913,9 +1913,14 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 			end
 
 			-- select from first_line to last_line
-			vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
+			-- validate cursor positions are within buffer bounds
+			local buf_line_count = vim.api.nvim_buf_line_count(buf)
+			local start_pos = math.min(math.max(start + 1, 1), buf_line_count)
+			local finish_pos = math.min(math.max(finish + 1, 1), buf_line_count)
+			
+			vim.api.nvim_win_set_cursor(0, { start_pos, 0 })
 			vim.api.nvim_command("normal! V")
-			vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
+			vim.api.nvim_win_set_cursor(0, { finish_pos, 0 })
 		end
 
 		-- prepare messages

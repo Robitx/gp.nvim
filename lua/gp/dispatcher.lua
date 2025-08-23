@@ -286,57 +286,57 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			for _, line in ipairs(lines) do
 				if line ~= "" and line ~= nil then
 					qt.raw_response = qt.raw_response .. line .. "\n"
-				end
-				line = line:gsub("^data: ", "")
-				local content = ""
-				if line:match("choices") and line:match("delta") and line:match("content") then
-					line = vim.json.decode(line)
-					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
-						content = line.choices[1].delta.content
-					end
-				end
 
-				if qt.provider == "anthropic" and (line:match('"text":') or line:match('"thinking"')) then
-					if line:match("content_block_start") or line:match("content_block_delta") then
+					line = line:gsub("^data: ", "")
+					local content = ""
+					if line and line:match("choices") and line:match("delta") and line:match("content") then
 						line = vim.json.decode(line)
-						if line.content_block then
-							if line.content_block.type == "thinking" then
-								anthropic_thinking = true
-								content = "<think>"
-							elseif line.content_block.type == "text" and anthropic_thinking then
-								anthropic_thinking = false
-								content = "</think>\n\n"
+						if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
+							content = line.choices[1].delta.content
+						end
+					end
+
+					if qt.provider == "anthropic" and line and (line:match('"text":') or line:match('"thinking"')) then
+						if line:match("content_block_start") or line:match("content_block_delta") then
+							line = vim.json.decode(line)
+							if line.content_block then
+								if line.content_block.type == "thinking" then
+									anthropic_thinking = true
+									content = "<think>"
+								elseif line.content_block.type == "text" and anthropic_thinking then
+									anthropic_thinking = false
+									content = "</think>\n\n"
+								end
+							end
+							if line.delta then
+								if line.delta.type == "thinking_delta" then
+									content = line.delta.thinking or ""
+								elseif line.delta.type == "text_delta" then
+									content = line.delta.text or ""
+								end
 							end
 						end
-						if line.delta then
-							if line.delta.type == "thinking_delta" then
-								content = line.delta.thinking or ""
-							elseif line.delta.type == "text_delta" then
-								content = line.delta.text or ""
+					end
+
+					if qt.provider == "googleai" then
+						if line and line:match('"text":') then
+							content = vim.json.decode("{" .. line .. "}").text
+						end
+					end
+
+					if qt.provider == "ollama" then
+						if line and line:match('"message":') and line:match('"content":') then
+							local success, decoded = pcall(vim.json.decode, line)
+							if success and decoded.message and decoded.message.content then
+								content = decoded.message.content
 							end
 						end
 					end
-				end
 
-				if qt.provider == "googleai" then
-					if line:match('"text":') then
-						content = vim.json.decode("{" .. line .. "}").text
+					if content and type(content) == "string" then
+						qt.response = qt.response .. content
+						handler(qid, content)
 					end
-				end
-
-				if qt.provider == "ollama" then
-					if line:match('"message":') and line:match('"content":') then
-						local success, decoded = pcall(vim.json.decode, line)
-						if success and decoded.message and decoded.message.content then
-							content = decoded.message.content
-						end
-					end
-				end
-
-
-				if content and type(content) == "string" then
-					qt.response = qt.response .. content
-					handler(qid, content)
 				end
 			end
 		end
