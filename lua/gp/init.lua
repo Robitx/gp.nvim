@@ -1281,7 +1281,7 @@ M.cmd.ChatFinder = function()
 	local command_buf, command_win, command_close, command_resize = M.render.popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
-			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
+			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>|toggle/float/split/vsplit/tab",
 		function(w, h)
 			return w - left - right, 1, h - bottom, left
 		end,
@@ -1463,7 +1463,10 @@ M.cmd.ChatFinder = function()
 	end
 
 	-- enter on picker window will open file
-	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
+	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", function()
+		local target = M.resolve_buf_target(M.config.toggle_target)
+		open_chat(target, true)
+	end)
 	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
 		open_chat(M.BufTarget.popup, false)
 	end)
@@ -1475,10 +1478,6 @@ M.cmd.ChatFinder = function()
 	end)
 	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
 		open_chat(M.BufTarget.tabnew, false)
-	end)
-	M.helpers.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>t", function()
-		local target = M.resolve_buf_target(M.config.toggle_target)
-		open_chat(target, true)
 	end)
 
 	-- tab in command window will cycle through lines in picker window
