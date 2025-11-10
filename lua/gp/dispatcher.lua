@@ -229,11 +229,14 @@ D.prepare_payload = function(messages, model, provider)
 		output.top_p = nil
 	end
 
-	if model.model == "gpt-5" or  model.model == "gpt-5-mini" then
+	if model.model == "gpt-5" or  model.model == "gpt-5-mini" or  model.model == "gpt-5-nano" then
 		-- remove max_tokens, top_p, temperature for gpt-5 models (duh)
 		output.max_tokens = nil
 		output.temperature = nil
 		output.top_p = nil
+
+		output.reasoning_effort = model.reasoning_effort or "medium"
+		output.verbosity = model.verbosity or "medium"
 	end
 
 	return output
