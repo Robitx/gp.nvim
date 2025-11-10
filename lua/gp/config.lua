@@ -33,6 +33,11 @@ local config = {
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			-- secret = os.getenv("OPENAI_API_KEY"),
 		},
+		openai_resp = {
+			disable = false,
+			endpoint = "https://api.openai.com/v1/responses",
+			secret = os.getenv("OPENAI_API_KEY"),
+		},
 		azure = {
 			disable = true,
 			endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions",
@@ -59,7 +64,8 @@ local config = {
 		},
 		googleai = {
 			disable = true,
-			endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
+			endpoint =
+			"https://generativelanguage.googleapis.com/v1beta/models/{{model}}:streamGenerateContent?key={{secret}}",
 			secret = os.getenv("GOOGLEAI_API_KEY"),
 		},
 		pplx = {
@@ -104,6 +110,16 @@ local config = {
 		},
 		{
 			name = "ChatGPT4o",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = require("gp.defaults").chat_system_prompt,
+		},
+		{
+			name = "ChatGPT4o_new",
+			provider = "openai_resp",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
@@ -367,6 +383,9 @@ local config = {
 	-- how to display GpChatToggle or GpContext
 	---@type "popup" | "split" | "vsplit" | "tabnew"
 	toggle_target = "vsplit",
+
+	-- utilize tooling made available in the openai responses API, see openAI's online documentation
+	openai_resp_tools = {},
 
 	-- styling for chatfinder
 	---@type "single" | "double" | "rounded" | "solid" | "shadow" | "none"

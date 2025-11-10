@@ -104,7 +104,8 @@ V.resolve_secret = function(name, secret, callback)
 			if code == 0 then
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
-					logger.warning("vault resolver got empty response for " .. name .. " secret command " .. vim.inspect(secret))
+					logger.warning("vault resolver got empty response for " ..
+						name .. " secret command " .. vim.inspect(secret))
 					return
 				end
 				secrets[name] = content
@@ -112,17 +113,17 @@ V.resolve_secret = function(name, secret, callback)
 			else
 				logger.warning(
 					"vault resolver for "
-						.. name
-						.. "secret command "
-						.. vim.inspect(secret)
-						.. " failed:\ncode: "
-						.. code
-						.. ", signal: "
-						.. signal
-						.. "\nstdout: "
-						.. stdout_data
-						.. "\nstderr: "
-						.. stderr_data
+					.. name
+					.. "secret command "
+					.. vim.inspect(secret)
+					.. " failed:\ncode: "
+					.. code
+					.. ", signal: "
+					.. signal
+					.. "\nstdout: "
+					.. stdout_data
+					.. "\nstderr: "
+					.. stderr_data
 				)
 			end
 		end)

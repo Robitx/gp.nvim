@@ -14,7 +14,6 @@ local M = {}
 ---@return string # returns rendered template with specified key replaced by value
 M.template_replace = function(template, key, value)
 	value = value or ""
-
 	if type(value) == "table" then
 		value = table.concat(value, "\n")
 	end

@@ -7,23 +7,23 @@
 local config = require("gp.config")
 
 local M = {
-	_Name = "Gp", -- plugin name
-	_state = {}, -- table of state variables
-	agents = {}, -- table of agents
-	cmd = {}, -- default command functions
-	config = {}, -- config variables
-	hooks = {}, -- user defined command functions
-	defaults = require("gp.defaults"), -- some useful defaults
+	_Name = "Gp",                       -- plugin name
+	_state = {},                        -- table of state variables
+	agents = {},                        -- table of agents
+	cmd = {},                           -- default command functions
+	config = {},                        -- config variables
+	hooks = {},                         -- user defined command functions
+	defaults = require("gp.defaults"),  -- some useful defaults
 	deprecator = require("gp.deprecator"), -- handle deprecated options
 	dispatcher = require("gp.dispatcher"), -- handle communication with LLM providers
-	helpers = require("gp.helper"), -- helper functions
-	imager = require("gp.imager"), -- image generation module
-	logger = require("gp.logger"), -- logger module
-	render = require("gp.render"), -- render module
-	spinner = require("gp.spinner"), -- spinner module
-	tasker = require("gp.tasker"), -- tasker module
-	vault = require("gp.vault"), -- handles secrets
-	whisper = require("gp.whisper"), -- whisper module
+	helpers = require("gp.helper"),     -- helper functions
+	imager = require("gp.imager"),      -- image generation module
+	logger = require("gp.logger"),      -- logger module
+	render = require("gp.render"),      -- render module
+	spinner = require("gp.spinner"),    -- spinner module
+	tasker = require("gp.tasker"),      -- tasker module
+	vault = require("gp.vault"),        -- handles secrets
+	whisper = require("gp.whisper"),    -- whisper module
 }
 
 --------------------------------------------------------------------------------
@@ -70,7 +70,11 @@ M.setup = function(opts)
 	M.config.openai_api_key = nil
 	opts.openai_api_key = nil
 
-	M.dispatcher.setup({ providers = opts.providers, curl_params = curl_params })
+	M.dispatcher.setup({
+		providers = opts.providers,
+		curl_params = curl_params,
+		openai_resp_tools = opts.openai_resp_tools
+	})
 	M.config.providers = nil
 	opts.providers = nil
 
@@ -137,11 +141,11 @@ M.setup = function(opts)
 		elseif not agent.model or not agent.system_prompt then
 			M.logger.warning(
 				"Agent "
-					.. name
-					.. " is missing model or system_prompt\n"
-					.. "If you want to disable an agent, use: { name = '"
-					.. name
-					.. "', disable = true },"
+				.. name
+				.. " is missing model or system_prompt\n"
+				.. "If you want to disable an agent, use: { name = '"
+				.. name
+				.. "', disable = true },"
 			)
 			M.agents[name] = nil
 		end
@@ -896,7 +900,8 @@ M.cmd.ChatLast = function(params)
 				end
 			end
 		end
-		buf = win_found and buf or M.open_buf(last, M.resolve_buf_target(params), toggle and M._toggle_kind.chat or nil, toggle)
+		buf = win_found and buf or
+			M.open_buf(last, M.resolve_buf_target(params), toggle and M._toggle_kind.chat or nil, toggle)
 		-- if there is a selection, paste it
 		if params.range == 2 then
 			M.render.append_selection(params, cbuf, buf, M.config.template_selection)
@@ -1281,7 +1286,7 @@ M.cmd.ChatFinder = function()
 	local command_buf, command_win, command_close, command_resize = M.render.popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
-			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
+		.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>t|open/float/split/vsplit/tab/toggle",
 		function(w, h)
 			return w - left - right, 1, h - bottom, left
 		end,
@@ -1480,7 +1485,6 @@ M.cmd.ChatFinder = function()
 		local target = M.resolve_buf_target(M.config.toggle_target)
 		open_chat(target, true)
 	end)
-
 	-- tab in command window will cycle through lines in picker window
 	M.helpers.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
@@ -1947,7 +1951,7 @@ M.Prompt = function(params, target, agent, template, prompt, whisper, callback)
 		if target == M.Target.rewrite then
 			-- delete selection
 			if not (start_line - 1 == 0 and end_line - 1 == 0 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == "") then
-			  vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+				vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			end
 			-- prepare handler
 			handler = M.dispatcher.create_handler(buf, win, start_line - 1, true, prefix, cursor)

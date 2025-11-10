@@ -22,6 +22,8 @@ D.setup = function(opts)
 
 	D.config.curl_params = opts.curl_params or default_config.curl_params
 
+	D.config.openai_resp_tools = opts.openai_resp_tools or default_config.openai_resp_tools
+
 	D.providers = vim.deepcopy(default_config.providers)
 	opts.providers = opts.providers or {}
 	for k, v in pairs(opts.providers) do
@@ -212,6 +214,17 @@ D.prepare_payload = function(messages, model, provider)
 		temperature = math.max(0, math.min(2, model.temperature or 1)),
 		top_p = math.max(0, math.min(1, model.top_p or 1)),
 	}
+	if provider == "openai_resp" then
+		output = {
+			model = model.model,
+			stream = true,
+			input = messages,
+			tools = D.config.openai_resp_tools,
+			max_output_tokens = model.max_completion_tokens or 4096,
+			temperature = math.max(0, math.min(2, model.temperature or 1)),
+			top_p = math.max(0, math.min(1, model.top_p or 1)),
+		}
+	end
 
 	if (provider == "openai" or provider == "copilot") and model.model:sub(1, 1) == "o" then
 		if model.model:sub(1, 2) == "o3" then
@@ -229,7 +242,7 @@ D.prepare_payload = function(messages, model, provider)
 		output.top_p = nil
 	end
 
-	if model.model == "gpt-5" or  model.model == "gpt-5-mini" then
+	if model.model == "gpt-5" or model.model == "gpt-5-mini" then
 		-- remove max_tokens, top_p, temperature for gpt-5 models (duh)
 		output.max_tokens = nil
 		output.temperature = nil
@@ -289,6 +302,38 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 				line = line:gsub("^data: ", "")
 				local content = ""
+
+				if qt.provider == "openai_resp" then
+					local ok, evt = pcall(vim.json.decode, line)
+					if ok and type(evt) == "table" and evt.type then
+						if evt.type == "response.output_text.delta"
+							and type(evt.delta) == "string"
+						then
+							-- Streamed token chunk
+							content = evt.delta
+						elseif evt.type == "response.completed"
+							and qt.response == ""
+							and evt.response
+						then
+							-- Fallback for non-stream / if deltas weren't processed.
+							local resp = evt.response
+							if type(resp.output) == "table" then
+								local acc = {}
+								for _, item in ipairs(resp.output) do
+									if item.type == "message" and type(item.content) == "table" then
+										for _, part in ipairs(item.content) do
+											if part.type == "output_text" and type(part.text) == "string" then
+												table.insert(acc, part.text)
+											end
+										end
+									end
+								end
+								content = table.concat(acc)
+							end
+						end
+					end
+				end
+
 				if line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
 					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
@@ -379,6 +424,38 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 						handler(qid, content)
 					end
 				end
+				if qt.provider == "openai_resp" and content == "" then
+					local last_json
+					for json_str in raw_response:gmatch("data:%s*(%b{})") do
+						last_json = json_str
+					end
+
+					if last_json then
+						local ok, evt = pcall(vim.json.decode, last_json)
+						if ok and evt
+							and evt.type == "response.completed"
+							and evt.response
+							and type(evt.response.output) == "table"
+						then
+							local acc = {}
+							for _, item in ipairs(evt.response.output) do
+								if item.type == "message" and type(item.content) == "table" then
+									for _, part in ipairs(item.content) do
+										if part.type == "output_text" and type(part.text) == "string" then
+											table.insert(acc, part.text)
+										end
+									end
+								end
+							end
+							local full = table.concat(acc)
+							if full ~= "" then
+								qt.response = qt.response .. full
+								handler(qid, full)
+								content = qt.response
+							end
+						end
+					end
+				end
 
 
 				if qt.response == "" then
@@ -433,6 +510,11 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			-- backwards compatibility
 			"-H",
 			"api-key: " .. bearer,
+		}
+	elseif provider == "openai_resp" then
+		headers = {
+			"-H",
+			"Authorization: Bearer " .. bearer,
 		}
 	elseif provider == "googleai" then
 		headers = {}
