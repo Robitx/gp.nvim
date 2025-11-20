@@ -1173,7 +1173,8 @@ M.chat_respond = function(params)
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
-						local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
+						local topic_buf_lines = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)
+						local topic = table.concat(topic_buf_lines)
 						-- close invisible buffer
 						vim.api.nvim_buf_delete(topic_buf, { force = true })
 						-- strip whitespace from ends of topic
