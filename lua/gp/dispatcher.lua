@@ -319,9 +319,12 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 
 				if qt.provider == "googleai" then
-					if line:match('"text":') then
-						content = vim.json.decode("{" .. line .. "}").text
-					end
+				    if line:match('"text":') then
+				        local status, result = pcall(vim.json.decode, "{" .. line .. "}")
+				        if status and result and result.text then
+				            content = result.text
+				        end
+				    end
 				end
 
 				if qt.provider == "ollama" then
