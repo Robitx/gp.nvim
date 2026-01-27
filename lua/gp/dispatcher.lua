@@ -40,7 +40,7 @@ D.setup = function(opts)
 		if type(provider) ~= "table" or provider.disable then
 			D.providers[name] = nil
 		elseif not provider.endpoint then
-			D.logger.warning("Provider " .. name .. " is missing endpoint")
+			logger.warning("Provider " .. name .. " is missing endpoint")
 			D.providers[name] = nil
 		end
 	end
