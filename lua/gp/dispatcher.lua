@@ -460,6 +460,9 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 			"Authorization: Bearer " .. bearer,
 		}
 	end
+	if provider == "pplx" then
+		vim.list_extend(headers, { "-H", "X-Pplx-Integration: gp.nvim" })
+	end
 
 	local temp_file = D.query_dir ..
 		"/" .. logger.now() .. "." .. string.format("%x", math.random(0, 0xFFFFFF)) .. ".json"
