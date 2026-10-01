@@ -20,7 +20,7 @@ local W = {
 
 ---@param opts table # user config
 W.setup = function(opts)
-	logger.debug("whisper setup started\n" .. vim.inspect(opts))
+	logger.debug("whisper setup started\n" .. vim.inspect(opts), true)
 
 	W.config = vim.deepcopy(default_config.whisper)
 
@@ -33,6 +33,12 @@ W.setup = function(opts)
 	for k, v in pairs(opts) do
 		W.config[k] = v
 	end
+
+	if W.config.provider == "60db" then
+		vault.add_secret("sixtydb_stt", opts.secret or os.getenv("SIXTYDB_API_KEY"))
+		W.config.endpoint = opts.endpoint or "https://api.60db.ai/stt"
+	end
+	W.config.secret = nil
 
 	W.config.store_dir = helpers.prepare_dir(W.config.store_dir, "whisper store")
 
@@ -52,9 +58,9 @@ local whisper = function(callback, language)
 		return
 	end
 
-	local bearer = vault.get_secret("openai_api_key")
+	local bearer = vault.get_secret(W.config.provider == "60db" and "sixtydb_stt" or "openai_api_key")
 	if not bearer then
-		logger.error("OpenAI API key not found")
+		logger.error("Transcription API key not found")
 		return
 	end
 
@@ -175,61 +181,54 @@ local whisper = function(callback, language)
 	-- cleanup on buffer exit
 	helpers.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
 
-	local curl_params = W.config.curl_params or {}
-	local curl = "curl" .. " " .. table.concat(curl_params, " ")
-
-	-- transcribe the recording
+	-- Process audio first; pass credentials and form fields as argv, never shell code.
 	local transcribe = function()
-		local cmd = "cd "
-			.. W.config.store_dir
-			.. " && "
-			.. "export LC_NUMERIC='C' && "
-			-- normalize volume to -3dB
-			.. "sox --norm=-3 rec.wav norm.wav && "
-			-- get RMS level dB * silence threshold
-			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
-			.. " | sed -e 's/.* //' | awk '{print $1*"
-			.. W.config.silence
-			.. "}') && "
-			-- remove silence, speed up, pad and convert to mp3
+		local cmd = "cd " .. vim.fn.shellescape(W.config.store_dir)
+			.. " && export LC_NUMERIC='C' && sox --norm=-3 rec.wav norm.wav && "
+			.. "t=$(sox norm.wav -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
+			.. "| sed -e 's/.* //' | awk '{print $1*" .. W.config.silence .. "}') && "
 			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
-			.. " pad 0.1 0.1 tempo "
-			.. W.config.tempo
-			.. " && "
-			-- call openai
-			.. curl
-			.. " --max-time 20 "
-			.. W.config.endpoint
-			.. ' -s -H "Authorization: Bearer '
-			.. bearer
-			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="'
-			.. language
-			.. '" -F file="@final.mp3;type=audio/mpeg" '
-			.. '-F response_format="json"'
+			.. " pad 0.1 0.1 tempo " .. W.config.tempo
 
-		tasker.run(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
+		tasker.run(nil, "bash", { "-c", cmd }, function(code)
 			if code ~= 0 then
-				logger.error(string.format("Whisper query exited: %d, %d", code, signal))
+				logger.error("Transcription audio processing failed")
 				return
 			end
-
-			if not stdout or stdout == "" or #stdout < 11 then
-				logger.error("Whisper query, no stdout: " .. vim.inspect(stdout))
-				return
+			local file = W.config.store_dir .. "/final.mp3"
+			if W.config.provider == "60db" then
+				local stat = uv.fs_stat(file)
+				if not stat or stat.size == 0 or stat.size > 10 * 1024 * 1024 then
+					logger.error("60db requires a nonempty audio file up to 10 MB")
+					return
+				end
 			end
-			local text = vim.json.decode(stdout).text
-			if not text then
-				logger.error("Whisper query, no text: " .. vim.inspect(stdout))
-				return
+			local args = vim.deepcopy(W.config.curl_params or {})
+			vim.list_extend(args, {
+				"--max-time", W.config.provider == "60db" and "60" or "20", "--silent", "--show-error", "--fail",
+				"--header", "Authorization: Bearer " .. bearer,
+				"--form", 'file=@"' .. file:gsub("\\", "\\\\"):gsub('"', '\\"') .. '";type=audio/mpeg',
+				"--form-string", "language=" .. language,
+			})
+			if W.config.provider ~= "60db" then
+				vim.list_extend(args, { "--form-string", "model=whisper-1", "--form-string", "response_format=json" })
 			end
-
-			text = table.concat(vim.split(text, "\n"), " ")
-			text = text:gsub("%s+$", "")
-
-			if callback and stdout then
-				callback(text)
-			end
+			table.insert(args, W.config.endpoint)
+			tasker.run(nil, "curl", args, function(status, _, stdout)
+				if status ~= 0 then
+					logger.error("Transcription request failed (curl exit " .. tostring(status) .. ")")
+					return
+				end
+				local ok, response = pcall(vim.json.decode, stdout or "")
+				if not ok or type(response) ~= "table" or response.success == false or type(response.text) ~= "string" then
+					logger.error("Transcription returned an invalid response")
+					return
+				end
+				local text = table.concat(vim.split(response.text, "\n"), " "):gsub("%s+$", "")
+				if callback then
+					callback(text)
+				end
+			end)
 		end)
 	end
 
@@ -300,7 +299,11 @@ end
 ---@param callback function # callback function(text)
 ---@param language string | nil # language code
 W.Whisper = function(callback, language)
-	vault.run_with_secret("openai_api_key", function()
+	if W.config.provider ~= "openai" and W.config.provider ~= "60db" then
+		logger.error("Unknown transcription provider: " .. tostring(W.config.provider))
+		return
+	end
+	vault.run_with_secret(W.config.provider == "60db" and "sixtydb_stt" or "openai_api_key", function()
 		whisper(callback, language)
 	end)
 end
