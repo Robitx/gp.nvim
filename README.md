@@ -323,6 +323,21 @@ For the rest of the whisper commands, the transcription is used as an editable p
 You can override the default language by setting {lang} with the 2 letter
 shortname of your language (e.g. "en" for English, "fr" for French etc).
 
+To use [60db speech-to-text](https://docs.60db.ai/api-reference/stt/speech-to-text),
+set `SIXTYDB_API_KEY` and configure:
+
+```lua
+require("gp").setup({
+    whisper = { provider = "60db", language = "auto" },
+})
+```
+
+All `GpWhisper*` commands use this provider. OpenAI remains the default. A 60db
+transcription key is independent of your chat provider credentials. You can also
+set `whisper.secret` to a key or a command table, using the existing secret resolver.
+60db accepts MP3 recordings up to 10 MB and one hour; requests time out after
+60 seconds. Audio is uploaded to 60db; recording and SoX processing stay local.
+
 #### `:GpWhisperRewrite` <!-- {doc=:GpWhisperRewrite}  -->
 
 Similar to `:GpRewrite`, but the prompt instruction dialog uses transcribed spoken instructions.

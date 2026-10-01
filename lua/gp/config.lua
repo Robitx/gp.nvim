@@ -419,6 +419,8 @@ local config = {
 	-- we can reduce the cost by 50% or more and get the results faster
 
 	whisper = {
+		-- Speech-to-text provider: "openai" (default) or "60db".
+		provider = "openai",
 		-- you can disable whisper completely by whisper = {disable = true}
 		disable = false,
 
