@@ -22,6 +22,12 @@ local config = {
 
 	-- at least one working provider is required
 	-- to disable a provider set it to empty table like openai = {}
+	--
+	-- OpenAI compatible providers (openai, azure, copilot, lmstudio, ...) can be called through
+	-- "chat_completions" (default) or the OpenAI Responses API ("responses", `/responses`).
+	-- Set `api` on a provider to change the default for its models, or on an agent's `model`
+	-- to override it (`model.api` wins). For copilot, if `api` is not set anywhere, its
+	-- /models endpoint is asked once per session which endpoints each model supports.
 	providers = {
 		-- secrets can be strings or tables with command and arguments
 		-- secret = { "cat", "path_to/openai_api_key" },
@@ -41,6 +47,9 @@ local config = {
 		copilot = {
 			disable = true,
 			endpoint = "https://api.githubcopilot.com/chat/completions",
+			-- endpoint for models called through the "responses" API, see `api` above
+			-- (defaults to `endpoint` with /chat/completions replaced by /responses)
+			responses_endpoint = "https://api.githubcopilot.com/responses",
 			secret = {
 				"bash",
 				"-c",

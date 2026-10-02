@@ -66,17 +66,200 @@ D.setup = function(opts)
 	logger.debug("dispatcher setup finished\n" .. vim.inspect(D))
 end
 
+-- providers with their own wire format, they can't speak the Responses API
+local native_providers = { googleai = true, anthropic = true, ollama = true }
+
+-- payloads built for the Responses API (weak keys), used by `query` to pick the endpoint
+local responses_payloads = setmetatable({}, { __mode = "k" })
+
+-- providers that can tell which API a model supports (see `load_copilot_models`)
+local discovering_providers = { copilot = true }
+
+-- Decide which API a model is called through.
+-- Order: `model.api` > `api` field of the provider > "discover" for providers that can
+-- be asked > "chat_completions".
+---@param provider string | nil
+---@param model table
+---@return "chat_completions" | "responses" | "discover"
+local resolve_api = function(provider, model)
+	local api = model.api
+	if api == nil then
+		local provider_config = D.providers[provider]
+		api = provider_config and provider_config.api
+	end
+	if api == nil and discovering_providers[provider] then
+		return "discover"
+	end
+	api = api or "chat_completions"
+
+	if api ~= "chat_completions" and api ~= "responses" then
+		logger.warning(string.format("unknown api %s for model %s, using chat_completions", vim.inspect(api), vim.inspect(model.model)))
+		return "chat_completions"
+	end
+	if api == "responses" and native_providers[provider] then
+		logger.warning(string.format("provider %s does not support the responses api, ignoring it", tostring(provider)))
+		return "chat_completions"
+	end
+	return api
+end
+
+-- Build a Responses API payload from chat style messages.
+---@param messages table
+---@param model table
+---@return table
+local prepare_responses_payload = function(messages, model)
+	local instructions = {}
+	local input = {}
+	for _, message in ipairs(messages) do
+		if message.role == "system" then
+			table.insert(instructions, message.content)
+		else
+			table.insert(input, { role = message.role, content = message.content })
+		end
+	end
+
+	-- temperature / top_p are deliberately not sent: reasoning models reject them
+	local payload = {
+		model = model.model,
+		stream = true,
+		input = input,
+	}
+	if #instructions > 0 then
+		payload.instructions = table.concat(instructions, "\n")
+	end
+	-- no default token cap, reasoning tokens count towards it and would truncate answers
+	payload.max_output_tokens = model.max_output_tokens or model.max_completion_tokens
+	if model.reasoning_effort then
+		payload.reasoning = { effort = model.reasoning_effort }
+	end
+	-- optional built in tools of the Responses API (web_search, ...), passed as is
+	payload.tools = model.tools
+	responses_payloads[payload] = true
+	return payload
+end
+
+-- Copilot model lookup: GET /models lists `supported_endpoints` for every model.
+-- Done once per session, lazily before the first query that needs it (it needs the
+-- bearer token, and we don't want network traffic when neovim starts).
+local copilot_models = {
+	endpoints = nil, -- model id -> list of supported endpoints, nil until loaded
+	waiting = nil, -- callbacks waiting for a lookup in flight
+}
+
+-- chat payloads whose API is not known yet, with what is needed to rebuild them
+-- as Responses payloads once the lookup finished (weak keys)
+local deferred_payloads = setmetatable({}, { __mode = "k" })
+
+---@param endpoints string[]
+---@return "chat_completions" | "responses"
+local api_from_endpoints = function(endpoints)
+	local chat, responses = false, false
+	for _, endpoint in ipairs(endpoints) do
+		if endpoint == "/chat/completions" then
+			chat = true
+		elseif endpoint == "/responses" then
+			responses = true
+		end
+	end
+	-- if both are supported keep chat completions, it's what the plugin always did
+	return (responses and not chat) and "responses" or "chat_completions"
+end
+
+---@param done function # called once the lookup is finished (successfully or not)
+local load_copilot_models = function(done)
+	if copilot_models.endpoints then
+		return done()
+	end
+	if copilot_models.waiting then
+		table.insert(copilot_models.waiting, done)
+		return
+	end
+	copilot_models.waiting = { done }
+	local finish = function()
+		local waiting = copilot_models.waiting
+		copilot_models.waiting = nil
+		for _, callback in ipairs(waiting) do
+			callback()
+		end
+	end
+
+	local url = (D.providers.copilot.endpoint:gsub("/chat/completions/?$", "/models"))
+	local bearer = vault.get_secret("copilot_bearer")
+	if url == D.providers.copilot.endpoint or not bearer then
+		logger.warning("copilot model lookup skipped (no /models url or bearer), using /chat/completions")
+		return finish()
+	end
+
+	local curl_params = vim.deepcopy(D.config.curl_params or {})
+	for _, arg in ipairs({
+		"-s",
+		url,
+		"-H",
+		"Authorization: Bearer " .. bearer,
+		"-H",
+		"editor-version: vscode/1.85.1",
+		"-H",
+		"Copilot-Integration-Id: vscode-chat",
+	}) do
+		table.insert(curl_params, arg)
+	end
+
+	tasker.run(nil, "curl", curl_params, function(code, _, stdout, stderr)
+		local ok, decoded = pcall(vim.json.decode, stdout)
+		if code ~= 0 or not ok or type(decoded) ~= "table" or type(decoded.data) ~= "table" then
+			logger.warning("copilot model lookup failed, using /chat/completions:\n" .. stderr .. stdout:sub(1, 300))
+		else
+			local endpoints = {}
+			for _, model in ipairs(decoded.data) do
+				if type(model.id) == "string" and type(model.supported_endpoints) == "table" then
+					endpoints[model.id] = model.supported_endpoints
+				end
+			end
+			copilot_models.endpoints = endpoints
+		end
+		finish()
+	end, nil, nil)
+end
+
+-- Swap a chat payload for a Responses one if the lookup says its model needs it.
+---@param payload table
+---@return table
+local apply_discovered_api = function(payload)
+	local source = deferred_payloads[payload]
+	local endpoints = source and copilot_models.endpoints and copilot_models.endpoints[source.model.model]
+	if endpoints and api_from_endpoints(endpoints) == "responses" then
+		return prepare_responses_payload(source.messages, source.model)
+	end
+	return payload
+end
+
 ---@param messages table
 ---@param model string | table
 ---@param provider string | nil
 D.prepare_payload = function(messages, model, provider)
 	if type(model) == "string" then
-		return {
-			model = model,
+		model = { model = model }
+		local api = resolve_api(provider, model)
+		if api == "responses" then
+			return prepare_responses_payload(messages, model)
+		end
+		local payload = {
+			model = model.model,
 			stream = true,
 			messages = messages,
 		}
+		if api == "discover" then
+			deferred_payloads[payload] = { messages = vim.deepcopy(messages), model = model }
+		end
+		return payload
 	end
+
+	local api = resolve_api(provider, model)
+	if api == "responses" then
+		return prepare_responses_payload(messages, model)
+	end
+	-- api unknown for now, build chat payload (as always) and remember how to redo it
+	local deferred_source = api == "discover" and { messages = vim.deepcopy(messages), model = model } or nil
 
 	if provider == "googleai" then
 		for i, message in ipairs(messages) do
@@ -236,6 +419,7 @@ D.prepare_payload = function(messages, model, provider)
 		output.top_p = nil
 	end
 
+	deferred_payloads[output] = deferred_source
 	return output
 end
 
@@ -289,7 +473,17 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 				end
 				line = line:gsub("^data: ", "")
 				local content = ""
-				if line:match("choices") and line:match("delta") and line:match("content") then
+
+				-- Responses API stream: only the text deltas carry visible output
+				local is_responses_delta = line:match('"type":%s*"response.output_text.delta"') ~= nil
+				if is_responses_delta then
+					local success, decoded = pcall(vim.json.decode, line)
+					if success and type(decoded.delta) == "string" then
+						content = decoded.delta
+					end
+				end
+
+				if not is_responses_delta and line:match("choices") and line:match("delta") and line:match("content") then
 					line = vim.json.decode(line)
 					if line.choices[1] and line.choices[1].delta and line.choices[1].delta.content then
 						content = line.choices[1].delta.content
@@ -409,6 +603,22 @@ local query = function(buf, provider, payload, handler, on_exit, callback)
 	local endpoint = D.providers[provider].endpoint
 	local headers = {}
 
+	if responses_payloads[payload] then
+		local provider_config = D.providers[provider]
+		if provider_config.responses_endpoint then
+			endpoint = provider_config.responses_endpoint
+		else
+			local derived, replaced = endpoint:gsub("/chat/completions/?$", "/responses")
+			if replaced == 0 then
+				logger.warning(
+					provider .. " endpoint can't be mapped to the responses api, set `responses_endpoint` for the provider"
+				)
+				return
+			end
+			endpoint = derived
+		end
+	end
+
 	local secret = provider
 	if provider == "copilot" then
 		secret = "copilot_bearer"
@@ -498,7 +708,13 @@ D.query = function(buf, provider, payload, handler, on_exit, callback)
 	if provider == "copilot" then
 		return vault.run_with_secret(provider, function()
 			vault.refresh_copilot_bearer(function()
-				query(buf, provider, payload, handler, on_exit, callback)
+				if not deferred_payloads[payload] then
+					return query(buf, provider, payload, handler, on_exit, callback)
+				end
+				-- api of the model is not known yet, ask Copilot (once per session)
+				load_copilot_models(function()
+					query(buf, provider, apply_discovered_api(payload), handler, on_exit, callback)
+				end)
 			end)
 		end)
 	end
